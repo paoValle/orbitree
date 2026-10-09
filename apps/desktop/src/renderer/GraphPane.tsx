@@ -23,6 +23,14 @@ export function laneColor(lane: number): string {
   return LANE_COLORS[lane % LANE_COLORS.length] as string;
 }
 
+/** The header says whether the list is the whole history or a window onto it. */
+function describeWindow(graph: GraphData, laneCount: number): string {
+  const commits = graph.truncated
+    ? `${graph.commits.length} of ${graph.total} commits`
+    : `${graph.commits.length} commit${graph.commits.length === 1 ? '' : 's'}`;
+  return `${commits} · ${laneCount} lane${laneCount === 1 ? '' : 's'}`;
+}
+
 export interface GraphPaneProps {
   readonly graph: GraphData;
   readonly selected: string | null;
@@ -152,9 +160,7 @@ export function GraphPane({ graph, selected, onSelect }: GraphPaneProps): React.
   return (
     <div className="graph">
       <div className="graph-head">
-        <span data-testid="graph-count">
-          {graph.commits.length} commits · {laneCount} lanes
-        </span>
+        <span data-testid="graph-count">{describeWindow(graph, laneCount)}</span>
       </div>
       <div
         className="graph-scroll"

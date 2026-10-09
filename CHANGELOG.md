@@ -28,6 +28,14 @@ populated window to `reports/app.png`. A second spec builds sixty commits and as
 than all of them are rendered and that the rendered hashes change after a scroll — windowing, not
 hiding.
 
+**The window says what it is.** `readGraph` counts the history with `git rev-list --count` in the
+same `Promise.all` as the log and the refs, so `GraphData` carries `total` and a computed
+`truncated` (`commits.length < total`) instead of leaving a caller to infer them. `orbitree graph
+--json` publishes both, and the human output opens with the window: `2000 of 2053 commits · 2
+lanes`, or `14 commits · 1 lane` when nothing was cut. The desktop pane reads the same two fields,
+so its `graph-count` says `300 of 2053 commits` rather than claiming 300 is all there is. A window
+that does not say it is a window is a lie, not a limit.
+
 ## 0.0.0 — 2026-10-09 — the ground floor
 
 Phase P0: the foundation, and nothing above it.

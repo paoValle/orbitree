@@ -1,4 +1,5 @@
 import { type GitCommand, InvalidArgumentError } from './git/command.ts';
+import { parseCommitCount } from './git/count.ts';
 import { type DiffFile, parseDiff } from './git/diff.ts';
 import { type ExecuteOptions, execute, executeOrThrow, type GitResult } from './git/exec.ts';
 import {
@@ -44,6 +45,10 @@ export interface GraphData {
   readonly layout: GraphLayout;
   readonly refs: readonly Ref[];
   readonly refsByOid: ReturnType<typeof refsByOid>;
+  /** How many commits the same history holds, whether or not the window shows them all. */
+  readonly total: number;
+  /** `commits.length < total`: the window cut the history, and that must be visible. */
+  readonly truncated: boolean;
 }
 
 /**
@@ -155,20 +160,32 @@ export async function readGraph(
   if (!Number.isInteger(limit) || limit < 1) {
     throw new InvalidArgumentError(`limit must be a positive integer, got ${limit}`);
   }
-  const [log, refs] = await Promise.all([
+  const [log, refs, count] = await Promise.all([
     executeOrThrow(
       { op: 'graph', limit, ...(request.all === true ? { all: true } : {}) },
       { cwd: repo.root, ...options },
     ),
     readRefs(repo, options),
+    // The same `all` as the log: a total from a different history would make
+    // `truncated` compare two different repositories.
+    executeOrThrow(
+      { op: 'count', ...(request.all === true ? { all: true } : {}) },
+      { cwd: repo.root, ...options },
+    ),
   ]);
   const parsed = parseLog(log.stdout);
   if (!parsed.ok) throw new RepositoryParseError('the commit log', parsed.error, parsed.record);
+  const parsedCount = parseCommitCount(count.stdout);
+  if (!parsedCount.ok) {
+    throw new RepositoryParseError('the commit count', parsedCount.error, parsedCount.record);
+  }
   return {
     commits: parsed.value,
     layout: layoutGraph(parsed.value),
     refs,
     refsByOid: refsByOid(refs),
+    total: parsedCount.value,
+    truncated: parsed.value.length < parsedCount.value,
   };
 }
 

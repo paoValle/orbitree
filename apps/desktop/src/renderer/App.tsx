@@ -14,6 +14,13 @@ interface Pending {
   readonly reason: string;
 }
 
+/**
+ * The graph is read one window at a time: a 200,000-commit repository must not cross IPC
+ * as a single object. The window is only honest because the header says "300 of 2053",
+ * so a reader can tell a truncated list from the whole history.
+ */
+const GRAPH_LIMIT = 300;
+
 export function App(): React.ReactElement {
   const [path, setPath] = useState('');
   const [root, setRoot] = useState<string | null>(null);
@@ -35,7 +42,7 @@ export function App(): React.ReactElement {
     setBusy(true);
     setError(null);
     const [graphResult, statusResult] = await Promise.all([
-      window.orbitree.graph(target, { limit: 300, all: true }),
+      window.orbitree.graph(target, { limit: GRAPH_LIMIT, all: true }),
       window.orbitree.status(target),
     ]);
     if (!graphResult.ok) setError(graphResult.error);

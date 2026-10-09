@@ -23,6 +23,7 @@ const EXAMPLE: Record<GitOp, GitCommand> = {
   'repo-root': { op: 'repo-root' },
   status: { op: 'status' },
   graph: { op: 'graph', limit: 10 },
+  count: { op: 'count' },
   refs: { op: 'refs' },
   diff: { op: 'diff', rev: 'HEAD' },
   'commit-detail': { op: 'commit-detail', rev: 'HEAD' },

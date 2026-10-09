@@ -166,6 +166,8 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
           'graph',
           {
             root: repo.root,
+            total: graph.total,
+            truncated: graph.truncated,
             commits: graph.commits,
             rows: graph.layout.rows.map((row) => ({
               hash: row.commit.hash,
@@ -181,7 +183,12 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
             laneCount: graph.layout.laneCount,
             ...(includeRefs ? { refs: graph.refs } : {}),
           },
-          (data) => describeGraph(data.rows, graph.refsByOid, includeRefs ? graph.refs : []),
+          (data) =>
+            `${describeWindow(data.rows.length, graph.total, graph.truncated, data.laneCount)}\n${describeGraph(
+              data.rows,
+              graph.refsByOid,
+              includeRefs ? graph.refs : [],
+            )}`,
         );
       },
     );
@@ -520,6 +527,18 @@ function describeCommit(commit: CommitDetail): string {
     for (const line of commit.body.split('\n')) lines.push(`    ${line}`);
   }
   return lines.join('\n');
+}
+
+function describeWindow(
+  shown: number,
+  total: number,
+  truncated: boolean,
+  laneCount: number,
+): string {
+  const commits = truncated
+    ? `${shown} of ${total} commits`
+    : `${shown} commit${shown === 1 ? '' : 's'}`;
+  return `${commits} · ${laneCount} lane${laneCount === 1 ? '' : 's'}`;
 }
 
 function describeGraph(

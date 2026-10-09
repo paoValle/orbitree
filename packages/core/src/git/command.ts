@@ -16,6 +16,7 @@ export type GitCommand =
   | { readonly op: 'repo-root' }
   | { readonly op: 'status' }
   | { readonly op: 'graph'; readonly limit: number; readonly all?: boolean }
+  | { readonly op: 'count'; readonly all?: boolean }
   | { readonly op: 'refs' }
   | { readonly op: 'diff'; readonly rev: string; readonly path?: string }
   | { readonly op: 'commit-detail'; readonly rev: string }
@@ -58,6 +59,7 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'repo-root':
     case 'status':
     case 'graph':
+    case 'count':
     case 'refs':
     case 'diff':
     case 'commit-detail':
@@ -150,6 +152,9 @@ export function toArgv(cmd: GitCommand): string[] {
         ...(cmd.all === true ? ['--all'] : []),
         `--format=${LOG_FORMAT}`,
       ];
+
+    case 'count':
+      return ['rev-list', '--count', ...(cmd.all === true ? ['--all'] : ['HEAD'])];
 
     case 'refs':
       return ['for-each-ref', `--format=${REF_FORMAT}`];
