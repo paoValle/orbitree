@@ -24,6 +24,9 @@ out/
 release/
 *.tsbuildinfo
 
+# agent session state (pi, pstack task lists) is local, never committed
+.pi/
+
 # test and report artifacts
 coverage/
 reports/

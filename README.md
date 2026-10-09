@@ -48,6 +48,7 @@ made.
 | `keplerk status [path] --json` | `HEAD` (branch / detached / unborn, ahead and behind), staged, unstaged, renamed, unmerged and untracked entries |
 | `keplerk graph [path] --json` | commits, rows with lanes, edges, and the refs on each commit |
 | `keplerk refs [path] --json` | branches, tags and remote refs |
+| `keplerk diff [path] --json [--rev <rev>] [--path <path>]` | the patch against `HEAD` (or `--rev`), as files and hunks; without `--json`, the raw patch |
 | `keplerk ops --json` | every operation, its risk level, and the argv it produces |
 | `keplerk run --op <op> [--dry-run] [--confirm <reason>]` | the guarded way to change a repository |
 | `keplerk doctor --json` | platform, node, git version, repository root |
@@ -67,15 +68,15 @@ prints what it found. Nothing in this README is a number somebody remembered.
 ```
 $ make prove
 [prove] git = 2.54.0                            (whatever is installed here)
-[prove] repositories built with the real git binary = 7
-[prove] of those, with changes to read = 3
-[prove] working-tree entries parsed = 7
+[prove] repositories built with the real git binary = 8
+[prove] of those, with changes to read = 4
+[prove] working-tree entries parsed = 14
 [prove] working-tree entry kinds covered = ordinary, renamed, unmerged, untracked
 [prove] head kinds covered = branch, detached, unborn
 [prove] disagreements with rev-parse/symbolic-ref/ls-files/porcelain-v1 = 0
 [prove] random histories laid out = 500
-[prove] commits placed = 9422
-[prove] lanes used, in total = 1604
+[prove] commits placed = 9658
+[prove] lanes used, in total = 1669
 [prove] invariant violations = 0
 [prove] refs refused as argument injection = 5
 [prove] real revisions still accepted = 5

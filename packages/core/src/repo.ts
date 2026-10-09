@@ -1,4 +1,5 @@
 import { type GitCommand, InvalidArgumentError } from './git/command.ts';
+import { type DiffFile, parseDiff } from './git/diff.ts';
 import { type ExecuteOptions, execute, executeOrThrow, type GitResult } from './git/exec.ts';
 import { type Commit, parseLog, parseRefs, type Ref } from './git/log.ts';
 import { parseStatus, type RepoState } from './git/status.ts';
@@ -72,6 +73,24 @@ export async function readRefs(
   const { stdout } = await executeOrThrow({ op: 'refs' }, { cwd: repo.root, ...options });
   const parsed = parseRefs(stdout);
   if (!parsed.ok) throw new RepositoryParseError('the refs', parsed.error, parsed.record);
+  return parsed.value;
+}
+
+export async function readDiff(
+  repo: RepoHandle,
+  request: { rev: string; path?: string } = { rev: 'HEAD' },
+  options: Partial<ExecuteOptions> = {},
+): Promise<readonly DiffFile[]> {
+  const { stdout } = await executeOrThrow(
+    {
+      op: 'diff',
+      rev: request.rev,
+      ...(request.path === undefined ? {} : { path: request.path }),
+    },
+    { cwd: repo.root, ...options },
+  );
+  const parsed = parseDiff(stdout);
+  if (!parsed.ok) throw new RepositoryParseError('the diff', parsed.error, parsed.record);
   return parsed.value;
 }
 

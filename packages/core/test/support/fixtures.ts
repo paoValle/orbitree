@@ -144,7 +144,37 @@ export async function makeFixtures(): Promise<FixtureSet> {
   await commit(nasty, 'hostile names');
   await write(nasty, 'with space.txt', 'space changed\n');
 
-  // --- 7. a remote that exists: upstream, ahead and behind are real numbers ---
+  // --- 7. one repository whose diff against HEAD exercises every shape the parser sees ---
+  const diffable = await create('diffable');
+  await write(diffable, 'context.txt', 'alpha\nbravo\ncharlie\ndelta\necho\n');
+  await write(
+    diffable,
+    'rename-me.txt',
+    'line one\nline two\nline three\nline four\nline five\nline six\nline seven\nline eight\n',
+  );
+  await write(diffable, 'delete-me.txt', 'delete me\n');
+  await write(diffable, 'no-newline.txt', 'trailing text\n');
+  // A non-ASCII name forces git to quote the `---`/`+++` paths, so the parser's unquoting
+  // is checked against `--name-only -z`, which is never quoted.
+  await write(diffable, 'caff\u00e8-\u00fcnicode.txt', 'before\n');
+  await commit(diffable, 'the diffable base');
+  await write(diffable, 'caff\u00e8-\u00fcnicode.txt', 'after\n');
+  await write(diffable, 'context.txt', 'alpha\nbravo\nCHARLIE\ndelta\necho\n');
+  await write(diffable, 'added.txt', 'brand new\n');
+  await git(diffable, 'add', 'added.txt');
+  await git(diffable, 'rm', '--quiet', 'delete-me.txt');
+  await git(diffable, 'mv', 'rename-me.txt', 'renamed.txt');
+  await write(
+    diffable,
+    'renamed.txt',
+    'line one\nline two\nline three\nline four\nline five\nline six\nline seven\nline EIGHT\n',
+  );
+  // A NUL byte is what makes git call a file binary, whatever the extension says.
+  await write(diffable, 'image.png', 'PNG\u0000\u0001\u0002\u0003not really an image');
+  await git(diffable, 'add', 'image.png');
+  await write(diffable, 'no-newline.txt', 'trailing text changed');
+
+  // --- 8. a remote that exists: upstream, ahead and behind are real numbers ---
   const upstream = await create('upstream');
   await write(upstream, 'file.txt', 'first\n');
   await commit(upstream, 'first');

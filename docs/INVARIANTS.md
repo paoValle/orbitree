@@ -149,13 +149,15 @@ covers each shape and asserts that an ordinary message is untouched.
 
 ## How the tests earn the right to be believed
 
-**Fixtures are real repositories.** `makeFixtures()` creates seven of them with the real `git`
+**Fixtures are real repositories.** `makeFixtures()` creates eight of them with the real `git`
 binary: an unborn repository, a clean one, one with every ordinary state at once (staged,
 unstaged, renamed, deleted, untracked), one with a merge conflict left in place, one with a
 merge history and a tag, one with filenames designed to break a shell-less argv (`-leading-dash`,
-`$(touch pwned)`, spaces, quotes, non-ASCII), and one with a real remote so ahead/behind are not
-zero. The fixtures deliberately do **not** use the product's own executor: a bug in argument
-building would then produce a repository matching the buggy expectation.
+`$(touch pwned)`, spaces, quotes, non-ASCII), one whose diff against HEAD exercises every shape
+the patch parser sees (context, addition, deletion, rename, binary, a missing trailing newline),
+and one with a real remote so ahead/behind are not zero. The fixtures deliberately do **not** use
+the product's own executor: a bug in argument building would then produce a repository matching
+the buggy expectation.
 
 **Property-based tests where the input space is large.** The layout, the argv builder and the
 parser fuzzing run over generated input (fast-check), not over examples someone thought of.

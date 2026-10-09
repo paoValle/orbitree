@@ -8,6 +8,7 @@
 export const APP_NAME = 'keplerk';
 
 export * from './git/command.ts';
+export * from './git/diff.ts';
 export * from './git/exec.ts';
 export * from './git/log.ts';
 export * from './git/redact.ts';

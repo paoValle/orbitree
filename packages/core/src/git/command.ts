@@ -156,6 +156,7 @@ export function toArgv(cmd: GitCommand): string[] {
         '--no-color',
         '--no-ext-diff',
         '--patch',
+        '--find-renames',
         assertSafeRef(cmd.rev),
         ...(cmd.path === undefined ? [] : ['--', cmd.path]),
       ];

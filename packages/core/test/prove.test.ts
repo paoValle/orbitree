@@ -67,6 +67,10 @@ describe('what this build can prove, by running it', () => {
 
   it('measures the graph layout on random histories', () => {
     const runs = 500;
+    // Seeded on purpose: the README quotes these counts, and a claim that changes on every run
+    // is not a claim. The unseeded version of this property lives in layout.test.ts, where the
+    // numbers are not published.
+    const seed = 20261009;
     let commits = 0;
     let violations = 0;
     let lanes = 0;
@@ -121,7 +125,7 @@ describe('what this build can prove, by running it', () => {
           return true;
         },
       ),
-      { numRuns: runs },
+      { numRuns: runs, seed },
     );
     prove('random histories laid out', runs);
     prove('commits placed', commits);
