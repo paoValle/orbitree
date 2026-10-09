@@ -1,6 +1,6 @@
 import { rm } from 'node:fs/promises';
-import { _electron as electron, expect, type Page, test } from '@playwright/test';
-import { APP_PATH, commit, makeRepo, writeIn } from './support.ts';
+import { expect, type Page, test } from '@playwright/test';
+import { closeApp, commit, launchApp, makeRepo, writeIn } from './support.ts';
 
 function renderedHashes(page: Page): Promise<string[]> {
   return page
@@ -20,10 +20,8 @@ test('a long history renders a window, not the whole log', async () => {
     await commit(repo, `commit ${index}`);
   }
 
-  const app = await electron.launch({
-    args: [APP_PATH, `--repo=${repo}`],
-    cwd: APP_PATH,
-  });
+  const handle = await launchApp(repo);
+  const app = handle.app;
 
   try {
     const page = await app.firstWindow();
@@ -42,7 +40,7 @@ test('a long history renders a window, not the whole log', async () => {
       .not.toBe(before.join('|'));
     expect(await renderedHashes(page)).not.toEqual(before);
   } finally {
-    await app.close();
+    await closeApp(handle);
     await rm(repo, { recursive: true, force: true });
   }
 });

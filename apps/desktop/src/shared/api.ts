@@ -34,8 +34,13 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
     op: literal('graph'),
     limit: z.int().min(1).max(5000),
     all: z.exactOptional(z.boolean()),
+    rev: z.exactOptional(z.string().min(1)),
   }),
-  z.object({ op: literal('count'), all: z.exactOptional(z.boolean()) }),
+  z.object({
+    op: literal('count'),
+    all: z.exactOptional(z.boolean()),
+    rev: z.exactOptional(z.string().min(1)),
+  }),
   z.object({ op: literal('refs') }),
   z.object({ op: literal('diff'), rev: z.string(), path: z.exactOptional(z.string()) }),
   z.object({ op: literal('commit-detail'), rev: z.string() }),
@@ -133,7 +138,7 @@ export interface OrbitreeApi {
   readonly status: (path: string) => Promise<Result<StatusPayload>>;
   readonly graph: (
     path: string,
-    request: { limit: number; all: boolean },
+    request: { limit: number; all?: boolean; rev?: string },
   ) => Promise<Result<GraphPayload>>;
   readonly refs: (path: string) => Promise<Result<RefsPayload>>;
   readonly readCommit: (path: string, rev: string) => Promise<Result<CommitData>>;

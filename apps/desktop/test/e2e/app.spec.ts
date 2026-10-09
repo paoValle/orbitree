@@ -1,7 +1,7 @@
 import { mkdir, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { _electron as electron, expect, test } from '@playwright/test';
-import { APP_PATH, commit, git, makeRepo, writeIn } from './support.ts';
+import { expect, test } from '@playwright/test';
+import { closeApp, commit, git, launchApp, makeRepo, writeIn } from './support.ts';
 
 /**
  * The contract between this test and the components is the `data-testid` set, and nothing
@@ -23,10 +23,8 @@ test('the graph pane and the commit panel on the real window', async () => {
   const mainHash = await git(repo, ['rev-parse', 'HEAD']);
   await git(repo, ['merge', '--no-edit', 'side']);
 
-  const app = await electron.launch({
-    args: [APP_PATH, `--repo=${repo}`],
-    cwd: APP_PATH,
-  });
+  const handle = await launchApp(repo);
+  const app = handle.app;
 
   try {
     const page = await app.firstWindow();
@@ -82,7 +80,7 @@ test('the graph pane and the commit panel on the real window', async () => {
     await page.screenshot({ path: screenshot });
     console.log(`screenshot: ${screenshot}`);
   } finally {
-    await app.close();
+    await closeApp(handle);
     await rm(repo, { recursive: true, force: true });
   }
 });

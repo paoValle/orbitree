@@ -79,7 +79,7 @@ destructive needs a confirmation token, or a --dry-run
 
 ```bash
 orbitree status [path] --json
-orbitree graph  [path] --json [--limit 200] [--all]
+orbitree graph  [path] --json [--limit 200] [--all] [--rev <rev>]
 orbitree refs   [path] --json
 orbitree diff   [path] --json [--rev <rev>] [--path <path>]
 orbitree show   [path] --json [--rev <rev>]
@@ -92,8 +92,9 @@ unmodelled `headers`.
 
 `graph` returns `commits`, `rows` (`hash`, `lane`, `through`, `incoming`, `outgoing`), `edges`
 (`childRow`, `childLane`, `parentRow`, `parentLane`, `parentIndex`), `laneCount`, `total`,
-`truncated` and `refs`. `total` is how many commits the read history holds (`HEAD`, or every ref
-with `--all`), `truncated` is `commits.length < total`, and the human output's first line says
+`truncated`, `refs` and `rev` (the revision read, `HEAD` by default). `total` is how many commits
+the read history holds (`HEAD`, the revision named by `--rev`, or every ref with `--all`),
+`truncated` is `commits.length < total`, and the human output's first line says
 which it is: `14 commits · 1 lane`, or `2000 of 2053 commits · 2 lanes` when `--limit` cut the
 history. Row `0` is the newest commit; the picture is complete without drawing anything.
 

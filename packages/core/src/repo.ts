@@ -149,6 +149,7 @@ function againstParents(parentCount: number): CommitAgainst {
 export interface GraphRequest {
   readonly limit?: number;
   readonly all?: boolean;
+  readonly rev?: string;
 }
 
 export async function readGraph(
@@ -162,14 +163,23 @@ export async function readGraph(
   }
   const [log, refs, count] = await Promise.all([
     executeOrThrow(
-      { op: 'graph', limit, ...(request.all === true ? { all: true } : {}) },
+      {
+        op: 'graph',
+        limit,
+        ...(request.all === true ? { all: true } : {}),
+        ...(request.rev === undefined ? {} : { rev: request.rev }),
+      },
       { cwd: repo.root, ...options },
     ),
     readRefs(repo, options),
-    // The same `all` as the log: a total from a different history would make
+    // The same `all` and `rev` as the log: a total from a different history would make
     // `truncated` compare two different repositories.
     executeOrThrow(
-      { op: 'count', ...(request.all === true ? { all: true } : {}) },
+      {
+        op: 'count',
+        ...(request.all === true ? { all: true } : {}),
+        ...(request.rev === undefined ? {} : { rev: request.rev }),
+      },
       { cwd: repo.root, ...options },
     ),
   ]);

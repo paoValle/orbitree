@@ -3,8 +3,8 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
-import { _electron as electron, expect, test } from '@playwright/test';
-import { APP_PATH } from './support.ts';
+import { expect, test } from '@playwright/test';
+import { APP_PATH, closeApp, launchApp } from './support.ts';
 
 const run = promisify(execFile);
 
@@ -37,7 +37,8 @@ test('@perf the window opens a large repository and draws a window, not the whol
   }
 
   const started = Date.now();
-  const app = await electron.launch({ args: [APP_PATH, `--repo=${repo}`], cwd: APP_PATH });
+  const handle = await launchApp(repo);
+  const app = handle.app;
   try {
     const page = await app.firstWindow();
     await expect(page.locator('[data-testid=graph-count]')).toBeVisible();
@@ -86,7 +87,7 @@ test('@perf the window opens a large repository and draws a window, not the whol
     expect(rendered).toBeLessThan(total);
     expect(rendered).toBeGreaterThanOrEqual(10);
   } finally {
-    await app.close();
+    await closeApp(handle);
     await rm(base, { recursive: true, force: true });
   }
 });

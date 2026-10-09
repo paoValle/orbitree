@@ -150,15 +150,20 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
     .option('--json', 'one JSON object on stdout')
     .option('--limit <n>', 'how many commits to read', '200')
     .option('--all', 'include every ref, not only the current branch')
+    .option('--rev <rev>', 'the revision whose history to read, instead of HEAD')
     .option('--refs', 'include the ref list in the output (implied by --json)')
     .action(
       async (
         path: string,
-        opts: { json?: boolean; limit: string; all?: boolean; refs?: boolean },
+        opts: { json?: boolean; limit: string; all?: boolean; rev?: string; refs?: boolean },
       ) => {
         const limit = Number.parseInt(opts.limit, 10);
         const repo = await openRepo(path);
-        const graph = await readGraph(repo, { limit, ...(opts.all === true ? { all: true } : {}) });
+        const graph = await readGraph(repo, {
+          limit,
+          ...(opts.all === true ? { all: true } : {}),
+          ...(opts.rev === undefined ? {} : { rev: opts.rev }),
+        });
         const includeRefs = opts.json === true || opts.refs === true;
         emit(
           io,
@@ -166,6 +171,10 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
           'graph',
           {
             root: repo.root,
+            // Which history was actually read: a caller that sees `rev: "HEAD"` would
+            // believe it got one branch's history when `--all` was used.
+            all: opts.all === true,
+            rev: opts.all === true ? null : (opts.rev ?? 'HEAD'),
             total: graph.total,
             truncated: graph.truncated,
             commits: graph.commits,

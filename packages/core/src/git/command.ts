@@ -15,8 +15,8 @@ export type GitCommand =
   | { readonly op: 'version' }
   | { readonly op: 'repo-root' }
   | { readonly op: 'status' }
-  | { readonly op: 'graph'; readonly limit: number; readonly all?: boolean }
-  | { readonly op: 'count'; readonly all?: boolean }
+  | { readonly op: 'graph'; readonly limit: number; readonly all?: boolean; readonly rev?: string }
+  | { readonly op: 'count'; readonly all?: boolean; readonly rev?: string }
   | { readonly op: 'refs' }
   | { readonly op: 'diff'; readonly rev: string; readonly path?: string }
   | { readonly op: 'commit-detail'; readonly rev: string }
@@ -143,18 +143,24 @@ export function toArgv(cmd: GitCommand): string[] {
     case 'status':
       return ['status', '--porcelain=v2', '--branch', '--untracked-files=all', '-z'];
 
+    // `--all` and a named revision are two different questions and are never passed
+    // together; the flag wins so the argv cannot accidentally read a second history.
     case 'graph':
       return [
         'log',
         '-z',
         '--topo-order',
         `--max-count=${Math.max(1, Math.floor(cmd.limit))}`,
-        ...(cmd.all === true ? ['--all'] : []),
+        ...(cmd.all === true ? ['--all'] : [assertSafeRef(cmd.rev ?? 'HEAD')]),
         `--format=${LOG_FORMAT}`,
       ];
 
     case 'count':
-      return ['rev-list', '--count', ...(cmd.all === true ? ['--all'] : ['HEAD'])];
+      return [
+        'rev-list',
+        '--count',
+        ...(cmd.all === true ? ['--all'] : [assertSafeRef(cmd.rev ?? 'HEAD')]),
+      ];
 
     case 'refs':
       return ['for-each-ref', `--format=${REF_FORMAT}`];

@@ -64,7 +64,8 @@ body {
 }
 
 input,
-button {
+button,
+select {
   font: inherit;
   color: inherit;
 }
@@ -172,6 +173,21 @@ button.danger,
   padding: 7px 12px;
   border-bottom: 1px solid var(--line);
   color: var(--text-dim);
+  font-size: 11px;
+}
+
+.graph-head select {
+  margin-left: auto;
+  max-width: 220px;
+  background: var(--bg-input);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.graph-head button {
+  padding: 2px 9px;
+  border-radius: 6px;
   font-size: 11px;
 }
 

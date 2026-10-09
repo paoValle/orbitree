@@ -23,11 +23,9 @@ export function laneColor(lane: number): string {
   return LANE_COLORS[lane % LANE_COLORS.length] as string;
 }
 
-/** The header says whether the list is the whole history or a window onto it. */
+/** The header always says which window of the history is on screen: `300 of 2054 commits`. */
 function describeWindow(graph: GraphData, laneCount: number): string {
-  const commits = graph.truncated
-    ? `${graph.commits.length} of ${graph.total} commits`
-    : `${graph.commits.length} commit${graph.commits.length === 1 ? '' : 's'}`;
+  const commits = `${graph.commits.length} of ${graph.total} commits`;
   return `${commits} · ${laneCount} lane${laneCount === 1 ? '' : 's'}`;
 }
 
@@ -35,6 +33,12 @@ export interface GraphPaneProps {
   readonly graph: GraphData;
   readonly selected: string | null;
   readonly onSelect: (hash: string) => void;
+  /** `*` reads every ref; anything else is the revision to read instead. */
+  readonly filter: string;
+  readonly onFilterChange: (value: string) => void;
+  /** One page of history; the load-more button asks for one more. */
+  readonly pageSize: number;
+  readonly onLoadMore: () => void;
 }
 
 /**
@@ -47,11 +51,29 @@ export interface GraphPaneProps {
  * focus, and the selected row is scrolled back into view by arithmetic, not by `scrollIntoView`
  * (which would also move the other panes).
  */
-export function GraphPane({ graph, selected, onSelect }: GraphPaneProps): React.ReactElement {
+export function GraphPane({
+  graph,
+  selected,
+  onSelect,
+  filter,
+  onFilterChange,
+  pageSize,
+  onLoadMore,
+}: GraphPaneProps): React.ReactElement {
   const rows = graph.layout.rows;
   const edges = graph.layout.edges;
   const laneCount = graph.layout.laneCount;
   const total = rows.length;
+
+  // Branches first, then remotes, then tags: the order a reader looks for a history in.
+  const refOptions = useMemo(
+    () => [
+      ...graph.refs.filter((ref) => ref.kind === 'branch'),
+      ...graph.refs.filter((ref) => ref.kind === 'remote'),
+      ...graph.refs.filter((ref) => ref.kind === 'tag'),
+    ],
+    [graph.refs],
+  );
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -161,6 +183,29 @@ export function GraphPane({ graph, selected, onSelect }: GraphPaneProps): React.
     <div className="graph">
       <div className="graph-head">
         <span data-testid="graph-count">{describeWindow(graph, laneCount)}</span>
+        <select
+          data-testid="ref-filter"
+          aria-label="History"
+          value={filter}
+          onChange={(event) => {
+            onFilterChange(event.target.value);
+            // Release the select so the arrow keys stay on the graph rows, which is where
+            // the reader is looking after asking for a different history.
+            scrollRef.current?.focus();
+          }}
+        >
+          <option value="*">All branches</option>
+          {refOptions.map((ref) => (
+            <option key={ref.name} value={ref.shortName}>
+              {ref.shortName}
+            </option>
+          ))}
+        </select>
+        {graph.truncated && (
+          <button type="button" data-testid="load-more" onClick={onLoadMore}>
+            Load {pageSize} more
+          </button>
+        )}
       </div>
       <div
         className="graph-scroll"

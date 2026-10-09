@@ -5,14 +5,43 @@
  * with the app when the app is wrong, so it must not share the app's code.
  */
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
+import { type ElectronApplication, _electron as electron } from '@playwright/test';
 
 const run = promisify(execFile);
 
 export const APP_PATH = join(import.meta.dirname, '..', '..');
+
+export interface AppHandle {
+  readonly app: ElectronApplication;
+  readonly userDataDir: string;
+}
+
+/**
+ * Launches the built app, always with a fresh `--user-data-dir`. Without it Electron writes
+ * caches, cookies and Local Storage into the real application support directory, so a test
+ * run leaves residue on the machine it ran on, and one test can see another's state.
+ */
+export async function launchApp(repo?: string): Promise<AppHandle> {
+  const userDataDir = await mkdtemp(join(tmpdir(), 'orbitree-userdata-'));
+  const app = await electron.launch({
+    args: [
+      APP_PATH,
+      ...(repo === undefined ? [] : [`--repo=${repo}`]),
+      `--user-data-dir=${userDataDir}`,
+    ],
+    cwd: APP_PATH,
+  });
+  return { app, userDataDir };
+}
+
+export async function closeApp(handle: AppHandle): Promise<void> {
+  await handle.app.close();
+  await rm(handle.userDataDir, { recursive: true, force: true });
+}
 
 export async function git(cwd: string, args: readonly string[]): Promise<string> {
   const { stdout } = await run('git', args, {

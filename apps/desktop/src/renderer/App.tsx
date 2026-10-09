@@ -27,6 +27,10 @@ export function App(): React.ReactElement {
   const [graph, setGraph] = useState<GraphData | null>(null);
   const [status, setStatus] = useState<RepoState | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  // `*` reads every ref; anything else names the history to read instead.
+  const [filter, setFilter] = useState('*');
+  // The window, in commits. `Load more` raises it by `GRAPH_LIMIT` and reads again.
+  const [limit, setLimit] = useState(GRAPH_LIMIT);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [log, setLog] = useState<readonly string[]>([]);
@@ -38,31 +42,44 @@ export function App(): React.ReactElement {
     if (pending !== null) reasonInput.current?.focus();
   }, [pending]);
 
-  const refresh = useCallback(async (target: string) => {
-    setBusy(true);
-    setError(null);
-    const [graphResult, statusResult] = await Promise.all([
-      window.orbitree.graph(target, { limit: GRAPH_LIMIT, all: true }),
-      window.orbitree.status(target),
-    ]);
-    if (!graphResult.ok) setError(graphResult.error);
-    else {
-      setGraph(graphResult.value.data);
-      setRoot(graphResult.value.root);
-      setPath(graphResult.value.root);
-    }
-    if (statusResult.ok) setStatus(statusResult.value.state);
-    setBusy(false);
-  }, []);
+  const refresh = useCallback(
+    async (target: string, selection: string, requested: number): Promise<GraphData | null> => {
+      setBusy(true);
+      setError(null);
+      const [graphResult, statusResult] = await Promise.all([
+        window.orbitree.graph(
+          target,
+          selection === '*'
+            ? { limit: requested, all: true }
+            : { limit: requested, rev: selection },
+        ),
+        window.orbitree.status(target),
+      ]);
+      if (!graphResult.ok) setError(graphResult.error);
+      else {
+        setGraph(graphResult.value.data);
+        setRoot(graphResult.value.root);
+        setPath(graphResult.value.root);
+      }
+      if (statusResult.ok) setStatus(statusResult.value.state);
+      setBusy(false);
+      return graphResult.ok ? graphResult.value.data : null;
+    },
+    [],
+  );
 
   useEffect(() => {
     const initial = new URLSearchParams(window.location.search).get('repo');
-    if (initial !== null) void refresh(initial);
+    if (initial !== null) void refresh(initial, '*', GRAPH_LIMIT);
   }, [refresh]);
 
   const pick = async (): Promise<void> => {
     const chosen = await window.orbitree.pickDirectory();
-    if (chosen !== null) void refresh(chosen);
+    if (chosen === null) return;
+    setFilter('*');
+    setLimit(GRAPH_LIMIT);
+    setSelected(null);
+    void refresh(chosen, '*', GRAPH_LIMIT);
   };
 
   const runCommand = useCallback(
@@ -81,10 +98,31 @@ export function App(): React.ReactElement {
         return;
       }
       setLog((previous) => [summarize(result.value), ...previous].slice(0, 8));
-      await refresh(root);
+      await refresh(root, filter, limit);
+    },
+    [root, filter, limit, refresh],
+  );
+
+  const changeFilter = useCallback(
+    async (selection: string): Promise<void> => {
+      if (root === null) return;
+      setFilter(selection);
+      setLimit(GRAPH_LIMIT);
+      // A different history has different commits: put the reader at its top.
+      setSelected(null);
+      const data = await refresh(root, selection, GRAPH_LIMIT);
+      setSelected(data?.commits[0]?.hash ?? null);
     },
     [root, refresh],
   );
+
+  const loadMore = useCallback((): void => {
+    if (root === null) return;
+    const next = limit + GRAPH_LIMIT;
+    setLimit(next);
+    // The selected hash is untouched: the larger window still contains it.
+    void refresh(root, filter, next);
+  }, [root, filter, limit, refresh]);
 
   return (
     <div className="app">
@@ -99,7 +137,12 @@ export function App(): React.ReactElement {
           placeholder="/path/to/a/repository"
           onChange={(event) => setPath(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && path !== '') void refresh(path);
+            if (event.key === 'Enter' && path !== '') {
+              setFilter('*');
+              setLimit(GRAPH_LIMIT);
+              setSelected(null);
+              void refresh(path, '*', GRAPH_LIMIT);
+            }
           }}
         />
         <button type="button" onClick={() => void pick()}>
@@ -108,7 +151,12 @@ export function App(): React.ReactElement {
         <button
           type="button"
           className="primary"
-          onClick={() => void refresh(path)}
+          onClick={() => {
+            setFilter('*');
+            setLimit(GRAPH_LIMIT);
+            setSelected(null);
+            void refresh(path, '*', GRAPH_LIMIT);
+          }}
           disabled={path === '' || busy}
         >
           Open
@@ -136,7 +184,7 @@ export function App(): React.ReactElement {
           <button
             type="button"
             className="quick"
-            onClick={() => void refresh(root)}
+            onClick={() => void refresh(root, filter, limit)}
             disabled={busy}
           >
             Refresh
@@ -158,7 +206,15 @@ export function App(): React.ReactElement {
           {graph === null ? (
             <p className="empty">Open a repository to see its graph.</p>
           ) : (
-            <GraphPane graph={graph} selected={selected} onSelect={setSelected} />
+            <GraphPane
+              graph={graph}
+              selected={selected}
+              onSelect={setSelected}
+              filter={filter}
+              onFilterChange={(value) => void changeFilter(value)}
+              pageSize={GRAPH_LIMIT}
+              onLoadMore={loadMore}
+            />
           )}
         </section>
 
