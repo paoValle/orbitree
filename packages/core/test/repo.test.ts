@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   gitVersion,
   InvalidArgumentError,
@@ -10,15 +12,34 @@ import {
   readStatus,
   run,
 } from '../src/index.ts';
+import { type FixtureSet, makeFixtures } from './support/fixtures.ts';
+
+let set: FixtureSet;
+
+beforeAll(async () => {
+  set = await makeFixtures();
+});
+
+afterAll(async () => {
+  await set.cleanup();
+});
+
+function fixtureRoot(name: string): string {
+  const fixture = set.fixtures.find((candidate) => candidate.name === name);
+  if (fixture === undefined) throw new Error(`the ${name} fixture is missing`);
+  return fixture.root;
+}
 
 describe('opening a repository', () => {
   it('[I3] the root is the work tree root, even when asked from a subdirectory', async () => {
-    const here = process.cwd();
-    const repo = await openRepo(here);
-    expect(repo.root).toBe(here);
-    // `packages` is a real subdirectory of this repository: the answer must not change.
-    const nested = await openRepo(`${here}/packages`);
-    expect(nested.root).toBe(here);
+    const root = fixtureRoot('history');
+    const nested = join(root, 'a', 'deeper', 'directory');
+    await mkdir(nested, { recursive: true });
+    const fromRoot = await openRepo(root);
+    const fromNested = await openRepo(nested);
+    // Compared to each other, not to the fixture path: /tmp is a symlink on macOS and git
+    // answers with the resolved path.
+    expect(fromNested.root).toBe(fromRoot.root);
   });
 
   it('a directory that is not a repository is an error, not an empty state', async () => {
@@ -40,9 +61,9 @@ describe('opening a repository', () => {
   });
 });
 
-describe('reading this repository', () => {
-  it('[I5] the project reads its own history and its own working tree', async () => {
-    const repo = await openRepo(process.cwd());
+describe('reading a repository end to end', () => {
+  it('[I5] status, graph and refs agree with each other on the merge fixture', async () => {
+    const repo = await openRepo(fixtureRoot('history'));
     const state = await readStatus(repo);
     expect(['branch', 'detached', 'unborn']).toContain(state.head.kind);
 
@@ -51,6 +72,12 @@ describe('reading this repository', () => {
     for (const row of graph.layout.rows) {
       expect(row.lane).toBeGreaterThanOrEqual(0);
       expect(row.lane).toBeLessThan(graph.layout.laneCount);
+    }
+    // The graph and the refs are two views of one repository, so every ref must land on a
+    // commit the graph read.
+    const hashes = new Set(graph.commits.map((commit) => commit.hash));
+    for (const ref of graph.refs) {
+      if (ref.kind === 'tag') expect(hashes.has(ref.target)).toBe(true);
     }
   });
 });
@@ -75,7 +102,7 @@ describe('the escape hatch', () => {
 
   it('a working directory that is not a directory is our error, not a fake missing-git', async () => {
     await expect(
-      run({ op: 'status' }, { cwd: `${process.cwd()}/package.json` }),
+      run({ op: 'status' }, { cwd: join(process.cwd(), 'package.json') }),
     ).rejects.toBeInstanceOf(InvalidArgumentError);
   });
 });

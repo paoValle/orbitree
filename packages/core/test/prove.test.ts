@@ -172,15 +172,24 @@ describe('what this build can prove, by running it', () => {
     expect(leaked).toEqual([]);
   });
 
-  it('measures this repository, read by the product itself', async () => {
-    const repo = await openRepo(process.cwd());
-    const state = await readStatus(repo);
-    const graph = await readGraph(repo, { limit: 200, all: true });
-    prove('HEAD kind', state.head.kind);
-    prove('commits read from this repository', graph.commits.length);
-    prove('lanes used by this repository', graph.layout.laneCount);
-    prove('refs', graph.refs.length);
-    expect(graph.layout.rows.length).toBe(graph.commits.length);
+  it('measures a merge history, read end to end by the product', async () => {
+    // A fixture rather than the reader's own checkout: a measurement that only reproduces
+    // from inside a git repository is a measurement nobody else can take.
+    const fixtures = await makeFixtures();
+    try {
+      const history = fixtures.fixtures.find((fixture) => fixture.name === 'history');
+      if (history === undefined) throw new Error('the history fixture is missing');
+      const repo = await openRepo(history.root);
+      const state = await readStatus(repo);
+      const graph = await readGraph(repo, { limit: 200, all: true });
+      prove('HEAD kind of the merge fixture', state.head.kind);
+      prove('commits read from the merge fixture', graph.commits.length);
+      prove('lanes used by the merge fixture', graph.layout.laneCount);
+      prove('refs on the merge fixture', graph.refs.length);
+      expect(graph.layout.rows.length).toBe(graph.commits.length);
+    } finally {
+      await fixtures.cleanup();
+    }
   });
 
   it('the README’s claims table is printed above', () => {
