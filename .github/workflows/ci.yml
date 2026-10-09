@@ -76,6 +76,28 @@ jobs:
         shell: bash
         run: pnpm exec vitest run packages/core/test/prove.test.ts
 
+  # The window test needs a display, so it runs under xvfb. It is advisory until it has passed
+  # here once: it was verified on macOS only, and a job that has never run is not a gate. Flip
+  # `continue-on-error` off in the commit that records the first green run on Linux. If Electron
+  # refuses to start under xvfb, the fix belongs in the launch args of the test, not here.
+  ui:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: node apps/desktop/node_modules/electron/install.js
+      - run: xvfb-run -a pnpm --filter @keplerk/desktop run e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: app-screenshot
+          path: apps/desktop/reports/app.png
+          if-no-files-found: ignore
+
   # Mutation testing is slow and is the anti-tautology gate: it asks whether a test noticed a
   # change, not whether a line ran. It watches the core only.
   mutation:
