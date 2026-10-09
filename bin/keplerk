@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Runs the CLI straight from TypeScript source. Node strips the types; there is no build
+# step between an edit and a run, which is why the source avoids enums, namespaces and
+# constructor parameter properties (the three things that cannot be stripped).
+#
+# Node 24 has type stripping on by default; on Node 22 the flag is required.
+set -euo pipefail
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec node --experimental-strip-types "$repo_root/packages/cli/src/index.ts" "$@"

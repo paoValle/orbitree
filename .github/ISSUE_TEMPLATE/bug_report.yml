@@ -1,0 +1,59 @@
+name: Bug report
+description: Something is wrong, or a claim in the documentation is not true
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before you write: a claim in the README or `docs/` that the code does not meet is a bug
+        too. So is a guard rail that did not hold.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`keplerk doctor --json`"
+      description: Paste the output. It contains your platform and git version and no repository contents.
+      render: json
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: the release, or the output of `git rev-parse --short HEAD`
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: |
+        Commands are best. A repository state is even better: `git init` plus three commits
+        reproduces more than a paragraph does.
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output
+      description: |
+        Paste terminal or CLI output. Check it for secrets first — anything that looks like a
+        token should be replaced before it reaches a public issue.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: guards
+    attributes:
+      label: If this is about a guard rail
+      options:
+        - label: A destructive operation ran without a confirmation (invariant I1)
+        - label: A path, ref or message changed the meaning of a git command (invariant I2)
+        - label: The app and the CLI disagree about the same repository (invariant I3)
+        - label: A credential appeared in output or a log (invariant I8)

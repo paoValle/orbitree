@@ -1,0 +1,21 @@
+{
+  "name": "@keplerk/cli",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The headless half of keplerk: everything the app can do, scriptable.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "keplerk": "./src/index.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@keplerk/core": "workspace:*",
+    "commander": "15.0.0"
+  }
+}

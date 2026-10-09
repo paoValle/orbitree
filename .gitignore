@@ -1,0 +1,34 @@
+# secrets: the rule is "there must be none", but the pattern stays
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*~
+
+# dependencies and build output
+node_modules/
+dist/
+out/
+release/
+*.tsbuildinfo
+
+# test and report artifacts
+coverage/
+reports/
+.tmp/
+*.log
+
+# electron-builder scratch
+build/icon-*.png

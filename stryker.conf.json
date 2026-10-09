@@ -1,0 +1,23 @@
+{
+  "mutate": ["packages/core/src/**/*.ts"],
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.config.ts",
+    "dir": "packages/core"
+  },
+  "reporters": ["clear-text", "html", "json"],
+  "htmlReporter": { "fileName": "reports/mutation/index.html" },
+  "jsonReporter": { "fileName": "reports/mutation/mutation.json" },
+  "incremental": true,
+  "incrementalFile": "reports/mutation/stryker-incremental.json",
+  "thresholds": { "high": 80, "low": 65, "break": 60 },
+  "concurrency": 4,
+  "timeoutMS": 30000,
+  "tempDirName": ".stryker-tmp",
+  "ignorePatterns": [
+    "reports/**",
+    "coverage/**",
+    "**/node_modules/**",
+    "packages/core/test/support/**"
+  ]
+}

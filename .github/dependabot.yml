@@ -1,0 +1,27 @@
+version: 2
+updates:
+  # Grouped, because a wall of dependency pull requests is how a repository stops being read.
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    groups:
+      # Electron and its packaging move together: bumping one without the other is a broken build.
+      electron:
+        patterns: ['electron', 'electron-*', '@electron/*', 'electron-builder']
+      # Vite, Vitest and the React plugin share peer ranges.
+      build:
+        patterns: ['vite', 'vitest', '@vitest/*', '@vitejs/*', 'typescript']
+      other:
+        patterns: ['*']
+    commit-message:
+      prefix: 'deps'
+      include: scope
+    labels: [dependencies]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
+    commit-message:
+      prefix: 'ci'
+    labels: [dependencies, ci]

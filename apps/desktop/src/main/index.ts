@@ -1,0 +1,149 @@
+import { join } from 'node:path';
+import {
+  ConfirmationRequiredError,
+  execute,
+  openRepo,
+  readGraph,
+  readRefs,
+  readStatus,
+  riskOf,
+} from '@keplerk/core';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { CHANNELS, type Result, runRequestSchema } from '../shared/api.ts';
+
+const isDev = !app.isPackaged;
+
+/**
+ * Every IPC handler returns a `Result` instead of throwing: an exception across the
+ * boundary arrives in the renderer as an opaque string, and the UI can do nothing with it.
+ */
+async function attempt<T>(work: () => Promise<T>): Promise<Result<T>> {
+  try {
+    return { ok: true, value: await work() };
+  } catch (error) {
+    const known = error instanceof Error ? error : new Error(String(error));
+    return { ok: false, error: known.message, kind: known.name };
+  }
+}
+
+function registerHandlers(): void {
+  ipcMain.handle(CHANNELS.open, (_event, path: unknown) =>
+    attempt(async () => {
+      const repo = await openRepo(String(path));
+      return { root: repo.root };
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.status, (_event, path: unknown) =>
+    attempt(async () => {
+      const repo = await openRepo(String(path));
+      return { root: repo.root, state: await readStatus(repo) };
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.graph, (_event, request: unknown) =>
+    attempt(async () => {
+      const parsed = request as { path?: unknown; limit?: unknown; all?: unknown };
+      const repo = await openRepo(String(parsed.path));
+      const limit = Number.isInteger(parsed.limit) ? Number(parsed.limit) : 200;
+      const data = await readGraph(repo, { limit, all: parsed.all === true });
+      return { root: repo.root, data };
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.refs, (_event, path: unknown) =>
+    attempt(async () => {
+      const repo = await openRepo(String(path));
+      return { root: repo.root, refs: await readRefs(repo) };
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.run, (_event, request: unknown) =>
+    attempt(async () => {
+      // Parse, do not cast: this is the boundary between a web page and a process that
+      // can delete a working tree.
+      const parsed = runRequestSchema.parse(request);
+      const repo = await openRepo(parsed.path);
+      const result = await execute(parsed.command, {
+        cwd: repo.root,
+        ...(parsed.confirm === undefined
+          ? {}
+          : {
+              confirmation: {
+                confirmedBy: 'desktop',
+                reason: parsed.confirm,
+                at: new Date().toISOString(),
+              },
+            }),
+      });
+      return {
+        op: parsed.command.op,
+        risk: riskOf(parsed.command),
+        argv: result.argv,
+        exitCode: result.exitCode,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        durationMs: result.durationMs,
+      };
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.pickDirectory, async () => {
+    const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+    return result.canceled ? null : (result.filePaths[0] ?? null);
+  });
+}
+
+function createWindow(): BrowserWindow {
+  const window = new BrowserWindow({
+    width: 1280,
+    height: 820,
+    minWidth: 900,
+    minHeight: 560,
+    show: false,
+    backgroundColor: '#0f1115',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    webPreferences: {
+      preload: join(import.meta.dirname, '../preload/index.cjs'),
+      // The three settings that make a renderer an ordinary web page rather than a shell:
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webviewTag: false,
+    },
+  });
+
+  window.once('ready-to-show', () => window.show());
+  // A repository can contain a link in a commit message; it opens in the real browser,
+  // never inside the app.
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    void shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  const devServer = process.env.ELECTRON_RENDERER_URL;
+  if (isDev && devServer !== undefined) {
+    void window.loadURL(devServer);
+  } else {
+    void window.loadFile(join(import.meta.dirname, '../renderer/index.html'));
+  }
+  return window;
+}
+
+app.whenReady().then(() => {
+  registerHandlers();
+  createWindow();
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+// Nothing in this app should ever reach the crash reporter with a token in it.
+process.on('uncaughtException', (error) => {
+  const message = error instanceof ConfirmationRequiredError ? error.message : error.message;
+  console.error(`keplerk: ${message}`);
+});

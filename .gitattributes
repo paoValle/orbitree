@@ -1,0 +1,15 @@
+# normalize on checkout, LF in the repo, no platform quirks
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.zip binary
+*.gz binary
+
+# lockfiles never normalized
+*.lock -text
+pnpm-lock.yaml -text

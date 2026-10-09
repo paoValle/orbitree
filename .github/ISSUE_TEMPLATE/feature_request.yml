@@ -1,0 +1,44 @@
+name: Feature request
+description: Something the product should do and does not
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check `docs/PRODUCT.md` first. Features in the **Later** and **Never** columns are
+        decisions with reasons, and this issue would need to argue against the reason rather than
+        restate the request.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that you cannot do today? Describe the situation, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+    validations:
+      required: false
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface
+      multiple: true
+      options:
+        - the graph or the visualisation
+        - the working tree or staging
+        - branches, tags, remotes
+        - quick commands
+        - the CLI or `--json` output
+        - an integration (GitHub, GitLab, self-hosted)
+        - something else
+    validations:
+      required: true
+  - type: checkboxes
+    id: terms
+    attributes:
+      options:
+        - label: This does not need a new dependency for a few lines of work
+        - label: This does not make a destructive operation easier to trigger by accident

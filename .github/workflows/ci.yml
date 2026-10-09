@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push: { branches: [main] }
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # a failing test that logs a warning is a warning somebody will read next, in a red run
+  CI: true
+
+jobs:
+  # The one job a pull request has to pass: format, lint, types, invariant traceability, tests.
+  verify:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Three operating systems, because path separators, line endings and file modes are
+        # exactly where a GUI's tests pass on macOS and the Windows user sees nothing.
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # `git` is the product's only runtime dependency: if the runner's version were older
+      # than the floor we document, a green CI would mean nothing.
+      - name: git is new enough
+        shell: bash
+        run: |
+          git --version
+          node -e "
+            const v = require('child_process').execSync('git --version').toString().trim().replace(/^git version\s+/, '');
+            const p = (s) => s.split(/[.\s]/).slice(0, 3).map(Number);
+            const [have, need] = [p(v), [2, 43, 0]];
+            for (let i = 0; i < 3; i += 1) {
+              if (have[i] !== need[i]) process.exit(have[i] > need[i] ? 0 : 1);
+            }
+          "
+
+      - run: pnpm run fmt:check
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+
+      - name: every claimed invariant has a test, in both directions
+        shell: bash
+        run: ./bin/check-invariants.sh
+
+      # The app bundle is built on every platform, because the renderer, the main process and
+      # the preload are three separate builds that only meet here.
+      - run: pnpm run build
+
+      - run: pnpm run test
+
+      # The CLI is meant to run from source. This step is what makes that true on every
+      # platform: a constructor parameter property or an enum would fail here, not in a
+      # user's terminal.
+      - name: the CLI runs from source
+        shell: bash
+        run: |
+          node --experimental-strip-types packages/cli/src/index.ts schema > /dev/null
+          node --experimental-strip-types packages/cli/src/index.ts doctor . --json | head -20
+
+      - name: the numbers in the README could have come from here
+        shell: bash
+        run: pnpm exec vitest run packages/core/test/prove.test.ts
+
+  # Mutation testing is slow and is the anti-tautology gate: it asks whether a test noticed a
+  # change, not whether a line ran. It watches the core only.
+  mutation:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run mutate
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-report
+          path: reports/mutation
+          if-no-files-found: ignore
+
+  # The lockfile is what makes a build reproducible: if dependencies resolved differently from
+  # one commit to the next, a green CI would say nothing about the artifact.
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: no lockfile drift
+        run: git diff --exit-code pnpm-lock.yaml
