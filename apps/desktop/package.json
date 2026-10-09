@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "e2e": "playwright test",
     "package": "electron-vite build && electron-builder",
     "typecheck": "tsc -p tsconfig.json"
   },

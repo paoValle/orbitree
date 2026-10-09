@@ -2,7 +2,7 @@
   "name": "keplerk-workspace",
   "version": "0.0.0",
   "private": true,
-  "description": "Workspace root for keplerk \u2014 a local-first, agent-drivable Git client.",
+  "description": "Workspace root for keplerk — a local-first, agent-drivable Git client.",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
+    "@playwright/test": "1.64.0",
     "@stryker-mutator/core": "10.0.0",
     "@stryker-mutator/vitest-runner": "10.0.0",
     "@types/node": "26.6.4",

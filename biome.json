@@ -9,6 +9,7 @@
       "!**/dist",
       "!**/out",
       "!**/coverage",
+      "!**/reports",
       "!**/*.generated.*",
       "!**/.pi",
       "!**/.stryker-tmp"
