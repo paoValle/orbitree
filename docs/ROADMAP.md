@@ -32,23 +32,29 @@ The repository, the process, and the one vertical slice that proves the architec
 
 Make the repository legible. No mutation beyond staging yet.
 
-- [ ] Repository list and recents, one window per repository, restoring the last selection.
-- [ ] Tabs over the graph pane: several repositories open at once, each with its own filter,
+- [x] Repository list and recents, one window per repository, restoring the last selection.
+- [x] Tabs over the graph pane: several repositories open at once, each with its own filter,
       selection and window, switchable in one click, and a recents list a new tab opens from.
-- [ ] Closing the window hides the app to a system tray icon on Windows and macOS instead of
+- [x] Closing the window hides the app to a system tray icon on Windows and macOS instead of
       quitting, and a configurable global hotkey opens a compact popup window with the
       repository's quick state. The setting is persisted and the app forgets it if unset.
-- [ ] Load more history. The window says `300 of 2054` and there is no way to ask for the other 1754.
+- [x] Load more history. The window says `300 of 2054` and there is no way to ask for the other 1754.
       The count that made the truncation visible is also the argument for a way to extend it.
+      The window is a page, and a button offers the next one while `truncated` is true; it
+      disappears when the last page has been read, which is the same fact the header uses.
 - [x] The graph pane as its own component: virtualised rows, keyboard navigation, lane colours
       and badges for HEAD/branches/tags/remotes, `--all`.
-- [ ] Per-branch filters in the graph pane.
+- [x] Per-branch filters in the graph pane: a ref filter whose first option is every branch, and
+      the revision goes to both the log and the count.
 - [x] Commit detail: message, author, date, changed files, unified diff, per-file diff. The data is
       already there (`readCommit` / `orbitree show`): message, body, `against` and the parsed patch.
       What is missing is the pane that draws it.
-- [ ] Working tree: staged and unstaged sections, per-file diff, file-kind icons.
-- [ ] Stash list (read-only), submodule badge (read-only), conflict markers visible.
-- [ ] Empty, unborn, detached, mid-merge states each get a designed screen, not a fallback.
+- [x] Working tree: staged and unstaged sections, per-file diff, file-kind icons.
+- [x] Stash list (read-only), submodule badge (read-only), conflict markers visible. The
+      submodule state is recognised by its `S` rather than by the three characters after it,
+      because those are git's to define.
+- [x] Empty, unborn, detached, mid-merge states each get a designed screen, not a fallback.
+      A rebase leaves a detached head behind, so the operation wins over the head's shape.
 
 - [x] **Exit**, measured on one repository of 2053 commits and 79 refs built by
       `bin/make-big-repo.sh`: `orbitree graph . --json --limit 2000` returns 2000 of 2054 commits in
