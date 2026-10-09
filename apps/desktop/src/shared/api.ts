@@ -34,6 +34,8 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
   }),
   z.object({ op: literal('refs') }),
   z.object({ op: literal('diff'), rev: z.string(), path: z.exactOptional(z.string()) }),
+  z.object({ op: literal('commit-detail'), rev: z.string() }),
+  z.object({ op: literal('commit-patch'), rev: z.string() }),
   z.object({ op: literal('add'), paths: z.readonly(z.array(z.string())) }),
   z.object({ op: literal('unstage'), paths: z.readonly(z.array(z.string())) }),
   z.object({

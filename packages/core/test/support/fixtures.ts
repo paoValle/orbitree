@@ -120,7 +120,8 @@ export async function makeFixtures(): Promise<FixtureSet> {
   await commit(history, 'root');
   await git(history, 'checkout', '--quiet', '-b', 'feature-a');
   await write(history, 'a.txt', 'a from feature-a\n');
-  await commit(history, 'work on feature-a');
+  // A real message body, so the detail parser is checked against `%B` and not only `%s`.
+  await commit(history, 'work on feature-a\n\nthis body spans\nmore than one line');
   await git(history, 'checkout', '--quiet', 'main');
   await git(history, 'checkout', '--quiet', '-b', 'feature-b');
   await write(history, 'b.txt', 'b\n');
@@ -132,6 +133,8 @@ export async function makeFixtures(): Promise<FixtureSet> {
   await git(history, 'merge', '--no-edit', 'feature-b');
   await git(history, 'tag', 'v1');
   await git(history, 'branch', 'unmerged-feature', 'feature-a');
+  // HEAD is detached at the first parent of the tagged merge, which is itself a merge; the
+  // root stays reachable through `git rev-list --max-parents=0 HEAD` from there.
   await git(history, 'checkout', '--quiet', '--detach', 'HEAD~1');
 
   // --- 6. filenames that are genuinely hostile to shell-less argument passing ---

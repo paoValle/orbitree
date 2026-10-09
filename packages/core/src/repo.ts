@@ -1,7 +1,14 @@
 import { type GitCommand, InvalidArgumentError } from './git/command.ts';
 import { type DiffFile, parseDiff } from './git/diff.ts';
 import { type ExecuteOptions, execute, executeOrThrow, type GitResult } from './git/exec.ts';
-import { type Commit, parseLog, parseRefs, type Ref } from './git/log.ts';
+import {
+  type Commit,
+  type CommitDetail,
+  parseCommitDetail,
+  parseLog,
+  parseRefs,
+  type Ref,
+} from './git/log.ts';
 import { parseStatus, type RepoState } from './git/status.ts';
 import { type GraphLayout, layoutGraph, refsByOid } from './graph/layout.ts';
 
@@ -92,6 +99,46 @@ export async function readDiff(
   const parsed = parseDiff(stdout);
   if (!parsed.ok) throw new RepositoryParseError('the diff', parsed.error, parsed.record);
   return parsed.value;
+}
+
+/** What the patch in a `CommitData` is measured against, derived from the commit itself. */
+export type CommitAgainst = 'root' | 'parent' | 'first-parent';
+
+export interface CommitData {
+  readonly commit: CommitDetail;
+  readonly files: readonly DiffFile[];
+  readonly against: CommitAgainst;
+}
+
+export async function readCommit(
+  repo: RepoHandle,
+  request: { rev: string },
+  options: Partial<ExecuteOptions> = {},
+): Promise<CommitData> {
+  const [detail, patch] = await Promise.all([
+    executeOrThrow({ op: 'commit-detail', rev: request.rev }, { cwd: repo.root, ...options }),
+    executeOrThrow({ op: 'commit-patch', rev: request.rev }, { cwd: repo.root, ...options }),
+  ]);
+  const parsedDetail = parseCommitDetail(detail.stdout);
+  if (!parsedDetail.ok) {
+    throw new RepositoryParseError('the commit', parsedDetail.error, parsedDetail.record);
+  }
+  const parsedPatch = parseDiff(patch.stdout);
+  if (!parsedPatch.ok) {
+    throw new RepositoryParseError('the commit patch', parsedPatch.error, parsedPatch.record);
+  }
+  return {
+    commit: parsedDetail.value,
+    files: parsedPatch.value,
+    // Never a caller's guess: how many parents the commit has decides how its patch reads.
+    against: againstParents(parsedDetail.value.parents.length),
+  };
+}
+
+function againstParents(parentCount: number): CommitAgainst {
+  if (parentCount === 0) return 'root';
+  if (parentCount === 1) return 'parent';
+  return 'first-parent';
 }
 
 export interface GraphRequest {

@@ -18,6 +18,8 @@ export type GitCommand =
   | { readonly op: 'graph'; readonly limit: number; readonly all?: boolean }
   | { readonly op: 'refs' }
   | { readonly op: 'diff'; readonly rev: string; readonly path?: string }
+  | { readonly op: 'commit-detail'; readonly rev: string }
+  | { readonly op: 'commit-patch'; readonly rev: string }
   // --- local: changes the repository on this disk ---
   | { readonly op: 'add'; readonly paths: readonly string[] }
   | { readonly op: 'unstage'; readonly paths: readonly string[] }
@@ -58,6 +60,8 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'graph':
     case 'refs':
     case 'diff':
+    case 'commit-detail':
+    case 'commit-patch':
       return 'read';
 
     case 'add':
@@ -161,6 +165,26 @@ export function toArgv(cmd: GitCommand): string[] {
         ...(cmd.path === undefined ? [] : ['--', cmd.path]),
       ];
 
+    case 'commit-detail':
+      return ['log', '-z', '--max-count=1', `--format=${DETAIL_FORMAT}`, assertSafeRef(cmd.rev)];
+
+    // `--format=` suppresses the commit header so the output is the plain patch `parseDiff`
+    // reads. Plain `git show` prints no patch for a merge, and `-m` alone prints one per
+    // parent; `--first-parent` is what gives a merge one honest diff, against its first
+    // parent. For an ordinary commit the result is byte-identical without those two flags.
+    case 'commit-patch':
+      return [
+        'show',
+        '--patch',
+        '--format=',
+        '-m',
+        '--first-parent',
+        '--no-color',
+        '--no-ext-diff',
+        '--find-renames',
+        assertSafeRef(cmd.rev),
+      ];
+
     case 'add':
       return ['add', '--', ...assertSafePaths(cmd.paths)];
 
@@ -241,6 +265,14 @@ function assertSafePaths(paths: readonly string[]): readonly string[] {
 /** Field and record separators that cannot appear in a commit subject. */
 export const FIELD_SEP = '\u001f';
 export const LOG_FORMAT = `%H${FIELD_SEP}%P${FIELD_SEP}%an${FIELD_SEP}%ae${FIELD_SEP}%at${FIELD_SEP}%ct${FIELD_SEP}%s`;
+
+/**
+ * Two separators, because `%s` and `%b` are both free-form: one separator could not tell a
+ * subject that contains it from the start of the body. The record is split on `DETAIL_SEP`
+ * first, and only the head is split on `FIELD_SEP`.
+ */
+export const DETAIL_SEP = '\u001d';
+export const DETAIL_FORMAT = `%H${FIELD_SEP}%P${FIELD_SEP}%an${FIELD_SEP}%ae${FIELD_SEP}%at${FIELD_SEP}%ct${FIELD_SEP}%s${DETAIL_SEP}%b`;
 export const REF_FORMAT = `%(refname)${FIELD_SEP}%(objectname)${FIELD_SEP}%(objecttype)${FIELD_SEP}%(HEAD)${FIELD_SEP}%(upstream)${FIELD_SEP}%(symref)`;
 
 export class InvalidArgumentError extends Error {

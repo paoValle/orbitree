@@ -1,4 +1,4 @@
-import { FIELD_SEP } from './command.ts';
+import { DETAIL_SEP, FIELD_SEP } from './command.ts';
 import type { ParseResult } from './status.ts';
 
 export interface Commit {
@@ -9,6 +9,11 @@ export interface Commit {
   readonly authoredAt: number;
   readonly committedAt: number;
   readonly subject: string;
+}
+
+/** A commit plus the message body `%s` leaves out. */
+export interface CommitDetail extends Commit {
+  readonly body: string;
 }
 
 export interface Ref {
@@ -28,36 +33,68 @@ export function parseLog(stdout: string): ParseResult<readonly Commit[]> {
   const commits: Commit[] = [];
   const seen = new Set<string>();
   for (const record of splitRecords(stdout)) {
-    const fields = record.split(FIELD_SEP);
-    const [hash, parents, name, email, authoredAt, committedAt, ...subjectParts] = fields;
-    if (hash === undefined || !HASH.test(hash)) {
-      return { ok: false, error: 'record does not start with a commit hash', record };
-    }
-    if (seen.has(hash)) {
+    const parsed = parseCommitHead(record, record.split(FIELD_SEP));
+    if (!parsed.ok) return parsed;
+    if (seen.has(parsed.value.hash)) {
       // Two rows for one commit would draw it twice; better a loud failure than a
       // graph that quietly lies about the history.
-      return { ok: false, error: `commit ${hash} appears twice in the log`, record };
+      return { ok: false, error: `commit ${parsed.value.hash} appears twice in the log`, record };
     }
-    seen.add(hash);
+    seen.add(parsed.value.hash);
+    commits.push(parsed.value);
+  }
+  return { ok: true, value: commits };
+}
 
-    const parentList = (parents ?? '').trim() === '' ? [] : (parents as string).split(' ');
-    for (const parent of parentList) {
-      if (!HASH.test(parent)) return { ok: false, error: `bad parent hash "${parent}"`, record };
-    }
-    // The subject is the only free-form field, so anything after it is part of it: a
-    // separator inside a commit message is preserved rather than treated as a field.
-    const subject = subjectParts.join(FIELD_SEP);
+export function parseCommitDetail(stdout: string): ParseResult<CommitDetail> {
+  const records = splitRecords(stdout);
+  if (records.length !== 1) {
+    return {
+      ok: false,
+      error: `a commit detail is exactly one record, got ${records.length}`,
+      record: records[1] ?? stdout,
+    };
+  }
+  const record = records[0] as string;
+  const separator = record.indexOf(DETAIL_SEP);
+  const head = separator === -1 ? record : record.slice(0, separator);
+  const bodyText = separator === -1 ? '' : record.slice(separator + DETAIL_SEP.length);
 
-    commits.push({
+  const parsed = parseCommitHead(record, head.split(FIELD_SEP));
+  if (!parsed.ok) return parsed;
+  // `%b` keeps the newline that ends the message; the body is that text without it.
+  const body = bodyText.replace(/\n$/, '');
+  return { ok: true, value: { ...parsed.value, body } };
+}
+
+/**
+ * The head fields shared by `parseLog` and `parseCommitDetail`: a hash, a parent list and
+ * the author/time fields. `subjectParts` is joined because a separator inside a free-form
+ * subject belongs to the subject, not to a new field.
+ */
+function parseCommitHead(record: string, fields: readonly string[]): ParseResult<Commit> {
+  const [hash, parents, name, email, authoredAt, committedAt, ...subjectParts] = fields;
+  if (hash === undefined || !HASH.test(hash)) {
+    return { ok: false, error: 'record does not start with a commit hash', record };
+  }
+
+  const parentList = (parents ?? '').trim() === '' ? [] : (parents as string).split(' ');
+  for (const parent of parentList) {
+    if (!HASH.test(parent)) return { ok: false, error: `bad parent hash "${parent}"`, record };
+  }
+  const subject = subjectParts.join(FIELD_SEP);
+
+  return {
+    ok: true,
+    value: {
       hash,
       parents: parentList,
       author: { name: name ?? '', email: email ?? '' },
       authoredAt: toSeconds(authoredAt),
       committedAt: toSeconds(committedAt),
       subject,
-    });
-  }
-  return { ok: true, value: commits };
+    },
+  };
 }
 
 export function parseRefs(stdout: string): ParseResult<readonly Ref[]> {
