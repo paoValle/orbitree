@@ -9,7 +9,9 @@
       "!**/dist",
       "!**/out",
       "!**/coverage",
-      "!**/*.generated.*"
+      "!**/*.generated.*",
+      "!**/.pi/**",
+      "!**/.stryker-tmp/**"
     ]
   },
   "formatter": {
