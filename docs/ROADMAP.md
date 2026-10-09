@@ -15,7 +15,8 @@ The repository, the process, and the one vertical slice that proves the architec
 - [x] MIT licence, contribution files, issue and PR templates, CI on Linux/macOS/Windows.
 - [x] `packages/core`: the single guarded gateway to `git`, the status and log parsers, the
       graph layout, redaction, typed errors.
-- [x] `packages/cli`: `status`, `graph`, `refs`, `ops`, `run`, `doctor`, `schema` — all with `--json`.
+- [x] `packages/cli`: `status`, `graph`, `refs`, `diff`, `show`, `ops`, `run`, `doctor`, `schema` —
+      all with `--json`.
 - [x] `apps/desktop`: an Electron window that opens a repository, draws the graph on a canvas,
       lists the working tree, and has a quick-command bar with a confirmation sheet.
 - [x] The harness: `make verify` (format, lint, types, invariants, tests), `make prove`,
@@ -34,7 +35,9 @@ Make the repository legible. No mutation beyond staging yet.
 - [ ] Repository list and recents, one window per repository, restoring the last selection.
 - [ ] The graph pane as its own component: virtualised rows, keyboard navigation, lane colours
       stable per branch, badges for HEAD/branches/tags/remotes, `--all` and per-branch filters.
-- [ ] Commit detail: message, author, date, changed files, unified diff, per-file diff.
+- [ ] Commit detail: message, author, date, changed files, unified diff, per-file diff. The data is
+      already there (`readCommit` / `keplerk show`): message, body, `against` and the parsed patch.
+      What is missing is the pane that draws it.
 - [ ] Working tree: staged and unstaged sections, per-file diff, file-kind icons.
 - [ ] Stash list (read-only), submodule badge (read-only), conflict markers visible.
 - [ ] Empty, unborn, detached, mid-merge states each get a designed screen, not a fallback.
