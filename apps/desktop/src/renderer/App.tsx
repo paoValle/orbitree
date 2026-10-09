@@ -18,23 +18,54 @@ interface Pending {
 }
 
 /**
+ * One open repository, with everything that belongs to it.
+ *
+ * A tab is not a path: it is the path plus the history that was read, the ref it is filtered
+ * to, the window that was asked for, and the commit selected in it. Two tabs showing the
+ * same repository are two different readings of it, which is exactly what two windows
+ * would be.
+ */
+interface Tab {
+  readonly id: number;
+  /** What was typed or opened, before it resolved to a root. */
+  readonly path: string;
+  readonly root: string | null;
+  readonly graph: GraphData | null;
+  readonly status: RepoState | null;
+  readonly stashes: readonly StashPayload['stashes'][number][];
+  readonly selected: string | null;
+  /** `*` reads every ref; anything else names the history to read instead. */
+  readonly filter: string;
+  /** The window, in commits. `Load more` raises it by `GRAPH_LIMIT` and reads again. */
+  readonly limit: number;
+}
+
+const EMPTY_TAB = (id: number): Tab => ({
+  id,
+  path: '',
+  root: null,
+  graph: null,
+  status: null,
+  stashes: [],
+  selected: null,
+  filter: '*',
+  limit: GRAPH_LIMIT,
+});
+
+/**
  * The graph is read one window at a time: a 200,000-commit repository must not cross IPC
  * as a single object. The window is only honest because the header says "300 of 2053",
  * so a reader can tell a truncated list from the whole history.
  */
 const GRAPH_LIMIT = 300;
 
+const MAX_TABS = 8;
+
 export function App(): React.ReactElement {
-  const [path, setPath] = useState('');
-  const [root, setRoot] = useState<string | null>(null);
-  const [graph, setGraph] = useState<GraphData | null>(null);
-  const [status, setStatus] = useState<RepoState | null>(null);
-  const [stashes, setStashes] = useState<readonly StashPayload['stashes'][number][]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
-  // `*` reads every ref; anything else names the history to read instead.
-  const [filter, setFilter] = useState('*');
-  // The window, in commits. `Load more` raises it by `GRAPH_LIMIT` and reads again.
-  const [limit, setLimit] = useState(GRAPH_LIMIT);
+  const [tabs, setTabs] = useState<readonly Tab[]>([]);
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const nextId = useRef(1);
+  const [recents, setRecents] = useState<readonly string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [log, setLog] = useState<readonly string[]>([]);
@@ -46,89 +77,165 @@ export function App(): React.ReactElement {
     if (pending !== null) reasonInput.current?.focus();
   }, [pending]);
 
-  const refresh = useCallback(
-    async (target: string, selection: string, requested: number): Promise<GraphData | null> => {
+  const active = tabs.find((tab) => tab.id === activeId) ?? null;
+
+  /**
+   * Patching a tab by its id rather than by "whichever is active".
+   *
+   * `setActiveId` and `setTabs` do not land together, so a callback that closes over
+   * `activeId` would patch the tab that was active before the new one was opened. The id is
+   * passed in, and the opening sequence below owns it.
+   */
+  const patchTab = useCallback((id: number, patch: Partial<Omit<Tab, 'id'>>): void => {
+    setTabs((previous) => previous.map((tab) => (tab.id === id ? { ...tab, ...patch } : tab)));
+  }, []);
+
+  /**
+   * Opens a repository into a new tab, and makes it the active one. The id is allocated
+   * here and returned, because the read that follows has to know which tab it is filling.
+   */
+  const openTab = useCallback(
+    (path: string): number | null => {
+      if (tabs.length >= MAX_TABS) {
+        setError(`${MAX_TABS} repositories are open. Close one first.`);
+        return null;
+      }
+      const id = nextId.current;
+      nextId.current += 1;
+      // Allocated out here, not inside the updater: an updater that also advances a counter
+      // runs twice under StrictMode, and the caller would then fill a different tab from the
+      // one it opened.
+      setTabs((previous) => [...previous, EMPTY_TAB(id)]);
+      setActiveId(id);
       setBusy(true);
       setError(null);
-      // The status is read first and on its own: it says where the repository *is*, and every
-      // other read is decided by that. Asking both at once is what used to turn a repository
-      // with no commits into an error banner about a git exit code.
+      // Remembered here and nowhere else: what a person asked for is what they asked for, a
+      // typo included. Writing it again from the read that follows would race the next open.
+      void window.orbitree.remember(path);
+      patchTab(id, { path, graph: null, status: null, selected: null });
+      return id;
+    },
+    [patchTab, tabs.length],
+  );
+
+  /**
+   * Reads one repository: the status first and alone, then the graph the status allows.
+   * Returns the graph, so the caller can put the reader at the top of a history it has not
+   * read yet.
+   */
+  const refresh = useCallback(
+    async (
+      target: string,
+      id: number,
+      selection: string,
+      requested: number,
+    ): Promise<GraphData | null> => {
+      setBusy(true);
+      setError(null);
       const statusResult = await window.orbitree.status(target);
       if (!statusResult.ok) {
         setError(statusResult.error);
-        setStatus(null);
-        setGraph(null);
-        setRoot(null);
+        patchTab(id, { graph: null, status: null });
         setBusy(false);
         return null;
       }
       const state = statusResult.value.state;
-      setStatus(state);
-      setRoot(statusResult.value.root);
-      setPath(statusResult.value.root);
-      // Every successful open is a recent, and the last one that worked is the one to reopen.
-      // One call: two writers on the same file overwrite each other.
-      void window.orbitree.remember(target);
-      // The stash is a list, not a state: a repository with none answers empty, so it is read
-      // in the same pass and never turns into an error.
+      patchTab(id, { status: state, path: statusResult.value.root, root: statusResult.value.root });
+
       const stashResult = await window.orbitree.readStash(target);
-      setStashes(stashResult.ok ? stashResult.value.stashes : []);
+      patchTab(id, { stashes: stashResult.ok ? stashResult.value.stashes : [] });
+
       // An unborn head cannot be logged: `git log` exits 128 on a branch with no commits, so
       // the graph is not read at all rather than read and failed.
       if (state.head.kind === 'unborn') {
-        setGraph(null);
+        patchTab(id, { graph: null });
         setBusy(false);
         return null;
       }
+
       const graphResult = await window.orbitree.graph(
         target,
         selection === '*' ? { limit: requested, all: true } : { limit: requested, rev: selection },
       );
       if (!graphResult.ok) {
         setError(graphResult.error);
-        setGraph(null);
-      } else {
-        setGraph(graphResult.value.data);
-        setRoot(graphResult.value.root);
-        setPath(graphResult.value.root);
+        patchTab(id, { graph: null });
+        setBusy(false);
+        return null;
       }
+      patchTab(id, {
+        graph: graphResult.value.data,
+        path: graphResult.value.root,
+        root: graphResult.value.root,
+      });
       setBusy(false);
-      return graphResult.ok ? graphResult.value.data : null;
+      return graphResult.value.data;
     },
-    [],
+    [patchTab],
   );
 
+  const openPath = useCallback(
+    (path: string): void => {
+      if (path === '') return;
+      const id = openTab(path);
+      if (id === null) return;
+      void refresh(path, id, '*', GRAPH_LIMIT);
+    },
+    [openTab, refresh],
+  );
+
+  // What the app reopens on launch: the repository it was last in, unless a launch argument
+  // names one, which is how the E2E suite points at a repository and how a file manager
+  // would open one.
+  //
+  // Mount-only on purpose. It opens by id directly rather than through `openPath`, because that
+  // callback's identity changes every time a tab is opened, and an effect depending on it would
+  // re-run and open the same repository a second time on the next tab.
   useEffect(() => {
-    // A repository on the command line wins: that is how the E2E suite points at one, and how
-    // a launch from a file manager would arrive. Everything else, the last repository the
-    // person opened, is read from what the app remembered.
     const fromArgv = new URLSearchParams(window.location.search).get('repo');
     if (fromArgv !== null) {
-      void refresh(fromArgv, '*', GRAPH_LIMIT);
+      const id = nextId.current;
+      nextId.current += 1;
+      setTabs([EMPTY_TAB(id)]);
+      setActiveId(id);
+      void window.orbitree.remember(fromArgv);
+      void refresh(fromArgv, id, '*', GRAPH_LIMIT);
       return;
     }
     void (async () => {
       const state = await window.orbitree.readState();
-      if (state.ok && state.value.last !== null) void refresh(state.value.last, '*', GRAPH_LIMIT);
+      if (!state.ok) return;
+      setRecents(state.value.recents);
+      const last = state.value.last;
+      if (last === null) return;
+      const id = nextId.current;
+      nextId.current += 1;
+      setTabs([EMPTY_TAB(id)]);
+      setActiveId(id);
+      void window.orbitree.remember(last);
+      void refresh(last, id, '*', GRAPH_LIMIT);
     })();
   }, [refresh]);
 
-  const pick = async (): Promise<void> => {
-    const chosen = await window.orbitree.pickDirectory();
-    if (chosen === null) return;
-    setFilter('*');
-    setLimit(GRAPH_LIMIT);
-    setSelected(null);
-    setGraph(null);
-    void refresh(chosen, '*', GRAPH_LIMIT);
-  };
+  const closeTab = useCallback(
+    (id: number): void => {
+      const remaining = tabs.filter((tab) => tab.id !== id);
+      setTabs(remaining);
+      // Closing the active tab moves to the one beside it: the last one, then the first.
+      if (id === activeId) setActiveId(remaining[remaining.length - 1]?.id ?? null);
+    },
+    [activeId, tabs],
+  );
 
   const runCommand = useCallback(
-    async (command: QuickCommand, reason?: string) => {
-      if (root === null) return;
+    async (command: QuickCommand, reason?: string): Promise<void> => {
+      if (active === null || active.root === null) return;
+      const target = active.root;
+      const selection = active.filter;
+      const requested = active.limit;
       setBusy(true);
       const result = await window.orbitree.run({
-        path: root,
+        path: target,
         command: command.command,
         ...(reason === undefined ? {} : { confirm: reason }),
       });
@@ -139,44 +246,40 @@ export function App(): React.ReactElement {
         return;
       }
       setLog((previous) => [summarize(result.value), ...previous].slice(0, 8));
-      await refresh(root, filter, limit);
+      await refresh(target, active.id, selection, requested);
     },
-    [root, filter, limit, refresh],
+    [active, refresh],
   );
 
   const changeFilter = useCallback(
     async (selection: string): Promise<void> => {
-      if (root === null) return;
-      setFilter(selection);
-      setLimit(GRAPH_LIMIT);
-      // A different history has different commits: put the reader at its top.
-      setSelected(null);
-      const data = await refresh(root, selection, GRAPH_LIMIT);
-      setSelected(data?.commits[0]?.hash ?? null);
+      if (active === null || active.root === null) return;
+      const target = active.root;
+      patchTab(active.id, { filter: selection, limit: GRAPH_LIMIT, selected: null });
+      const data = await refresh(target, active.id, selection, GRAPH_LIMIT);
+      patchTab(active.id, { selected: data?.commits[0]?.hash ?? null });
     },
-    [root, refresh],
+    [active, patchTab, refresh],
   );
 
   const loadMore = useCallback((): void => {
-    if (root === null) return;
-    const next = limit + GRAPH_LIMIT;
-    setLimit(next);
+    if (active === null || active.root === null) return;
+    const target = active.root;
+    const next = active.limit + GRAPH_LIMIT;
+    patchTab(active.id, { limit: next });
     // The selected hash is untouched: the larger window still contains it.
-    void refresh(root, filter, next);
-  }, [root, filter, limit, refresh]);
+    void refresh(target, active.id, active.filter, next);
+  }, [active, patchTab, refresh]);
 
-  // The state the repository is in, as the screen names it. The operation under way wins
-  // over the head's shape: a rebase can leave a detached head behind, and what the reader has
-  // to do next is finish the rebase.
   const screen: { state: ScreenState; detail: string | undefined } | null =
-    status === null
+    active?.status == null
       ? null
-      : status.pending !== null
-        ? { state: status.pending, detail: undefined }
-        : status.head.kind === 'unborn'
-          ? { state: 'unborn', detail: status.head.name ?? undefined }
-          : status.head.kind === 'detached'
-            ? { state: 'detached', detail: status.head.oid.slice(0, 7) }
+      : active.status.pending !== null
+        ? { state: active.status.pending, detail: undefined }
+        : active.status.head.kind === 'unborn'
+          ? { state: 'unborn', detail: active.status.head.name ?? undefined }
+          : active.status.head.kind === 'detached'
+            ? { state: 'detached', detail: active.status.head.oid.slice(0, 7) }
             : null;
 
   return (
@@ -188,37 +291,78 @@ export function App(): React.ReactElement {
         </div>
         <input
           className="path"
-          value={path}
+          value={active?.path ?? ''}
           placeholder="/path/to/a/repository"
-          onChange={(event) => setPath(event.target.value)}
+          onChange={(event) => {
+            if (active !== null) patchTab(active.id, { path: event.target.value });
+          }}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && path !== '') {
-              setFilter('*');
-              setLimit(GRAPH_LIMIT);
-              setSelected(null);
-              void refresh(path, '*', GRAPH_LIMIT);
+            if (event.key === 'Enter' && (active?.path ?? '') !== '') {
+              openPath(active?.path ?? '');
             }
           }}
         />
-        <button type="button" onClick={() => void pick()}>
+        <button
+          type="button"
+          onClick={() => void openPath(active?.path ?? '')}
+          disabled={(active?.path ?? '') === '' || busy}
+        >
           Browse
         </button>
         <button
           type="button"
           className="primary"
-          onClick={() => {
-            setFilter('*');
-            setLimit(GRAPH_LIMIT);
-            setSelected(null);
-            void refresh(path, '*', GRAPH_LIMIT);
-          }}
-          disabled={path === '' || busy}
+          onClick={() => void openPath(active?.path ?? '')}
+          disabled={(active?.path ?? '') === '' || busy}
         >
           Open
         </button>
       </header>
 
-      {root !== null && (
+      {tabs.length > 0 && (
+        <div className="tabbar" data-testid="tabbar">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={tab.id === activeId ? 'tab active' : 'tab'}
+              data-testid="tab"
+              data-tab-id={String(tab.id)}
+              onClick={() => setActiveId(tab.id)}
+            >
+              <span className="tab-name">{tab.root === null ? tab.path : nameOf(tab.root)}</span>
+              <button
+                type="button"
+                className="tab-close"
+                aria-label={`close ${nameOf(tab.root ?? tab.path)}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  closeTab(tab.id);
+                }}
+              >
+                ×
+              </button>
+            </button>
+          ))}
+          <button
+            type="button"
+            className="tab new"
+            data-testid="tab-new"
+            onClick={() => {
+              if (tabs.length < MAX_TABS) {
+                const id = nextId.current;
+                nextId.current += 1;
+                setTabs((previous) => [...previous, EMPTY_TAB(id)]);
+                setActiveId(id);
+              }
+            }}
+          >
+            +
+          </button>
+        </div>
+      )}
+
+      {active !== null && (
         <div className="quickbar">
           {DEFAULT_QUICK_COMMANDS.map((command) => (
             <button
@@ -239,7 +383,7 @@ export function App(): React.ReactElement {
           <button
             type="button"
             className="quick"
-            onClick={() => void refresh(root, filter, limit)}
+            onClick={() => void refresh(active.root ?? '', active.id, active.filter, active.limit)}
             disabled={busy}
           >
             Refresh
@@ -258,41 +402,59 @@ export function App(): React.ReactElement {
 
       <main className="panes">
         <section className="graph-pane">
-          {screen === null ? null : screen.state === 'unborn' ? (
-            // Nothing to draw above this one, so it takes the pane: the working tree beside
-            // it still works, and the first commit is a CLI operation for now.
-            <StateScreen state="unborn" detail={screen.detail} />
+          {active === null ? (
+            <div className="empty" data-testid="no-tab">
+              <p>No repository is open.</p>
+              {recents.length > 0 && (
+                <ul className="recents" data-testid="recents">
+                  {recents.map((path) => (
+                    <li key={path}>
+                      <button
+                        type="button"
+                        data-testid="recent-item"
+                        onClick={() => openPath(path)}
+                      >
+                        {nameOf(path)} <span className="recent-path">{path}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           ) : (
-            // Anything else sits above the graph rather than in place of it: a merge in
-            // progress still has a perfectly readable history, and a detached head is a
-            // banner on the graph instead of a screen that hides it.
-            <StateScreen state={screen.state} detail={screen.detail} variant="banner" />
-          )}
-          {graph === null ? (
-            <p className="empty">
-              {screen?.state === 'unborn'
-                ? 'There is no history to draw yet.'
-                : 'Open a repository to see its graph.'}
-            </p>
-          ) : (
-            <GraphPane
-              graph={graph}
-              selected={selected}
-              onSelect={setSelected}
-              filter={filter}
-              onFilterChange={(value) => void changeFilter(value)}
-              pageSize={GRAPH_LIMIT}
-              onLoadMore={loadMore}
-            />
+            <>
+              {screen === null ? null : screen.state === 'unborn' ? (
+                <StateScreen state="unborn" detail={screen.detail} />
+              ) : (
+                <StateScreen state={screen.state} detail={screen.detail} variant="banner" />
+              )}
+              {active.graph === null ? (
+                <p className="empty">
+                  {screen?.state === 'unborn'
+                    ? 'There is no history to draw yet.'
+                    : 'Open a repository to see its graph.'}
+                </p>
+              ) : (
+                <GraphPane
+                  graph={active.graph}
+                  selected={active.selected}
+                  onSelect={(hash) => patchTab(active.id, { selected: hash })}
+                  filter={active.filter}
+                  onFilterChange={(value) => void changeFilter(value)}
+                  pageSize={GRAPH_LIMIT}
+                  onLoadMore={loadMore}
+                />
+              )}
+            </>
           )}
         </section>
 
         <aside className="side">
-          <CommitPanel root={root} hash={selected} />
+          <CommitPanel root={active?.root ?? null} hash={active?.selected ?? null} />
 
           <WorkingTreePanel
-            root={root}
-            state={status}
+            root={active?.root ?? null}
+            state={active?.status ?? null}
             busy={busy}
             onStage={(entryPath) =>
               void runCommand({
@@ -307,13 +469,13 @@ export function App(): React.ReactElement {
 
           <div className="card">
             <h2>Stashes</h2>
-            {stashes.length === 0 ? (
+            {active !== null && active.stashes.length === 0 ? (
               <p className="empty">no stash in this repository</p>
             ) : (
               <ul className="stash-list" data-testid="stash-list">
-                {stashes.map((entry) => (
+                {(active?.stashes ?? []).map((entry) => (
                   <li
-                    key={entry.selector}
+                    key={`${active?.id ?? 0}:${entry.selector}`}
                     className="stash-entry"
                     data-testid="stash-entry"
                     data-selector={entry.selector}
@@ -373,6 +535,13 @@ export function App(): React.ReactElement {
       )}
     </div>
   );
+}
+
+/** The last path segment, so a tab is a name and not a full path. */
+function nameOf(path: string): string {
+  const trimmed = path.replace(/\/+$/, '');
+  const slash = trimmed.lastIndexOf('/');
+  return slash === -1 ? trimmed : trimmed.slice(slash + 1);
 }
 
 function summarize(result: RunPayload): string {

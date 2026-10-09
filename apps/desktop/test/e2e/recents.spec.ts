@@ -24,6 +24,15 @@ test('the last repository reopens, and the recents list what came before it', as
     await expect(page.locator('[data-testid=graph-count]')).toBeVisible();
     await page.locator('input.path').fill(second);
     await page.locator('input.path').press('Enter');
+    await page.waitForTimeout(700);
+    console.log(
+      '[debug] tabs:',
+      await page.locator('[data-testid=tab]').count(),
+      '| input:',
+      await page.locator('input.path').inputValue(),
+      '| state:',
+      JSON.stringify((await page.evaluate(() => window.orbitree.readState())).value),
+    );
     await expect(page.locator('[data-testid=graph-count]')).toContainText('1 commit');
     // Remembering finishes after the window has drawn, so the test waits for it rather than
     // reading the state the instant the graph appears.
