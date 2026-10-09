@@ -28,6 +28,7 @@ import {
   type Ref,
   type RepoHandle,
   type RepoState,
+  readDiff,
   readGraph,
   readRefs,
   readStatus,
@@ -193,6 +194,24 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
       const refs = await readRefs(repo);
       emit(io, opts.json === true, 'refs', { root: repo.root, refs }, (data) =>
         describeRefs(data.refs),
+      );
+    });
+
+  program
+    .command('diff')
+    .description('a patch: the changes between a revision and the working tree')
+    .argument('[path]', 'a path inside the repository', '.')
+    .option('--rev <rev>', 'the revision to diff against', 'HEAD')
+    .option('--path <path>', 'only report changes under this path')
+    .option('--json', 'one JSON object on stdout')
+    .action(async (path: string, opts: { rev: string; path?: string; json?: boolean }) => {
+      const repo = await openRepo(path);
+      const files = await readDiff(repo, {
+        rev: opts.rev,
+        ...(opts.path === undefined ? {} : { path: opts.path }),
+      });
+      emit(io, opts.json === true, 'diff', { root: repo.root, rev: opts.rev, files }, (data) =>
+        data.files.map((file) => file.raw).join(''),
       );
     });
 

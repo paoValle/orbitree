@@ -81,6 +81,7 @@ destructive needs a confirmation token, or a --dry-run
 keplerk status [path] --json
 keplerk graph  [path] --json [--limit 200] [--all]
 keplerk refs   [path] --json
+keplerk diff   [path] --json [--rev <rev>] [--path <path>]
 ```
 
 `status` returns the working tree exactly as `readStatus()` does in the app: `head`
@@ -91,6 +92,13 @@ unmodelled `headers`.
 `graph` returns `commits`, `rows` (`hash`, `lane`, `through`, `incoming`, `outgoing`), `edges`
 (`childRow`, `childLane`, `parentRow`, `parentLane`, `parentIndex`), `laneCount` and `refs`. Row
 `0` is the newest commit; the picture is complete without drawing anything.
+
+`diff` returns `files` for the patch against `HEAD` (or `--rev`): each with `path` (unquoted, no
+`a/`/`b/` prefix), `oldPath` when the file was renamed or copied, `status`, `binary`, and `hunks`.
+A hunk carries its `header`, `oldStart`, `newStart`, and `lines` (each a `kind` of `context`,
+`add`, `del` or `note`) with `oldLines`/`newLines` recomputed from them. Every file and hunk
+keeps `raw`, the exact text git printed, so nothing is lost. Without `--json`, the command
+prints that raw patch, which is what a terminal wants.
 
 ## Changing a repository
 

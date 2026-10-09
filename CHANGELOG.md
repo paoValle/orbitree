@@ -6,6 +6,13 @@ Numbers quoted here come from a run of `make prove` on the date named, and from 
 
 Phase P0: the foundation, and nothing above it.
 
+**A patch, as data.** `keplerk diff [path] [--rev <rev>] [--json]` returns the changes as files and
+hunks (`path`, `oldPath`, `status`, `binary`, and per hunk the header, the starts and the lines with
+their kind), each keeping the raw text git printed. Without `--json` it prints the patch, which is
+what a terminal wants. Every path and status is cross-checked against git's own `--name-status`,
+`--numstat` and `--name-only -z` output, on a friendly fixture and on one with filenames that force
+git to quote them.
+
 **Core** (`@keplerk/core`) — no UI, no Electron, no network:
 
 - one typed `GitCommand` union (22 operations) with an exhaustive `riskOf` and a pure `toArgv`;
