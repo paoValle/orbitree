@@ -13,6 +13,7 @@ export * from './git/diff.ts';
 export * from './git/exec.ts';
 export * from './git/log.ts';
 export * from './git/redact.ts';
+export * from './git/stash.ts';
 export * from './git/status.ts';
 export * from './graph/layout.ts';
 export * from './repo.ts';

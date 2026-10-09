@@ -33,6 +33,7 @@ import {
   readDiff,
   readGraph,
   readRefs,
+  readStash,
   readStatus,
   riskOf,
   SCHEMA_VERSION,
@@ -290,6 +291,19 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
         },
         (output) =>
           `${describeCommit(output.commit)}\n${output.files.map((file) => file.raw).join('')}`,
+      );
+    });
+
+  program
+    .command('stash')
+    .description('the stashes this repository holds, newest first (read-only)')
+    .argument('[path]', 'a path inside the repository', '.')
+    .option('--json', 'one JSON object on stdout')
+    .action(async (path: string, opts: { json?: boolean }) => {
+      const repo = await openRepo(path);
+      const stashes = await readStash(repo);
+      return emit(io, opts.json === true, 'stash', { root: repo.root, stashes }, (data) =>
+        data.stashes.map((entry) => `${entry.selector}  ${entry.subject}`).join('\n'),
       );
     });
 

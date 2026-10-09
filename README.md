@@ -70,9 +70,9 @@ prints what it found. Nothing in this README is a number somebody remembered.
 ```
 $ make prove
 [prove] git = 2.54.0                            (whatever is installed here)
-[prove] repositories built with the real git binary = 8
+[prove] repositories built with the real git binary = 9
 [prove] of those, with changes to read = 4
-[prove] working-tree entries parsed = 14
+[prove] working-tree entries parsed = 15
 [prove] working-tree entry kinds covered = ordinary, renamed, unmerged, untracked
 [prove] head kinds covered = branch, detached, unborn
 [prove] disagreements with rev-parse/symbolic-ref/ls-files/porcelain-v1 = 0

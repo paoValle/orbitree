@@ -27,6 +27,7 @@ export type GitCommand =
   | { readonly op: 'graph'; readonly limit: number; readonly all?: boolean; readonly rev?: string }
   | { readonly op: 'count'; readonly all?: boolean; readonly rev?: string }
   | { readonly op: 'refs' }
+  | { readonly op: 'stash-list' }
   | {
       readonly op: 'diff';
       readonly rev?: string;
@@ -77,6 +78,7 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'graph':
     case 'count':
     case 'refs':
+    case 'stash-list':
     case 'diff':
     case 'commit-detail':
     case 'commit-patch':
@@ -181,6 +183,11 @@ export function toArgv(cmd: GitCommand): string[] {
 
     case 'refs':
       return ['for-each-ref', `--format=${REF_FORMAT}`];
+
+    // `%gd` is the selector a caller can hand back to git (`stash apply stash@{0}`), so it is
+    // what the list is keyed on; `%s` is free-form and therefore has to be the last field.
+    case 'stash-list':
+      return ['stash', 'list', `--format=${STASH_FORMAT}`];
 
     // Three different questions share one git subcommand, and the argv has to be able to ask
     // all three. `--cached <rev>` is the index against a commit; `<rev>` is the working tree
@@ -317,6 +324,13 @@ export const LOG_FORMAT = `%H${FIELD_SEP}%P${FIELD_SEP}%an${FIELD_SEP}%ae${FIELD
 export const DETAIL_SEP = '\u001d';
 export const DETAIL_FORMAT = `%H${FIELD_SEP}%P${FIELD_SEP}%an${FIELD_SEP}%ae${FIELD_SEP}%at${FIELD_SEP}%ct${FIELD_SEP}%s${DETAIL_SEP}%b`;
 export const REF_FORMAT = `%(refname)${FIELD_SEP}%(objectname)${FIELD_SEP}%(objecttype)${FIELD_SEP}%(HEAD)${FIELD_SEP}%(upstream)${FIELD_SEP}%(symref)`;
+
+/**
+ * The stash list: a selector, the stash commit, its timestamp and its free-form subject.
+ * The subject is last, so a separator inside it is read as part of the subject rather than
+ * as the start of a field.
+ */
+export const STASH_FORMAT = `%gd${FIELD_SEP}%H${FIELD_SEP}%ct${FIELD_SEP}%s`;
 
 export class InvalidArgumentError extends Error {
   override readonly name = 'InvalidArgumentError';

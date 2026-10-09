@@ -7,6 +7,7 @@ import {
   readDiff,
   readGraph,
   readRefs,
+  readStash,
   readStatus,
   riskOf,
 } from '@orbitree/core';
@@ -17,6 +18,7 @@ import {
   diffRequestSchema,
   type Result,
   runRequestSchema,
+  stashRequestSchema,
   statusPathSchema,
   statusPayloadSchema,
 } from '../shared/api.ts';
@@ -92,6 +94,14 @@ function registerHandlers(): void {
       const parsed = commitReadRequestSchema.parse(request);
       const repo = await openRepo(parsed.path);
       return readCommit(repo, { rev: parsed.rev });
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.stash, (_event, path: unknown) =>
+    attempt(async () => {
+      // A string arrives, like on every other channel; the schema is for the value inside it.
+      const repo = await openRepo(stashRequestSchema.parse({ path: String(path) }).path);
+      return { root: repo.root, stashes: await readStash(repo) };
     }),
   );
 

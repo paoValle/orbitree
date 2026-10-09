@@ -615,3 +615,11 @@ code {
   justify-content: flex-end;
   gap: 8px;
 }
+
+.fsubmodule {
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 10px;
+}

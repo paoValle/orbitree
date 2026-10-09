@@ -40,12 +40,26 @@ export function fileStatus(code: string): FileStatus {
   return BY_CODE[code] ?? 'unknown';
 }
 
+/**
+ * The submodule field of a porcelain v2 entry: the third field of an ordinary, renamed or
+ * unmerged record. `N...` means an ordinary file; `S<c><m><u>` means a submodule whose own
+ * commit is conflicted (`c`), modified (`m`) or has untracked content (`u`).
+ *
+ * Recognised by the `S`, not by the three characters after it: those are git's to define, and
+ * a state this version does not know yet has to arrive as data rather than as `null`.
+ */
+function submoduleState(field: string): string | null {
+  return field.startsWith('S') ? field : null;
+}
+
 /** A record whose XY pair means "this path is in a conflicted merge". */
 export interface UnmergedEntry {
   readonly kind: 'unmerged';
   readonly path: string;
   readonly index: FileStatus;
   readonly worktree: FileStatus;
+  /** The submodule state git printed (`S<c><m><u>`), or `null` for a normal file. */
+  readonly submodule: string | null;
   readonly raw: string;
 }
 
@@ -56,18 +70,24 @@ export interface ChangedEntry {
   readonly worktree: FileStatus;
   /** Only for `renamed`/`copied`: where the file came from. */
   readonly origPath?: string;
+  /** The submodule state git printed (`S<c><m><u>`), or `null` for a normal file. */
+  readonly submodule: string | null;
   readonly raw: string;
 }
 
 export interface UntrackedEntry {
   readonly kind: 'untracked';
   readonly path: string;
+  /** Always `null`: an untracked record carries no submodule field at all. */
+  readonly submodule: string | null;
   readonly raw: string;
 }
 
 export interface IgnoredEntry {
   readonly kind: 'ignored';
   readonly path: string;
+  /** Always `null`: an ignored record carries no submodule field at all. */
+  readonly submodule: string | null;
   readonly raw: string;
 }
 
@@ -190,11 +210,11 @@ export function parseStatus(stdout: string): ParseResult<RepoState> {
     if (kind === undefined) return { ok: false, error: 'empty record', record };
 
     if (kind === '?') {
-      entries.push({ kind: 'untracked', path: record.slice(2), raw: record });
+      entries.push({ kind: 'untracked', path: record.slice(2), submodule: null, raw: record });
       continue;
     }
     if (kind === '!') {
-      entries.push({ kind: 'ignored', path: record.slice(2), raw: record });
+      entries.push({ kind: 'ignored', path: record.slice(2), submodule: null, raw: record });
       continue;
     }
 
@@ -203,6 +223,9 @@ export function parseStatus(stdout: string): ParseResult<RepoState> {
     if (xy === undefined || xy.length !== 2) {
       return { ok: false, error: 'missing XY status pair', record };
     }
+    // The submodule field is third, whatever the record type is. It is the one field a
+    // parser that only looks at the path can lose, so it is read before the switch.
+    const submodule = submoduleState(parts[2] ?? '');
     const index = fileStatus(xy[0] as string);
     const worktree = fileStatus(xy[1] as string);
 
@@ -210,7 +233,7 @@ export function parseStatus(stdout: string): ParseResult<RepoState> {
       case '1': {
         const path = pathFrom(parts, 8);
         if (path === null) return { ok: false, error: 'ordinary entry has no path', record };
-        entries.push({ kind: 'ordinary', path, index, worktree, raw: record });
+        entries.push({ kind: 'ordinary', path, index, worktree, submodule, raw: record });
         break;
       }
       case '2': {
@@ -222,13 +245,13 @@ export function parseStatus(stdout: string): ParseResult<RepoState> {
           return { ok: false, error: 'rename entry has no original path', record };
         }
         i += 1;
-        entries.push({ kind: 'renamed', path, origPath, index, worktree, raw: record });
+        entries.push({ kind: 'renamed', path, origPath, index, worktree, submodule, raw: record });
         break;
       }
       case 'u': {
         const path = pathFrom(parts, 10);
         if (path === null) return { ok: false, error: 'unmerged entry has no path', record };
-        entries.push({ kind: 'unmerged', path, index, worktree, raw: record });
+        entries.push({ kind: 'unmerged', path, index, worktree, submodule, raw: record });
         break;
       }
       default:

@@ -75,6 +75,7 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
   z.object({ op: literal('checkout'), ref: z.string(), detach: z.exactOptional(z.boolean()) }),
   z.object({ op: literal('tag-create'), name: z.string(), rev: z.string() }),
   z.object({ op: literal('merge'), ref: z.string() }),
+  z.object({ op: literal('stash-list') }),
   z.object({ op: literal('stash-push'), message: z.exactOptional(z.string()) }),
   z.object({ op: literal('stash-pop') }),
   z.object({ op: literal('branch-delete'), name: z.string(), force: z.exactOptional(z.boolean()) }),
@@ -138,6 +139,7 @@ const ORDINARY_FIELDS = {
   path: z.string(),
   index: fileStatusSchema,
   worktree: fileStatusSchema,
+  submodule: z.nullable(z.string()),
   raw: z.string(),
 } as const;
 
@@ -168,8 +170,18 @@ export const repoStateSchema = z.object({
         origPath: z.exactOptional(z.string()),
       }),
       z.object({ kind: literal('unmerged'), ...ORDINARY_FIELDS }),
-      z.object({ kind: literal('untracked'), path: z.string(), raw: z.string() }),
-      z.object({ kind: literal('ignored'), path: z.string(), raw: z.string() }),
+      z.object({
+        kind: literal('untracked'),
+        path: z.string(),
+        submodule: z.null(),
+        raw: z.string(),
+      }),
+      z.object({
+        kind: literal('ignored'),
+        path: z.string(),
+        submodule: z.null(),
+        raw: z.string(),
+      }),
     ]),
   ),
   headers: z.record(z.string(), z.string()),
@@ -197,6 +209,32 @@ export const statusPayloadSchema = z.object({
   root: z.string().min(1),
   state: repoStateSchema,
 });
+
+export const stashRequestSchema = z.object({ path: z.string().min(1) });
+
+export const stashPayloadSchema = z.object({
+  root: z.string().min(1),
+  stashes: z.array(
+    z.object({
+      selector: z.string(),
+      oid: z.string(),
+      committedAt: z.number(),
+      subject: z.string(),
+      raw: z.string(),
+    }),
+  ),
+});
+
+export interface StashPayload {
+  readonly root: string;
+  readonly stashes: readonly {
+    readonly selector: string;
+    readonly oid: string;
+    readonly committedAt: number;
+    readonly subject: string;
+    readonly raw: string;
+  }[];
+}
 
 export interface GraphPayload {
   readonly root: string;
@@ -263,6 +301,7 @@ export interface OrbitreeApi {
     request: { rev?: string; cached?: boolean },
   ) => Promise<Result<DiffPayload>>;
   readonly readCommit: (path: string, rev: string) => Promise<Result<CommitData>>;
+  readonly readStash: (path: string) => Promise<Result<StashPayload>>;
   readonly run: (request: RunRequest) => Promise<Result<RunPayload>>;
   readonly pickDirectory: () => Promise<string | null>;
 }

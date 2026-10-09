@@ -5,6 +5,7 @@ import {
   type QuickCommand,
   type RepoState,
   type RunPayload,
+  type StashPayload,
 } from '../shared/api.ts';
 import { CommitPanel } from './CommitPanel.tsx';
 import { GraphPane } from './GraphPane.tsx';
@@ -28,6 +29,7 @@ export function App(): React.ReactElement {
   const [root, setRoot] = useState<string | null>(null);
   const [graph, setGraph] = useState<GraphData | null>(null);
   const [status, setStatus] = useState<RepoState | null>(null);
+  const [stashes, setStashes] = useState<readonly StashPayload['stashes'][number][]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   // `*` reads every ref; anything else names the history to read instead.
   const [filter, setFilter] = useState('*');
@@ -64,6 +66,10 @@ export function App(): React.ReactElement {
       setStatus(state);
       setRoot(statusResult.value.root);
       setPath(statusResult.value.root);
+      // The stash is a list, not a state: a repository with none answers empty, so it is read
+      // in the same pass and never turns into an error.
+      const stashResult = await window.orbitree.readStash(target);
+      setStashes(stashResult.ok ? stashResult.value.stashes : []);
       // An unborn head cannot be logged: `git log` exits 128 on a branch with no commits, so
       // the graph is not read at all rather than read and failed.
       if (state.head.kind === 'unborn') {
@@ -285,6 +291,31 @@ export function App(): React.ReactElement {
               })
             }
           />
+
+          <div className="card">
+            <h2>Stashes</h2>
+            {stashes.length === 0 ? (
+              <p className="empty">no stash in this repository</p>
+            ) : (
+              <ul className="stash-list" data-testid="stash-list">
+                {stashes.map((entry) => (
+                  <li
+                    key={entry.selector}
+                    className="stash-entry"
+                    data-testid="stash-entry"
+                    data-selector={entry.selector}
+                  >
+                    <span className="selector">{entry.selector}</span>
+                    <span className="subject">{entry.subject}</span>
+                    <span className="stash-date">
+                      {new Date(entry.committedAt * 1000).toISOString().slice(0, 16)} UTC
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="empty">read-only: applying or dropping a stash is a P2 action</p>
+          </div>
 
           <div className="card">
             <h2>Activity</h2>

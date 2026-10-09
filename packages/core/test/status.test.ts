@@ -14,6 +14,29 @@ afterAll(async () => {
   await set.cleanup();
 });
 
+describe('the submodule field git prints', () => {
+  it('[I5] a submodule is reported with the state git printed, and a file with none', () => {
+    // `S<c><m><u>`: the child is conflicted, its commit is no longer the recorded one, and it
+    // has nothing untracked. `git status --porcelain=v2` prints this third field for every
+    // ordinary record, and a parser that only reads the path loses it.
+    const flagged = parseStatus(
+      `1 .M SC.. 160000 160000 160000 ${'a'.repeat(40)} ${'b'.repeat(40)} child\u0000`,
+    );
+    expect(flagged.ok, 'an S record must parse').toBe(true);
+    if (!flagged.ok) return;
+    expect(flagged.value.entries[0]?.submodule).toBe('SC..');
+    expect(flagged.value.entries[0]?.path).toBe('child');
+
+    // `N...` is an ordinary file. The three characters after an `S` are git's to define, so an
+    // unknown one arrives as data rather than as null.
+    const plain = parseStatus(
+      `1 .M N... 100644 100644 100644 ${'c'.repeat(40)} ${'d'.repeat(40)} f.txt\u0000`,
+    );
+    expect(plain.ok).toBe(true);
+    if (plain.ok) expect(plain.value.entries[0]?.submodule).toBeNull();
+  });
+});
+
 describe('a real repository, read two ways', () => {
   it('[I5] the parser agrees with git on every fixture', async () => {
     const report: string[] = [];

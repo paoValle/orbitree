@@ -11,6 +11,7 @@ import {
   parseRefs,
   type Ref,
 } from './git/log.ts';
+import { parseStashList, type StashEntry } from './git/stash.ts';
 import {
   PENDING_ORDER,
   type PendingOperation,
@@ -121,6 +122,22 @@ export async function readRefs(
   const { stdout } = await executeOrThrow({ op: 'refs' }, { cwd: repo.root, ...options });
   const parsed = parseRefs(stdout);
   if (!parsed.ok) throw new RepositoryParseError('the refs', parsed.error, parsed.record);
+  return parsed.value;
+}
+
+/**
+ * The stashes this repository holds, newest first.
+ *
+ * An empty list is the answer for a repository with nothing stashed, exactly as it is for a
+ * repository with no commits yet: `git stash list` reads a log that is not there yet.
+ */
+export async function readStash(
+  repo: RepoHandle,
+  options: Partial<ExecuteOptions> = {},
+): Promise<readonly StashEntry[]> {
+  const { stdout } = await executeOrThrow({ op: 'stash-list' }, { cwd: repo.root, ...options });
+  const parsed = parseStashList(stdout);
+  if (!parsed.ok) throw new RepositoryParseError('the stash list', parsed.error, parsed.record);
   return parsed.value;
 }
 

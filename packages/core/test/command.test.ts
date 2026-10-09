@@ -25,6 +25,7 @@ const EXAMPLE: Record<GitOp, GitCommand> = {
   graph: { op: 'graph', limit: 10 },
   count: { op: 'count' },
   refs: { op: 'refs' },
+  'stash-list': { op: 'stash-list' },
   diff: { op: 'diff', rev: 'HEAD' },
   'commit-detail': { op: 'commit-detail', rev: 'HEAD' },
   'commit-patch': { op: 'commit-patch', rev: 'HEAD' },

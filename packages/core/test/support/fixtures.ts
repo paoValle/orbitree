@@ -198,6 +198,38 @@ export async function makeFixtures(): Promise<FixtureSet> {
   await git(other, 'push', '--quiet', 'origin', 'main');
   await git(upstream, 'fetch', '--quiet', 'origin');
 
+  // --- 9. a real submodule, and one stash with a message of its own ---
+  const nested = await create('nested');
+  // The child is a repository the fixture itself creates and commits. It lives beside the
+  // fixture root rather than inside it, because `git submodule add` refuses a path that
+  // already exists, and because `submodule add` clones whatever it is given: what the parent
+  // then holds is that clone, not this repository.
+  const child = join(base, 'child');
+  await mkdir(child, { recursive: true });
+  await git(child, 'init', '--quiet', '-b', 'main');
+  await git(child, 'config', 'user.name', 'Fixture Author');
+  await git(child, 'config', 'user.email', 'fixture@example.invalid');
+  await git(child, 'config', 'commit.gpgsign', 'false');
+  await write(child, 'child.txt', 'one\n');
+  await commit(child, 'the child starts');
+  await write(nested, 'README.md', '# fixture\n');
+  await commit(nested, 'the parent starts');
+  // A relative path to a repository on this disk: since git closed CVE-2022-39253 a local
+  // `file` transport needs this, which is why the fixture passes it explicitly.
+  await git(nested, '-c', 'protocol.file.allow=always', 'submodule', 'add', './../child', 'child');
+  await commit(nested, 'add the child as a submodule');
+  // A stash with a message of its own, so the subject is not the `WIP on …` shape git invents
+  // when none is given. `--include-untracked` gives the stash a third parent, which no other
+  // fixture has.
+  await write(nested, 'README.md', '# changed for the stash\n');
+  await write(nested, 'stashed-untracked.txt', 'never committed\n');
+  await git(nested, 'stash', 'push', '--include-untracked', '-m', 'work that was set aside');
+  // The clone's own commit moves on, so git reports the entry as a submodule whose commit is
+  // no longer the one the parent recorded — the state that separates it from a plain file.
+  const submodule = join(nested, 'child');
+  await write(submodule, 'child.txt', 'one\ntwo\n');
+  await commit(submodule, 'the child carries on');
+
   const version = await git(base, '--version');
 
   return {

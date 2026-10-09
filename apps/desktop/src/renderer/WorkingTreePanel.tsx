@@ -142,12 +142,23 @@ export function WorkingTreePanel({
                           data-testid="entry-item"
                           data-path={entry.path}
                           data-kind={kind}
+                          data-submodule={entry.submodule ?? undefined}
                           className={active ? 'entry-item selected' : 'entry-item'}
                           onClick={() => setSelected({ section: spec.section, path: entry.path })}
                         >
                           <span className="entry-kind" data-testid="entry-kind" aria-hidden="true">
                             {kindGlyph(kind)}
                           </span>
+                          {entry.submodule === null ? null : (
+                            <span
+                              className="fsubmodule"
+                              data-testid="entry-submodule"
+                              data-state={entry.submodule}
+                              title={`submodule: ${entry.submodule}`}
+                            >
+                              ⧉
+                            </span>
+                          )}
                           <span className="ename">{entry.path}</span>
                           <span className="status-code">{entryCode(entry)}</span>
                         </button>
