@@ -82,6 +82,7 @@ keplerk status [path] --json
 keplerk graph  [path] --json [--limit 200] [--all]
 keplerk refs   [path] --json
 keplerk diff   [path] --json [--rev <rev>] [--path <path>]
+keplerk show   [path] --json [--rev <rev>]
 ```
 
 `status` returns the working tree exactly as `readStatus()` does in the app: `head`
@@ -99,6 +100,13 @@ A hunk carries its `header`, `oldStart`, `newStart`, and `lines` (each a `kind` 
 `add`, `del` or `note`) with `oldLines`/`newLines` recomputed from them. Every file and hunk
 keeps `raw`, the exact text git printed, so nothing is lost. Without `--json`, the command
 prints that raw patch, which is what a terminal wants.
+
+`show` returns one commit as data: `commit` (the same fields `graph` gives, plus the message
+`body`), `files` (the patch, exactly the shape `diff` returns), and `against` — `root`,
+`parent` or `first-parent`, derived from how many parents the commit has rather than from the
+caller's guess. A merge is shown as one diff against its **first parent**, never as an empty
+patch and never as one diff per parent. Without `--json`, the command prints the metadata
+(hash, author, date, subject, body) followed by the raw patch.
 
 ## Changing a repository
 

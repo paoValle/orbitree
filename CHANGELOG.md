@@ -13,6 +13,16 @@ what a terminal wants. Every path and status is cross-checked against git's own 
 `--numstat` and `--name-only -z` output, on a friendly fixture and on one with filenames that force
 git to quote them.
 
+**A commit, as data.** `keplerk show [path] [--rev <rev>] [--json]` answers "what did this commit
+change": the commit metadata (hash, parents, author, authored and committed time, subject and
+message body) plus the patch, in exactly the shape `diff` returns. A merge is shown as one diff
+against its first parent — plain `git show` prints nothing for a merge, and `-m` alone prints one
+diff per parent, so the command picks the honest answer — and `against` (`root`, `parent` or
+`first-parent`) is derived from the commit's own parent count so the UI can label the patch
+truthfully. Every field is compared against `git log -1 --format=%H/%P/%an/%ae/%at/%ct/%B` and every
+file and line count against `git show --name-status`/`--numstat`, on a merge, an ordinary commit
+and a root commit.
+
 **Core** (`@keplerk/core`) — no UI, no Electron, no network:
 
 - one typed `GitCommand` union (22 operations) with an exhaustive `riskOf` and a pure `toArgv`;

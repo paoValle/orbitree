@@ -32,6 +32,7 @@ make verify           # format, lint, types, invariants, tests
 ./bin/keplerk status .            # the working tree
 ./bin/keplerk graph . --limit 20  # the graph, as text
 ./bin/keplerk graph . --json      # the graph, as data
+./bin/keplerk show . --json       # one commit: metadata and its patch
 
 make desktop          # the Electron app
 ```
@@ -49,6 +50,7 @@ made.
 | `keplerk graph [path] --json` | commits, rows with lanes, edges, and the refs on each commit |
 | `keplerk refs [path] --json` | branches, tags and remote refs |
 | `keplerk diff [path] --json [--rev <rev>] [--path <path>]` | the patch against `HEAD` (or `--rev`), as files and hunks; without `--json`, the raw patch |
+| `keplerk show [path] --json [--rev <rev>]` | one commit: its metadata and the patch it introduced, with `against` saying what the patch is measured against |
 | `keplerk ops --json` | every operation, its risk level, and the argv it produces |
 | `keplerk run --op <op> [--dry-run] [--confirm <reason>]` | the guarded way to change a repository |
 | `keplerk doctor --json` | platform, node, git version, repository root |

@@ -13,6 +13,7 @@
  */
 import {
   APP_NAME,
+  type CommitDetail,
   ConfirmationRequiredError,
   execute,
   type GitCommand,
@@ -28,6 +29,7 @@ import {
   type Ref,
   type RepoHandle,
   type RepoState,
+  readCommit,
   readDiff,
   readGraph,
   readRefs,
@@ -216,6 +218,31 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
     });
 
   program
+    .command('show')
+    .description('one commit: its metadata and the patch it introduced')
+    .argument('[path]', 'a path inside the repository', '.')
+    .option('--rev <rev>', 'the commit to show', 'HEAD')
+    .option('--json', 'one JSON object on stdout')
+    .action(async (path: string, opts: { rev: string; json?: boolean }) => {
+      const repo = await openRepo(path);
+      const data = await readCommit(repo, { rev: opts.rev });
+      emit(
+        io,
+        opts.json === true,
+        'show',
+        {
+          root: repo.root,
+          rev: opts.rev,
+          against: data.against,
+          commit: data.commit,
+          files: data.files,
+        },
+        (output) =>
+          `${describeCommit(output.commit)}\n${output.files.map((file) => file.raw).join('')}`,
+      );
+    });
+
+  program
     .command('ops')
     .description('the guarded operations, with their risk level and the argv they produce')
     .option('--json', 'one JSON object on stdout')
@@ -363,6 +390,8 @@ export const OP_EXAMPLES: readonly GitCommand[] = [
   { op: 'graph', limit: 50 },
   { op: 'refs' },
   { op: 'diff', rev: 'HEAD' },
+  { op: 'commit-detail', rev: 'HEAD' },
+  { op: 'commit-patch', rev: 'HEAD' },
   { op: 'add', paths: ['file.txt'] },
   { op: 'unstage', paths: ['file.txt'] },
   { op: 'commit', message: 'a message' },
@@ -436,6 +465,10 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
       return { op: 'stash-pop' };
     case 'diff':
       return { op: 'diff', rev: args[0] ?? 'HEAD' };
+    case 'commit-detail':
+      return { op: 'commit-detail', rev: args[0] ?? 'HEAD' };
+    case 'commit-patch':
+      return { op: 'commit-patch', rev: args[0] ?? 'HEAD' };
     case 'tag-create':
       return args[0] === undefined
         ? (() => {
@@ -471,6 +504,21 @@ function describeStatus(root: string, state: RepoState): string {
     else lines.push(`  ${entry.index}${entry.worktree}       ${entry.path}`);
   }
   if (state.entries.length === 0) lines.push('  (clean)');
+  return lines.join('\n');
+}
+
+function describeCommit(commit: CommitDetail): string {
+  const lines = [
+    commit.hash,
+    `Author: ${commit.author.name} <${commit.author.email}>`,
+    `Date:   ${new Date(commit.authoredAt * 1000).toISOString()}`,
+    '',
+    `    ${commit.subject}`,
+  ];
+  if (commit.body !== '') {
+    lines.push('');
+    for (const line of commit.body.split('\n')) lines.push(`    ${line}`);
+  }
   return lines.join('\n');
 }
 
