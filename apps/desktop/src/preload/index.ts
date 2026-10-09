@@ -16,6 +16,11 @@ const api: OrbitreeApi = {
   readCommit: (path, rev) => ipcRenderer.invoke(CHANNELS.commitRead, { path, rev }),
   run: (request: RunRequest) => ipcRenderer.invoke(CHANNELS.run, request),
   pickDirectory: () => ipcRenderer.invoke(CHANNELS.pickDirectory),
+  togglePopup: () => ipcRenderer.invoke(CHANNELS.togglePopup),
+  // The main process says when the quick window appears, because the repository it is about
+  // is whatever the main window last opened, and that can change while it is hidden.
+  onShown: (callback) => ipcRenderer.on(CHANNELS.popupShown, () => callback()),
+  showWindow: () => ipcRenderer.invoke(CHANNELS.showWindow),
   readState: () => ipcRenderer.invoke(CHANNELS.stateRead),
   remember: (path) => ipcRenderer.invoke(CHANNELS.stateRemember, { path }),
   setHotkey: (hotkey) => ipcRenderer.invoke(CHANNELS.stateSetHotkey, { hotkey }),

@@ -4,18 +4,13 @@ import {
   type GraphData,
   type QuickCommand,
   type RepoState,
-  type RunPayload,
   type StashPayload,
 } from '../shared/api.ts';
 import { CommitPanel } from './CommitPanel.tsx';
 import { GraphPane } from './GraphPane.tsx';
 import { type ScreenState, StateScreen } from './StateScreen.tsx';
+import { type Pending, summarize } from './shared.ts';
 import { WorkingTreePanel } from './WorkingTreePanel.tsx';
-
-interface Pending {
-  readonly command: QuickCommand;
-  readonly reason: string;
-}
 
 /**
  * One open repository, with everything that belongs to it.
@@ -198,6 +193,8 @@ export function App(): React.ReactElement {
       nextId.current += 1;
       setTabs([EMPTY_TAB(id)]);
       setActiveId(id);
+      // A repository named on the command line is still the repository being opened: what
+      // you launch into is what you are in, so the quick window and the recents see it too.
       void window.orbitree.remember(fromArgv);
       void refresh(fromArgv, id, '*', GRAPH_LIMIT);
       return;
@@ -542,10 +539,4 @@ function nameOf(path: string): string {
   const trimmed = path.replace(/\/+$/, '');
   const slash = trimmed.lastIndexOf('/');
   return slash === -1 ? trimmed : trimmed.slice(slash + 1);
-}
-
-function summarize(result: RunPayload): string {
-  const headline = `git ${result.argv.join(' ')} → ${result.exitCode}`;
-  const detail = (result.stderr || result.stdout).trim().split('\n').slice(0, 2).join(' · ');
-  return detail === '' ? headline : `${headline} — ${detail}`;
 }

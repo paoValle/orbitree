@@ -8,7 +8,7 @@
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "build": "node scripts/make-icon.mjs out/assets/tray.png && electron-vite build",
     "e2e": "playwright test --grep-invert @perf",
     "e2e:perf": "playwright test performance.spec.ts",
     "package": "electron-vite build && electron-builder",

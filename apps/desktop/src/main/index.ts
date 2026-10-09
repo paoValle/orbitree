@@ -11,7 +11,17 @@ import {
   readStatus,
   riskOf,
 } from '@orbitree/core';
-import { app, BrowserWindow, dialog, globalShortcut, ipcMain, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  globalShortcut,
+  ipcMain,
+  Menu,
+  screen,
+  shell,
+  Tray,
+} from 'electron';
 import {
   CHANNELS,
   commitReadRequestSchema,
@@ -27,6 +37,17 @@ import {
 import { readState, writeState } from './state.ts';
 
 const isDev = !app.isPackaged;
+
+/** The tray icon, written by `apps/desktop/scripts/make-icon.mjs` rather than committed. */
+const ICON = join(import.meta.dirname, '..', 'assets', 'tray.png');
+
+/**
+ * Set by the tray's Quit: the only thing that turns a close into a quit. A module-level
+ * flag rather than state on the window, because the window is what it is closing.
+ */
+let reallyQuitting = false;
+
+let popup: BrowserWindow | null = null;
 
 /**
  * Every IPC handler returns a `Result` instead of throwing: an exception across the
@@ -172,6 +193,22 @@ function registerHandlers(): void {
     }),
   );
 
+  // The hotkey and the tray menu both open the quick window; this is the same action, so a
+  // caller that cannot press a global key (the E2E suite, on a runner where the registration
+  // is refused) can still ask for it.
+  ipcMain.handle(CHANNELS.togglePopup, () => attempt(() => togglePopup()));
+
+  ipcMain.handle(CHANNELS.showWindow, () =>
+    attempt(async () => {
+      const window = BrowserWindow.getAllWindows().find((candidate) => candidate !== popup);
+      if (window === undefined) return false;
+      if (window.isMinimized()) window.restore();
+      window.show();
+      window.focus();
+      return true;
+    }),
+  );
+
   ipcMain.handle(CHANNELS.pickDirectory, async () => {
     const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
     return result.canceled ? null : (result.filePaths[0] ?? null);
@@ -195,6 +232,20 @@ function createWindow(): BrowserWindow {
       sandbox: true,
       webviewTag: false,
     },
+  });
+
+  /**
+   * Closing the window is not quitting the app.
+   *
+   * The window hides and the tray icon keeps the app alive, which is the same promise the
+   * dock makes on macOS already. `reallyQuitting` is the one way out: the tray's Quit, and
+   * nothing else, because an app that cannot be closed over a repository it will not let go
+   * of is worse than one that closes.
+   */
+  window.on('close', (event) => {
+    if (reallyQuitting) return;
+    event.preventDefault();
+    window.hide();
   });
 
   window.once('ready-to-show', () => window.show());
@@ -238,11 +289,7 @@ async function registerHotkey(state: { hotkey: string | null }): Promise<void> {
   const accelerator = state.hotkey ?? 'CommandOrControl+Alt+G';
   try {
     globalShortcut.register(accelerator, () => {
-      for (const window of BrowserWindow.getAllWindows()) {
-        if (window.isMinimized()) window.restore();
-        else if (window.isVisible()) window.hide();
-        else window.show();
-      }
+      void togglePopup();
     });
   } catch (error) {
     console.error(
@@ -263,13 +310,137 @@ function repoFromArgv(argv: readonly string[]): string | null {
   return null;
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   registerHandlers();
   createWindow();
+  tryTray();
+  createPopupWindow();
+  // The hotkey is registered from what the person last set, before anything else can ask for
+  // a different one.
+  await registerHotkey(await readState());
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
+
+/**
+ * The tray: where the app lives when its window does not.
+ *
+ * A click restores the window, and the menu offers the one thing a person who hides an app
+ * wants, which is a way to actually quit it. On macOS the app also stays in the dock when
+ * every window is closed, which is the platform's own convention; on the other two the
+ * tray icon is what keeps the process alive.
+ */
+/**
+ * The tray, without letting it take the app down with it.
+ *
+ * An icon that will not load is a missing icon, and the app still has a window, a hotkey
+ * and a popup. Letting the throw out of `whenReady` would leave the whole shell unstarted
+ * for something cosmetic, which is what it did on the first run.
+ */
+function tryTray(): void {
+  try {
+    createTray();
+  } catch (error) {
+    console.error(
+      `orbitree: no tray icon (${error instanceof Error ? error.message : String(error)})`,
+    );
+  }
+}
+
+function createTray(): void {
+  const tray = new Tray(ICON);
+  tray.setToolTip('orbitree');
+
+  const show = (): void => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (window.isMinimized()) window.restore();
+      window.show();
+      window.focus();
+    }
+  };
+
+  tray.on('click', show);
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Show orbitree', click: show },
+      {
+        label: 'Open the quick window',
+        click: () => {
+          void togglePopup();
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Quit',
+        click: () => {
+          reallyQuitting = true;
+          app.quit();
+        },
+      },
+    ]),
+  );
+}
+
+/**
+ * The quick window: a compact panel over the current repository, toggled by the global
+ * hotkey and shown above the main window when it is open.
+ *
+ * It loads the same renderer as the app, with a query parameter that asks for the compact
+ * layout, so there is one implementation of the panes and no second copy of any of it.
+ */
+function createPopupWindow(): void {
+  popup = new BrowserWindow({
+    width: 420,
+    height: 360,
+    show: false,
+    frame: false,
+    alwaysOnTop: true,
+    backgroundColor: '#161a21',
+    skipTaskbar: true,
+    webPreferences: {
+      preload: join(import.meta.dirname, '../preload/index.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webviewTag: false,
+    },
+  });
+
+  const devServer = process.env.ELECTRON_RENDERER_URL;
+  if (isDev && devServer !== undefined) {
+    void popup.loadURL(`${devServer}?popup=1`);
+  } else {
+    void popup.loadFile(join(import.meta.dirname, '..', 'renderer', 'index.html'), {
+      query: { popup: '1' },
+    });
+  }
+
+  // Clicking away is how a quick window closes; keeping focus would trap the person.
+  popup.on('blur', () => popup?.hide());
+}
+
+async function togglePopup(): Promise<void> {
+  if (popup === null || popup.isVisible()) {
+    popup?.hide();
+    return;
+  }
+  const cursor = screen.getCursorScreenPoint();
+  const bounds = popup.getBounds();
+  // Opened beside the cursor rather than wherever it was left: a quick window that appears
+  // under the pointer is one you have to chase.
+  popup.setBounds({
+    x: Math.max(0, cursor.x - bounds.width + 24),
+    y: Math.max(0, cursor.y - bounds.height - 8),
+    width: bounds.width,
+    height: bounds.height,
+  });
+  popup.show();
+  popup.focus();
+  // The panel reads the repository as it appears, rather than as it started: nobody can
+  // promise the main window was quiet while the quick window was hidden.
+  popup.webContents.send(CHANNELS.popupShown);
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

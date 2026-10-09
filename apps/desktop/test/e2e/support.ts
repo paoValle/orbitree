@@ -9,7 +9,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
-import { type ElectronApplication, _electron as electron } from '@playwright/test';
+import { type ElectronApplication, _electron as electron, type Page } from '@playwright/test';
 
 const run = promisify(execFile);
 
@@ -46,8 +46,42 @@ export interface CloseOptions {
   readonly keep?: boolean;
 }
 
+/**
+ * Closes the app the harness launched.
+ *
+ * `app.close()` asks it politely, and since the app closes to the tray rather than quitting
+ * — which is the behaviour under test — the polite ask is not always enough. So there is a
+ * grace period and then a signal. A test suite that leaves a process per spec behind is
+ * worse than one that kills them.
+ */
+/**
+ * The main window, chosen by what it is rather than by which loaded first.
+ *
+ * Both windows exist from startup now — the app creates its quick window as soon as it is
+ * ready — so `firstWindow()` can hand back either, and the quick window has no graph.
+ */
+export async function mainWindow(app: ElectronApplication): Promise<Page> {
+  // Both windows are created at startup, and both sit at `about:blank` until they have
+  // navigated. The quick window is the one that navigates to `?popup=1`, so that is the
+  // discriminator to wait for: until it exists, no page can be told from its neighbour.
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const pages = await app.windows();
+    const popup = pages.find((page) => page.url().includes('popup=1'));
+    if (popup !== undefined) {
+      const main = pages.find((page) => page !== popup);
+      if (main !== undefined) return main;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error('the main window never became distinguishable from the quick window');
+}
+
 export async function closeApp(handle: AppHandle, options: CloseOptions = {}): Promise<void> {
-  await handle.app.close();
+  const child = handle.app.process();
+  handle.app.close().catch(() => undefined);
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  if (child.exitCode === null) child.kill('SIGKILL');
+  await new Promise((resolve) => child.once('exit', resolve));
   // Deleted by default so a run leaves nothing behind, but a test that proves persistence
   // across two launches has to keep the first one's directory.
   if (options.keep !== true) await rm(handle.userDataDir, { recursive: true, force: true });

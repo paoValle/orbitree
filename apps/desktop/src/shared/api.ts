@@ -323,6 +323,9 @@ export interface OrbitreeApi {
   readonly readStash: (path: string) => Promise<Result<StashPayload>>;
   readonly run: (request: RunRequest) => Promise<Result<RunPayload>>;
   readonly pickDirectory: () => Promise<string | null>;
+  readonly togglePopup: () => Promise<Result<boolean>>;
+  readonly onShown: (callback: () => void) => void;
+  readonly showWindow: () => Promise<Result<boolean>>;
   readonly readState: () => Promise<Result<PersistedState>>;
   readonly remember: (path: string) => Promise<Result<PersistedState>>;
   readonly setHotkey: (hotkey: string) => Promise<Result<PersistedState>>;

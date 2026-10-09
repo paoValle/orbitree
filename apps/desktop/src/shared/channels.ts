@@ -18,4 +18,7 @@ export const CHANNELS = {
   stateRead: 'app:state-read',
   stateRemember: 'app:state-remember',
   stateSetHotkey: 'app:state-set-hotkey',
+  togglePopup: 'app:toggle-popup',
+  showWindow: 'app:show-window',
+  popupShown: 'popup:shown',
 } as const;

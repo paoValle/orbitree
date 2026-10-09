@@ -704,3 +704,71 @@ code {
   align-items: center;
   margin-top: 20vh;
 }
+
+.popup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100vh;
+  padding: 12px;
+}
+
+.popup-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.popup-head .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.popup-branch {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.popup-commands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.popup-summary {
+  margin: 0;
+  color: var(--text-dim);
+}
+
+.popup-log {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+}
+
+.popup-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.muted {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
