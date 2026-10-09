@@ -236,6 +236,25 @@ export interface StashPayload {
   }[];
 }
 
+/**
+ * What the app remembers between runs. Three fields, all of them decisions a person made by
+ * opening something or setting a hotkey; nothing is stored that they did not do.
+ */
+export interface PersistedState {
+  readonly recents: readonly string[];
+  readonly last: string | null;
+  readonly hotkey: string | null;
+}
+
+export const persistedStateSchema = z.object({
+  recents: z.array(z.string()),
+  last: z.string().nullable(),
+  hotkey: z.string().nullable(),
+});
+
+export const rememberRequestSchema = z.object({ path: z.string().min(1) });
+export const setHotkeyRequestSchema = z.object({ hotkey: z.string().min(1) });
+
 export interface GraphPayload {
   readonly root: string;
   readonly data: GraphData;
@@ -304,6 +323,9 @@ export interface OrbitreeApi {
   readonly readStash: (path: string) => Promise<Result<StashPayload>>;
   readonly run: (request: RunRequest) => Promise<Result<RunPayload>>;
   readonly pickDirectory: () => Promise<string | null>;
+  readonly readState: () => Promise<Result<PersistedState>>;
+  readonly remember: (path: string) => Promise<Result<PersistedState>>;
+  readonly setHotkey: (hotkey: string) => Promise<Result<PersistedState>>;
 }
 
 /** A button in the Quick Commands bar. Data, not code, so a user can edit the list. */

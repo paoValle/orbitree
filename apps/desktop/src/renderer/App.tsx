@@ -66,6 +66,9 @@ export function App(): React.ReactElement {
       setStatus(state);
       setRoot(statusResult.value.root);
       setPath(statusResult.value.root);
+      // Every successful open is a recent, and the last one that worked is the one to reopen.
+      // One call: two writers on the same file overwrite each other.
+      void window.orbitree.remember(target);
       // The stash is a list, not a state: a repository with none answers empty, so it is read
       // in the same pass and never turns into an error.
       const stashResult = await window.orbitree.readStash(target);
@@ -96,8 +99,18 @@ export function App(): React.ReactElement {
   );
 
   useEffect(() => {
-    const initial = new URLSearchParams(window.location.search).get('repo');
-    if (initial !== null) void refresh(initial, '*', GRAPH_LIMIT);
+    // A repository on the command line wins: that is how the E2E suite points at one, and how
+    // a launch from a file manager would arrive. Everything else, the last repository the
+    // person opened, is read from what the app remembered.
+    const fromArgv = new URLSearchParams(window.location.search).get('repo');
+    if (fromArgv !== null) {
+      void refresh(fromArgv, '*', GRAPH_LIMIT);
+      return;
+    }
+    void (async () => {
+      const state = await window.orbitree.readState();
+      if (state.ok && state.value.last !== null) void refresh(state.value.last, '*', GRAPH_LIMIT);
+    })();
   }, [refresh]);
 
   const pick = async (): Promise<void> => {

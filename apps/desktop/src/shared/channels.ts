@@ -15,4 +15,7 @@ export const CHANNELS = {
   run: 'repo:run',
   commitRead: 'commit:read',
   pickDirectory: 'app:pick-directory',
+  stateRead: 'app:state-read',
+  stateRemember: 'app:state-remember',
+  stateSetHotkey: 'app:state-set-hotkey',
 } as const;

@@ -16,6 +16,9 @@ const api: OrbitreeApi = {
   readCommit: (path, rev) => ipcRenderer.invoke(CHANNELS.commitRead, { path, rev }),
   run: (request: RunRequest) => ipcRenderer.invoke(CHANNELS.run, request),
   pickDirectory: () => ipcRenderer.invoke(CHANNELS.pickDirectory),
+  readState: () => ipcRenderer.invoke(CHANNELS.stateRead),
+  remember: (path) => ipcRenderer.invoke(CHANNELS.stateRemember, { path }),
+  setHotkey: (hotkey) => ipcRenderer.invoke(CHANNELS.stateSetHotkey, { hotkey }),
 };
 
 contextBridge.exposeInMainWorld('orbitree', api);

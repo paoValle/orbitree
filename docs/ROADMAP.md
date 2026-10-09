@@ -33,6 +33,11 @@ The repository, the process, and the one vertical slice that proves the architec
 Make the repository legible. No mutation beyond staging yet.
 
 - [ ] Repository list and recents, one window per repository, restoring the last selection.
+- [ ] Tabs over the graph pane: several repositories open at once, each with its own filter,
+      selection and window, switchable in one click, and a recents list a new tab opens from.
+- [ ] Closing the window hides the app to a system tray icon on Windows and macOS instead of
+      quitting, and a configurable global hotkey opens a compact popup window with the
+      repository's quick state. The setting is persisted and the app forgets it if unset.
 - [ ] Load more history. The window says `300 of 2054` and there is no way to ask for the other 1754.
       The count that made the truncation visible is also the argument for a way to extend it.
 - [x] The graph pane as its own component: virtualised rows, keyboard navigation, lane colours
