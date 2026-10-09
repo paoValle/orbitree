@@ -10,8 +10,8 @@
       "!**/out",
       "!**/coverage",
       "!**/*.generated.*",
-      "!**/.pi/**",
-      "!**/.stryker-tmp/**"
+      "!**/.pi",
+      "!**/.stryker-tmp"
     ]
   },
   "formatter": {
