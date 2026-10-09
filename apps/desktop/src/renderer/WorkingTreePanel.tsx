@@ -82,9 +82,19 @@ export function WorkingTreePanel({
     if (section === 'untracked') return;
     let cancelled = false;
     // Staged is the index against HEAD; everything else is the working tree against the
-    // index, which is the revision-less form. A conflicted file is read the same way so the
-    // conflict markers are visible in the text.
-    const request = section === 'staged' ? { cached: true } : {};
+    // index, which is the revision-less form. A conflicted file is the exception and is read
+    // against HEAD too: git answers an unmerged path with a *combined* diff, which the patch
+    // parser refuses outright, and against HEAD it is the plain two-tree diff whose `+` lines
+    // are the conflict markers the reader came to see.
+    const request =
+      section === 'staged'
+        ? { cached: true }
+        : // An unmerged path is the one exception: git answers it with a *combined* diff, which
+          // the patch parser refuses outright. Against HEAD it is the plain two-tree diff whose
+          // `+` lines are the conflict markers the reader came to see.
+          section === 'conflicted'
+          ? { rev: 'HEAD' }
+          : {};
     const requestKey = `${section}:${path}`;
     void window.orbitree.diff(root, request).then((result) => {
       if (cancelled) return;

@@ -87,8 +87,13 @@ orbitree show   [path] --json [--rev <rev>]
 
 `status` returns the working tree exactly as `readStatus()` does in the app: `head`
 (`branch` / `detached` / `unborn`, with `ahead`/`behind` when tracking), `entries` (each with
-`kind`, `index`, `worktree`, `path`, and the raw porcelain record it came from), and the
-unmodelled `headers`.
+`kind`, `index`, `worktree`, `path`, and the raw porcelain record it came from), the
+unmodelled `headers`, and `pending` — the operation the repository stopped in the middle of,
+one of `merge`, `cherry-pick`, `rebase`, or `null` when nothing is under way. `pending` comes from
+three separate `git rev-parse -q --verify` reads (`MERGE_HEAD`, `CHERRY_PICK_HEAD`,
+`REBASE_HEAD`), because a multi-argument `--verify` exits 1 on the first missing name and loses
+the other two answers. An empty, unborn or detached repository is not an error: `head` says so,
+and `orbitree graph` on an unborn one exits 4 because there is no history to read.
 
 `graph` returns `commits`, `rows` (`hash`, `lane`, `through`, `incoming`, `outgoing`), `edges`
 (`childRow`, `childLane`, `parentRow`, `parentLane`, `parentIndex`), `laneCount`, `total`,
@@ -114,6 +119,9 @@ is `null`, because there is no revision on either side of that comparison.
 
 Whatever the mode, `diff` returns `files`: each with `path` (unquoted, no
 `a/`/`b/` prefix), `oldPath` when the file was renamed or copied, `status`, `binary`, and `hunks`.
+An unmerged path is answered by git with a *combined* diff, which the patch parser refuses
+outright; the app reads a conflicted file against `HEAD` instead, which is the plain two-tree
+diff whose added lines are the conflict markers.
 A hunk carries its `header`, `oldStart`, `newStart`, and `lines` (each a `kind` of `context`,
 `add`, `del` or `note`) with `oldLines`/`newLines` recomputed from them. Every file and hunk
 keeps `raw`, the exact text git printed, so nothing is lost. Without `--json`, the command

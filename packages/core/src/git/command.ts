@@ -10,6 +10,15 @@
 /** How bad a mistake this command can be. `destructive` needs a confirmation token. */
 export type Risk = 'read' | 'local' | 'remote' | 'destructive';
 
+/**
+ * The refs that name an operation git is in the middle of.
+ *
+ * The long form of these three reads belongs to `toArgv` and to nowhere else. Every other
+ * place — `readPendingOperation`, a test, a future front-end — goes through the command
+ * union, because a second copy of `rev-parse -q --verify` is how the two start drifting.
+ */
+export type PendingRef = 'MERGE_HEAD' | 'CHERRY_PICK_HEAD' | 'REBASE_HEAD';
+
 export type GitCommand =
   // --- read: the working tree and the graph, unchanged ---
   | { readonly op: 'version' }
@@ -26,6 +35,8 @@ export type GitCommand =
     }
   | { readonly op: 'commit-detail'; readonly rev: string }
   | { readonly op: 'commit-patch'; readonly rev: string }
+  /** One of the pending-operation refs. See `toArgv` for why it is three commands. */
+  | { readonly op: 'pending-operation'; readonly ref: PendingRef }
   // --- local: changes the repository on this disk ---
   | { readonly op: 'add'; readonly paths: readonly string[] }
   | { readonly op: 'unstage'; readonly paths: readonly string[] }
@@ -69,6 +80,7 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'diff':
     case 'commit-detail':
     case 'commit-patch':
+    case 'pending-operation':
       return 'read';
 
     case 'add':
@@ -208,6 +220,13 @@ export function toArgv(cmd: GitCommand): string[] {
         '--find-renames',
         assertSafeRef(cmd.rev),
       ];
+
+    // Three separate commands, not one `rev-parse --verify MERGE_HEAD CHERRY_PICK_HEAD
+    // REBASE_HEAD`: a multi-argument `--verify` stops at the first name that is missing and
+    // exits 1, so a single call cannot say *which* of the three exist. The caller knows this
+    // because it asks three times, in the order documented in `PENDING_ORDER`.
+    case 'pending-operation':
+      return ['rev-parse', '-q', '--verify', cmd.ref];
 
     case 'add':
       return ['add', '--', ...assertSafePaths(cmd.paths)];

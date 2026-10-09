@@ -66,7 +66,7 @@ describe('the CLI and the app are the same program', () => {
       schemaVersion: number;
       command: string;
       ok: boolean;
-      data: { root: string; entries: unknown[]; head: { kind: string } };
+      data: { root: string; entries: unknown[]; head: { kind: string }; pending: string | null };
     };
     expect(printed.command).toBe('status');
     expect(printed.ok).toBe(true);
@@ -78,6 +78,9 @@ describe('the CLI and the app are the same program', () => {
     expect(printed.data.head).toEqual(state.head);
     expect(printed.data.entries).toEqual(state.entries);
     expect(printed.data.entries).toHaveLength(2);
+    // The pending operation is a field like any other, so it is byte-identical too.
+    expect(printed.data.pending).toBe(state.pending);
+    expect(state.pending).toBeNull();
   });
 
   it('[I3] `graph --json` carries lanes and edges', async () => {
@@ -208,6 +211,41 @@ describe('the CLI and the app are the same program', () => {
       expect(conflict.code).toBe(EXIT.usage);
       const conflictData = JSON.parse(conflict.lines[0] as string) as { error: { kind: string } };
       expect(conflictData.error.kind).toBe('invalid-argument');
+    } finally {
+      await rm(repo, { recursive: true, force: true });
+    }
+  });
+
+  it('[I5] a repository stopped mid-merge says so, in both forms', async () => {
+    const repo = await mkdtemp(join(tmpdir(), 'orbitree-cli-merge-'));
+    const git = (...args: string[]): Promise<unknown> =>
+      execFileAsync('git', args, { cwd: repo, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
+    try {
+      await git('init', '-b', 'main', '--quiet');
+      await git('config', 'user.name', 'CLI Merge');
+      await git('config', 'user.email', 'cli-merge@example.invalid');
+      await writeFile(join(repo, 'shared.txt'), 'base\n', 'utf8');
+      await git('add', '-A');
+      await git('commit', '--quiet', '-m', 'base');
+      await git('checkout', '--quiet', '-b', 'left');
+      await writeFile(join(repo, 'shared.txt'), 'left\n', 'utf8');
+      await git('commit', '--quiet', '-am', 'left');
+      await git('checkout', '--quiet', 'main');
+      await git('checkout', '--quiet', '-b', 'right');
+      await writeFile(join(repo, 'shared.txt'), 'right\n', 'utf8');
+      await git('commit', '--quiet', '-am', 'right');
+      // The merge is left failed on purpose: the merge head is what makes this a fixture.
+      await git('merge', '--no-edit', 'left').catch(() => undefined);
+      expect(await git('rev-parse', '--verify', '-q', 'MERGE_HEAD')).toBeTruthy();
+
+      const printed = await cli(['status', repo, '--json']);
+      expect(printed.code).toBe(EXIT.ok);
+      const data = JSON.parse(printed.lines[0] as string) as { data: { pending: string | null } };
+      expect(data.data.pending).toBe('merge');
+
+      const human = await cli(['status', repo]);
+      expect(human.errors).toEqual([]);
+      expect(human.lines.join('\n')).toContain('merge in progress');
     } finally {
       await rm(repo, { recursive: true, force: true });
     }

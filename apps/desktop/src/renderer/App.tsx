@@ -8,6 +8,7 @@ import {
 } from '../shared/api.ts';
 import { CommitPanel } from './CommitPanel.tsx';
 import { GraphPane } from './GraphPane.tsx';
+import { type ScreenState, StateScreen } from './StateScreen.tsx';
 import { WorkingTreePanel } from './WorkingTreePanel.tsx';
 
 interface Pending {
@@ -47,22 +48,41 @@ export function App(): React.ReactElement {
     async (target: string, selection: string, requested: number): Promise<GraphData | null> => {
       setBusy(true);
       setError(null);
-      const [graphResult, statusResult] = await Promise.all([
-        window.orbitree.graph(
-          target,
-          selection === '*'
-            ? { limit: requested, all: true }
-            : { limit: requested, rev: selection },
-        ),
-        window.orbitree.status(target),
-      ]);
-      if (!graphResult.ok) setError(graphResult.error);
-      else {
+      // The status is read first and on its own: it says where the repository *is*, and every
+      // other read is decided by that. Asking both at once is what used to turn a repository
+      // with no commits into an error banner about a git exit code.
+      const statusResult = await window.orbitree.status(target);
+      if (!statusResult.ok) {
+        setError(statusResult.error);
+        setStatus(null);
+        setGraph(null);
+        setRoot(null);
+        setBusy(false);
+        return null;
+      }
+      const state = statusResult.value.state;
+      setStatus(state);
+      setRoot(statusResult.value.root);
+      setPath(statusResult.value.root);
+      // An unborn head cannot be logged: `git log` exits 128 on a branch with no commits, so
+      // the graph is not read at all rather than read and failed.
+      if (state.head.kind === 'unborn') {
+        setGraph(null);
+        setBusy(false);
+        return null;
+      }
+      const graphResult = await window.orbitree.graph(
+        target,
+        selection === '*' ? { limit: requested, all: true } : { limit: requested, rev: selection },
+      );
+      if (!graphResult.ok) {
+        setError(graphResult.error);
+        setGraph(null);
+      } else {
         setGraph(graphResult.value.data);
         setRoot(graphResult.value.root);
         setPath(graphResult.value.root);
       }
-      if (statusResult.ok) setStatus(statusResult.value.state);
       setBusy(false);
       return graphResult.ok ? graphResult.value.data : null;
     },
@@ -80,6 +100,7 @@ export function App(): React.ReactElement {
     setFilter('*');
     setLimit(GRAPH_LIMIT);
     setSelected(null);
+    setGraph(null);
     void refresh(chosen, '*', GRAPH_LIMIT);
   };
 
@@ -124,6 +145,20 @@ export function App(): React.ReactElement {
     // The selected hash is untouched: the larger window still contains it.
     void refresh(root, filter, next);
   }, [root, filter, limit, refresh]);
+
+  // The state the repository is in, as the screen names it. The operation under way wins
+  // over the head's shape: a rebase can leave a detached head behind, and what the reader has
+  // to do next is finish the rebase.
+  const screen: { state: ScreenState; detail: string | undefined } | null =
+    status === null
+      ? null
+      : status.pending !== null
+        ? { state: status.pending, detail: undefined }
+        : status.head.kind === 'unborn'
+          ? { state: 'unborn', detail: status.head.name ?? undefined }
+          : status.head.kind === 'detached'
+            ? { state: 'detached', detail: status.head.oid.slice(0, 7) }
+            : null;
 
   return (
     <div className="app">
@@ -204,8 +239,22 @@ export function App(): React.ReactElement {
 
       <main className="panes">
         <section className="graph-pane">
+          {screen === null ? null : screen.state === 'unborn' ? (
+            // Nothing to draw above this one, so it takes the pane: the working tree beside
+            // it still works, and the first commit is a CLI operation for now.
+            <StateScreen state="unborn" detail={screen.detail} />
+          ) : (
+            // Anything else sits above the graph rather than in place of it: a merge in
+            // progress still has a perfectly readable history, and a detached head is a
+            // banner on the graph instead of a screen that hides it.
+            <StateScreen state={screen.state} detail={screen.detail} variant="banner" />
+          )}
           {graph === null ? (
-            <p className="empty">Open a repository to see its graph.</p>
+            <p className="empty">
+              {screen?.state === 'unborn'
+                ? 'There is no history to draw yet.'
+                : 'Open a repository to see its graph.'}
+            </p>
           ) : (
             <GraphPane
               graph={graph}

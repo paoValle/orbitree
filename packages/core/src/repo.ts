@@ -1,3 +1,4 @@
+import type { PendingRef } from './git/command.ts';
 import { type GitCommand, InvalidArgumentError } from './git/command.ts';
 import { parseCommitCount } from './git/count.ts';
 import { type DiffFile, parseDiff } from './git/diff.ts';
@@ -10,7 +11,13 @@ import {
   parseRefs,
   type Ref,
 } from './git/log.ts';
-import { parseStatus, type RepoState } from './git/status.ts';
+import {
+  PENDING_ORDER,
+  type PendingOperation,
+  parsePendingOperation,
+  parseStatus,
+  type RepoState,
+} from './git/status.ts';
 import { type GraphLayout, layoutGraph, refsByOid } from './graph/layout.ts';
 
 export class NotARepositoryError extends Error {
@@ -67,15 +74,44 @@ export async function openRepo(
   return { root };
 }
 
+/**
+ * The operation git is in the middle of, if any.
+ *
+ * Three spawns, not one: `rev-parse -q --verify A B C` exits 1 as soon as one name is missing,
+ * which loses the other two answers. `readStatus` asks this alongside the status read, so the
+ * two cannot disagree about which repository they describe.
+ */
+export async function readPendingOperation(
+  repo: RepoHandle,
+  options: Partial<ExecuteOptions> = {},
+): Promise<PendingOperation | null> {
+  const results = await Promise.all(
+    PENDING_ORDER.map(({ ref }) =>
+      execute({ op: 'pending-operation', ref }, { cwd: repo.root, ...options }),
+    ),
+  );
+  const reads: Partial<Record<PendingRef, string>> = {};
+  for (let index = 0; index < PENDING_ORDER.length; index += 1) {
+    const probe = PENDING_ORDER[index];
+    if (probe !== undefined) reads[probe.ref] = results[index]?.stdout ?? '';
+  }
+  return parsePendingOperation(reads);
+}
+
 export async function readStatus(
   repo: RepoHandle,
   options: Partial<ExecuteOptions> = {},
 ): Promise<RepoState> {
-  const { stdout } = await executeOrThrow({ op: 'status' }, { cwd: repo.root, ...options });
-  const parsed = parseStatus(stdout);
+  // The pending operation is read in parallel with the status: an unmerged entry says a file
+  // is conflicted, and only these refs say which command has to be finished or aborted.
+  const [statusResult, pending] = await Promise.all([
+    executeOrThrow({ op: 'status' }, { cwd: repo.root, ...options }),
+    readPendingOperation(repo, options),
+  ]);
+  const parsed = parseStatus(statusResult.stdout);
   if (!parsed.ok)
     throw new RepositoryParseError('the repository status', parsed.error, parsed.record);
-  return parsed.value;
+  return { ...parsed.value, pending };
 }
 
 export async function readRefs(

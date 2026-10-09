@@ -18,6 +18,7 @@ export type {
   DiffLine,
   GitCommand,
   GraphData,
+  PendingOperation,
   Ref,
   RepoState,
   StatusEntry,
@@ -26,6 +27,17 @@ export type {
 export { CHANNELS };
 
 const literal = <T extends string>(value: T): z.ZodLiteral<T> => z.literal(value);
+
+/**
+ * The operation git is in the middle of, and the refs it reads to answer the question.
+ *
+ * Written out here rather than imported from the core on purpose: the renderer is a web page
+ * and imports the core's *types* only. The compile-time assertion on `repoStateSchema` is what
+ * keeps this list and the core's `PendingOperation` from drifting apart — add a state to the
+ * core without touching this and it stops compiling.
+ */
+const PENDING_REFS = ['MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REBASE_HEAD'] as const;
+const PENDING_OPERATIONS = ['merge', 'cherry-pick', 'rebase'] as const;
 
 export const gitCommandSchema = z.discriminatedUnion('op', [
   z.object({ op: literal('version') }),
@@ -51,6 +63,7 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
   }),
   z.object({ op: literal('commit-detail'), rev: z.string() }),
   z.object({ op: literal('commit-patch'), rev: z.string() }),
+  z.object({ op: literal('pending-operation'), ref: z.enum(PENDING_REFS) }),
   z.object({ op: literal('add'), paths: z.readonly(z.array(z.string())) }),
   z.object({ op: literal('unstage'), paths: z.readonly(z.array(z.string())) }),
   z.object({
@@ -104,6 +117,86 @@ export const commitReadRequestSchema = z.object({
 });
 
 export type CommitReadRequest = z.infer<typeof commitReadRequestSchema>;
+
+const FILE_STATUSES = [
+  'unmodified',
+  'modified',
+  'added',
+  'deleted',
+  'renamed',
+  'copied',
+  'typechange',
+  'unmerged',
+  'untracked',
+  'ignored',
+  'unknown',
+] as const;
+
+const fileStatusSchema = z.enum(FILE_STATUSES);
+
+const ORDINARY_FIELDS = {
+  path: z.string(),
+  index: fileStatusSchema,
+  worktree: fileStatusSchema,
+  raw: z.string(),
+} as const;
+
+/**
+ * What arrives over the `status` channel. Parsed in the main process before it crosses the
+ * boundary, because the renderer is a web page and a shape it was not expecting is how a
+ * screen ends up rendering `undefined` where a state should be.
+ */
+export const repoStateSchema = z.object({
+  head: z.discriminatedUnion('kind', [
+    z.object({
+      kind: literal('branch'),
+      name: z.string(),
+      oid: z.string(),
+      upstream: z.string().nullable(),
+      ahead: z.number(),
+      behind: z.number(),
+    }),
+    z.object({ kind: literal('detached'), oid: z.string() }),
+    z.object({ kind: literal('unborn'), name: z.string().nullable() }),
+  ]),
+  entries: z.array(
+    z.discriminatedUnion('kind', [
+      z.object({ kind: literal('ordinary'), ...ORDINARY_FIELDS }),
+      z.object({
+        kind: literal('renamed'),
+        ...ORDINARY_FIELDS,
+        origPath: z.exactOptional(z.string()),
+      }),
+      z.object({ kind: literal('unmerged'), ...ORDINARY_FIELDS }),
+      z.object({ kind: literal('untracked'), path: z.string(), raw: z.string() }),
+      z.object({ kind: literal('ignored'), path: z.string(), raw: z.string() }),
+    ]),
+  ),
+  headers: z.record(z.string(), z.string()),
+  // Not a flag on an error: a repository in the middle of an operation is a state, and it is
+  // one the screen has a design for.
+  pending: z.enum(PENDING_OPERATIONS).nullable(),
+});
+
+/**
+ * Compile-time proof that the schema above still describes the core's `RepoState`: if the core
+ * gains a state — a fourth pending operation, a new head kind — this stops compiling rather
+ * than the renderer quietly receiving a value it cannot name.
+ */
+type StateSchemaCoversCore = z.infer<typeof repoStateSchema> extends RepoState ? true : never;
+const _stateSchemaCoversCore: StateSchemaCoversCore = true;
+void _stateSchemaCoversCore;
+
+/**
+ * The path a web page names on this channel. A string, validated before `openRepo` is
+ * allowed to look at it — the renderer is untrusted, and "" is a question with no answer.
+ */
+export const statusPathSchema = z.string().min(1);
+
+export const statusPayloadSchema = z.object({
+  root: z.string().min(1),
+  state: repoStateSchema,
+});
 
 export interface GraphPayload {
   readonly root: string;

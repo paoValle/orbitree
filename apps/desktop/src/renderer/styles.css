@@ -144,6 +144,61 @@ button.danger,
   color: #ffd7d7;
 }
 
+.state-screen {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  background: rgb(106 169 255 / 8%);
+}
+
+.state-screen h2 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.state-screen p {
+  margin: 0;
+  color: var(--text);
+  max-width: 70ch;
+}
+
+.state-screen code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+}
+
+.state-screen .state-next {
+  margin-top: 4px;
+  color: var(--text-dim);
+}
+
+/* A banner hangs off something that is still on screen, so it stays compact and inline. */
+.state-screen[data-variant='banner'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  align-items: baseline;
+  padding: 7px 12px;
+}
+
+.state-screen[data-variant='banner'] h2 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--accent);
+}
+
+.state-screen[data-variant='banner'] .state-next {
+  margin-top: 0;
+}
+
+/* The unborn screen has nothing above or beside it, so it takes the space the graph would. */
+.graph-pane > .state-screen[data-state='unborn'] {
+  flex: 1;
+  border-bottom: 0;
+}
+
 .panes {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(360px, 46%);

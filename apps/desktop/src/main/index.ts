@@ -17,6 +17,8 @@ import {
   diffRequestSchema,
   type Result,
   runRequestSchema,
+  statusPathSchema,
+  statusPayloadSchema,
 } from '../shared/api.ts';
 
 const isDev = !app.isPackaged;
@@ -44,8 +46,11 @@ function registerHandlers(): void {
 
   ipcMain.handle(CHANNELS.status, (_event, path: unknown) =>
     attempt(async () => {
-      const repo = await openRepo(String(path));
-      return { root: repo.root, state: await readStatus(repo) };
+      // Parsed, not cast: the renderer is a web page. The payload is checked on the way out
+      // for the same reason, so nothing arrives shaped like a state it cannot name.
+      const request = statusPathSchema.parse(path);
+      const repo = await openRepo(request);
+      return statusPayloadSchema.parse({ root: repo.root, state: await readStatus(repo) });
     }),
   );
 

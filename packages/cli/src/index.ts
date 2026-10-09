@@ -443,6 +443,7 @@ export const OP_EXAMPLES: readonly GitCommand[] = [
   { op: 'diff', rev: 'HEAD' },
   { op: 'commit-detail', rev: 'HEAD' },
   { op: 'commit-patch', rev: 'HEAD' },
+  { op: 'pending-operation', ref: 'MERGE_HEAD' },
   { op: 'add', paths: ['file.txt'] },
   { op: 'unstage', paths: ['file.txt'] },
   { op: 'commit', message: 'a message' },
@@ -546,6 +547,9 @@ function describeStatus(root: string, state: RepoState): string {
   } else {
     lines.push(`detached at ${state.head.oid.slice(0, 7)}`);
   }
+  // The operation under way, said in words before the file list: a reader looking at a
+  // conflicted entry needs to know which command is stopped, not only that a file is.
+  if (state.pending !== null) lines.push(`${state.pending} in progress`);
   for (const entry of state.entries) {
     if (entry.kind === 'untracked') lines.push(`  ??        ${entry.path}`);
     else if (entry.kind === 'ignored') lines.push(`  !!        ${entry.path}`);
