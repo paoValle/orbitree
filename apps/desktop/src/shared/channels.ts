@@ -1,0 +1,16 @@
+/**
+ * The channel names, in a module with no runtime dependency.
+ *
+ * The preload runs sandboxed and may only require a small set of built-ins, so it must not
+ * pull the zod schemas in `api.ts` into its bundle just to name a channel. Keeping the names
+ * here is what lets the preload stay a whitelist of strings rather than a copy of the schema.
+ */
+export const CHANNELS = {
+  open: 'repo:open',
+  status: 'repo:status',
+  graph: 'repo:graph',
+  refs: 'repo:refs',
+  run: 'repo:run',
+  commitRead: 'commit:read',
+  pickDirectory: 'app:pick-directory',
+} as const;

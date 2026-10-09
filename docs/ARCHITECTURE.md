@@ -152,9 +152,13 @@ packages/core/src/git/exec.ts       spawn, env, timeouts, redaction, confirmatio
 packages/core/src/git/status.ts     porcelain v2 parser
 packages/core/src/git/log.ts        log and for-each-ref parsers
 packages/core/src/graph/layout.ts   pure lanes and edges
-packages/core/src/repo.ts           openRepo, readStatus, readGraph, readRefs, run
+packages/core/src/repo.ts           openRepo, readStatus, readGraph, readRefs, readCommit, run
 packages/cli/src/index.ts           argv → core → JSON envelope
 apps/desktop/src/main/index.ts      window, IPC handlers (the only place that answers IPC)
-apps/desktop/src/renderer/          React: graph canvas, working tree, quick commands
+apps/desktop/src/renderer/GraphPane.tsx    virtualised rows on a canvas, keyboard selection
+apps/desktop/src/renderer/CommitPanel.tsx  commit metadata, file list, diff
+apps/desktop/src/renderer/DiffView.tsx     unified diff rendering
+apps/desktop/src/renderer/          React: graph pane, commit panel, working tree, quick commands
+apps/desktop/test/e2e/              Playwright against the real Electron window
 docs/                               product, roadmap, architecture, invariants, CLI contract
 ```

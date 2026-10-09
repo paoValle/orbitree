@@ -2,6 +2,32 @@
 
 Numbers quoted here come from a run of `make prove` on the date named, and from nothing else.
 
+## Unreleased — see
+
+Phase P1 begins with the two panes that make a repository legible: the graph and a commit.
+
+**The graph pane is a component now.** `GraphPane` owns the scroll container, the canvas and the
+rows. Only the visible window plus four rows of overscan exist in the DOM and are drawn on the
+canvas, which is positioned at the window's first row, and the edges are filtered to those that
+intersect it. Arrow keys move the selection one commit, Home and End go to the ends, and the
+selected row is scrolled back into view by arithmetic. The selection is marked by a
+`commit-row-selected` element inside the row, so selecting a commit does not change the number of
+rows rendered.
+
+**The commit panel draws what `readCommit` already returned.** Selecting a commit shows the hash,
+author, date and — when the patch is not against the single parent — the `against` label (`root` or
+`first-parent`), so a merge's one honest diff is labelled honestly. The changed files are a list,
+the first is selected on load, and `DiffView` renders its hunks with a `+`/`-`/space gutter and a
+background per line kind. The process boundary is one new channel, `commit:read`, with a zod-parsed
+`{ path, rev }`.
+
+**The window is what proves it.** `make e2e` builds the app and drives the real Electron window
+through Playwright: it opens a repository named on the command line (`--repo=<path>`), checks the
+four-commit fixture's count, merge and file list, navigates with the keyboard, and screenshots the
+populated window to `reports/app.png`. A second spec builds sixty commits and asserts that fewer
+than all of them are rendered and that the rendered hashes change after a scroll — windowing, not
+hiding.
+
 ## 0.0.0 — 2026-10-09 — the ground floor
 
 Phase P0: the foundation, and nothing above it.

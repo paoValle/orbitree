@@ -3,13 +3,14 @@ import {
   ConfirmationRequiredError,
   execute,
   openRepo,
+  readCommit,
   readGraph,
   readRefs,
   readStatus,
   riskOf,
 } from '@keplerk/core';
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
-import { CHANNELS, type Result, runRequestSchema } from '../shared/api.ts';
+import { CHANNELS, commitReadRequestSchema, type Result, runRequestSchema } from '../shared/api.ts';
 
 const isDev = !app.isPackaged;
 
@@ -55,6 +56,14 @@ function registerHandlers(): void {
     attempt(async () => {
       const repo = await openRepo(String(path));
       return { root: repo.root, refs: await readRefs(repo) };
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.commitRead, (_event, request: unknown) =>
+    attempt(async () => {
+      const parsed = commitReadRequestSchema.parse(request);
+      const repo = await openRepo(parsed.path);
+      return readCommit(repo, { rev: parsed.rev });
     }),
   );
 
@@ -122,12 +131,34 @@ function createWindow(): BrowserWindow {
   });
 
   const devServer = process.env.ELECTRON_RENDERER_URL;
+  const repo = repoFromArgv(process.argv);
   if (isDev && devServer !== undefined) {
-    void window.loadURL(devServer);
+    const url = new URL(devServer);
+    if (repo !== null) url.searchParams.set('repo', repo);
+    void window.loadURL(url.toString());
   } else {
-    void window.loadFile(join(import.meta.dirname, '../renderer/index.html'));
+    const renderer = join(import.meta.dirname, '../renderer/index.html');
+    void (repo === null
+      ? window.loadFile(renderer)
+      : window.loadFile(renderer, { query: { repo } }));
   }
   return window;
+}
+
+/**
+ * `--repo=<path>` on the command line is how a launcher (the test, a file manager, a shell)
+ * opens a repository without clicking Browse. Everything after the first `=` is the path:
+ * a repository path may contain `=`, so the value is not re-parsed.
+ */
+function repoFromArgv(argv: readonly string[]): string | null {
+  const prefix = '--repo=';
+  for (const arg of argv) {
+    if (arg.startsWith(prefix)) {
+      const value = arg.slice(prefix.length);
+      return value === '' ? null : value;
+    }
+  }
+  return null;
 }
 
 app.whenReady().then(() => {

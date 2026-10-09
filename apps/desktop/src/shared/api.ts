@@ -6,20 +6,23 @@
  * is asserted to cover `GitCommand` at compile time, so the IPC surface cannot drift away
  * from what the core actually accepts.
  */
-import type { GitCommand, GraphData, Ref, RepoState } from '@keplerk/core';
+import type { CommitData, GitCommand, GraphData, Ref, RepoState } from '@keplerk/core';
 import { z } from 'zod';
+import { CHANNELS } from './channels.ts';
 
 /** Re-exported so the renderer has one import for the types it draws with. */
-export type { GitCommand, GraphData, Ref, RepoState } from '@keplerk/core';
+export type {
+  CommitData,
+  DiffFile,
+  DiffHunk,
+  DiffLine,
+  GitCommand,
+  GraphData,
+  Ref,
+  RepoState,
+} from '@keplerk/core';
 
-export const CHANNELS = {
-  open: 'repo:open',
-  status: 'repo:status',
-  graph: 'repo:graph',
-  refs: 'repo:refs',
-  run: 'repo:run',
-  pickDirectory: 'app:pick-directory',
-} as const;
+export { CHANNELS };
 
 const literal = <T extends string>(value: T): z.ZodLiteral<T> => z.literal(value);
 
@@ -79,6 +82,17 @@ export const runRequestSchema = z.object({
 
 export type RunRequest = z.infer<typeof runRequestSchema>;
 
+/**
+ * A revision is untrusted input from a web page until it is parsed here: `rev` cannot be
+ * empty, because an empty revision reaches git as a different question, not a smaller one.
+ */
+export const commitReadRequestSchema = z.object({
+  path: z.string().min(1),
+  rev: z.string().min(1),
+});
+
+export type CommitReadRequest = z.infer<typeof commitReadRequestSchema>;
+
 export interface GraphPayload {
   readonly root: string;
   readonly data: GraphData;
@@ -121,6 +135,7 @@ export interface KeplerkApi {
     request: { limit: number; all: boolean },
   ) => Promise<Result<GraphPayload>>;
   readonly refs: (path: string) => Promise<Result<RefsPayload>>;
+  readonly readCommit: (path: string, rev: string) => Promise<Result<CommitData>>;
   readonly run: (request: RunRequest) => Promise<Result<RunPayload>>;
   readonly pickDirectory: () => Promise<string | null>;
 }

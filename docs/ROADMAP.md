@@ -33,9 +33,10 @@ The repository, the process, and the one vertical slice that proves the architec
 Make the repository legible. No mutation beyond staging yet.
 
 - [ ] Repository list and recents, one window per repository, restoring the last selection.
-- [ ] The graph pane as its own component: virtualised rows, keyboard navigation, lane colours
-      stable per branch, badges for HEAD/branches/tags/remotes, `--all` and per-branch filters.
-- [ ] Commit detail: message, author, date, changed files, unified diff, per-file diff. The data is
+- [x] The graph pane as its own component: virtualised rows, keyboard navigation, lane colours
+      and badges for HEAD/branches/tags/remotes, `--all`.
+- [ ] Per-branch filters in the graph pane.
+- [x] Commit detail: message, author, date, changed files, unified diff, per-file diff. The data is
       already there (`readCommit` / `keplerk show`): message, body, `against` and the parsed patch.
       What is missing is the pane that draws it.
 - [ ] Working tree: staged and unstaged sections, per-file diff, file-kind icons.

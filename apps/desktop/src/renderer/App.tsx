@@ -3,11 +3,11 @@ import {
   DEFAULT_QUICK_COMMANDS,
   type GraphData,
   type QuickCommand,
-  type Ref,
   type RepoState,
   type RunPayload,
 } from '../shared/api.ts';
-import { CommitGraph, laneColor, ROW_HEIGHT, TEXT_GUTTER } from './CommitGraph.tsx';
+import { CommitPanel } from './CommitPanel.tsx';
+import { GraphPane } from './GraphPane.tsx';
 
 interface Pending {
   readonly command: QuickCommand;
@@ -19,7 +19,6 @@ export function App(): React.ReactElement {
   const [root, setRoot] = useState<string | null>(null);
   const [graph, setGraph] = useState<GraphData | null>(null);
   const [status, setStatus] = useState<RepoState | null>(null);
-  const [refs, setRefs] = useState<readonly Ref[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,10 +34,9 @@ export function App(): React.ReactElement {
   const refresh = useCallback(async (target: string) => {
     setBusy(true);
     setError(null);
-    const [graphResult, statusResult, refsResult] = await Promise.all([
+    const [graphResult, statusResult] = await Promise.all([
       window.keplerk.graph(target, { limit: 300, all: true }),
       window.keplerk.status(target),
-      window.keplerk.refs(target),
     ]);
     if (!graphResult.ok) setError(graphResult.error);
     else {
@@ -47,7 +45,6 @@ export function App(): React.ReactElement {
       setPath(graphResult.value.root);
     }
     if (statusResult.ok) setStatus(statusResult.value.state);
-    if (refsResult.ok) setRefs(refsResult.value.refs);
     setBusy(false);
   }, []);
 
@@ -154,50 +151,13 @@ export function App(): React.ReactElement {
           {graph === null ? (
             <p className="empty">Open a repository to see its graph.</p>
           ) : (
-            <div className="graph-scroll">
-              <div
-                className="graph-inner"
-                style={{ height: graph.layout.rows.length * ROW_HEIGHT }}
-              >
-                <CommitGraph
-                  rows={graph.layout.rows}
-                  edges={graph.layout.edges}
-                  selected={selected}
-                  onSelect={setSelected}
-                />
-                <div className="rows">
-                  {graph.layout.rows.map((row) => {
-                    const badges = graph.refsByOid.get(row.commit.hash) ?? [];
-                    return (
-                      <button
-                        key={row.commit.hash}
-                        type="button"
-                        className={row.commit.hash === selected ? 'row selected' : 'row'}
-                        style={{
-                          paddingLeft: graph.layout.laneCount * 16 + 16 + TEXT_GUTTER,
-                          height: ROW_HEIGHT,
-                        }}
-                        onClick={() => setSelected(row.commit.hash)}
-                      >
-                        {badges.map((badge) => (
-                          <span key={badge.name} className={`badge ${badge.kind}`}>
-                            {badge.shortName}
-                          </span>
-                        ))}
-                        <span className="subject">{row.commit.subject}</span>
-                        <span className="meta">
-                          {row.commit.author.name} · {row.commit.hash.slice(0, 7)}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+            <GraphPane graph={graph} selected={selected} onSelect={setSelected} />
           )}
         </section>
 
         <aside className="side">
+          <CommitPanel root={root} hash={selected} />
+
           <div className="card">
             <h2>Working tree</h2>
             {status === null ? (
@@ -230,24 +190,6 @@ export function App(): React.ReactElement {
                   {status.entries.length === 0 && <li className="empty">clean</li>}
                 </ul>
               </>
-            )}
-          </div>
-
-          <div className="card">
-            <h2>Graph</h2>
-            {graph === null ? (
-              <p className="empty">nothing loaded</p>
-            ) : (
-              <p className="headline">
-                {graph.commits.length} commits · {graph.layout.laneCount} lanes · {refs.length} refs
-                {selected !== null && (
-                  <>
-                    <br />
-                    selected <code>{selected.slice(0, 12)}</code>
-                    <span className="swatch" style={{ background: laneColor(0) }} />
-                  </>
-                )}
-              </p>
             )}
           </div>
 

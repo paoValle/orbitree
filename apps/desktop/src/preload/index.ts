@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { CHANNELS, type KeplerkApi, type RunRequest } from '../shared/api.ts';
+import type { KeplerkApi, RunRequest } from '../shared/api.ts';
+import { CHANNELS } from '../shared/channels.ts';
 
 /**
  * The whole surface the renderer gets. No generic `invoke`, so a compromised renderer
@@ -10,6 +11,7 @@ const api: KeplerkApi = {
   status: (path) => ipcRenderer.invoke(CHANNELS.status, path),
   graph: (path, request) => ipcRenderer.invoke(CHANNELS.graph, { path, ...request }),
   refs: (path) => ipcRenderer.invoke(CHANNELS.refs, path),
+  readCommit: (path, rev) => ipcRenderer.invoke(CHANNELS.commitRead, { path, rev }),
   run: (request: RunRequest) => ipcRenderer.invoke(CHANNELS.run, request),
   pickDirectory: () => ipcRenderer.invoke(CHANNELS.pickDirectory),
 };
