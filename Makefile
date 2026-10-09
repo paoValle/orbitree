@@ -8,6 +8,11 @@ help: ## show this help
 
 setup: ## install dependencies from the lockfile
 	pnpm install --frozen-lockfile
+	@# pnpm links Electron but never runs the postinstall that downloads the ~100 MB Chromium
+	@# binary, on a clean install with side-effects caching off and the script allowed. A fresh
+	@# clone would then fail at `make desktop` with an error that names nothing useful, so it is
+	@# run here, where it is explicit and idempotent.
+	node apps/desktop/node_modules/electron/install.js
 
 build: ## build every package
 	pnpm run build
@@ -46,6 +51,8 @@ cli: ## run the CLI against the current directory
 	./bin/keplerk status .
 
 desktop: ## run the desktop app against this repository
+	@test -f apps/desktop/node_modules/electron/path.txt || \
+		{ echo "the Electron binary is missing: run 'make setup' first" >&2; exit 1; }
 	pnpm run desktop:dev
 
 clean: ## remove build output

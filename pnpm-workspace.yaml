@@ -1,3 +1,10 @@
 packages:
   - packages/*
   - apps/*
+
+# pnpm 10 keeps these settings in the workspace file. `esbuild` was in pnpm's "ignored build
+# scripts" list until this block existed; `electron` is here for the same intent, though pnpm
+# does not run its postinstall either way. That is why `make setup` runs it explicitly.
+onlyBuiltDependencies:
+  - electron
+  - esbuild
