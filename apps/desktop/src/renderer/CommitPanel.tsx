@@ -23,7 +23,7 @@ export function CommitPanel({ root, hash }: CommitPanelProps): React.ReactElemen
     setFileIndex(0);
     if (root === null || hash === null) return;
     let cancelled = false;
-    void window.keplerk.readCommit(root, hash).then((result) => {
+    void window.orbitree.readCommit(root, hash).then((result) => {
       if (cancelled) return;
       if (result.ok) setData(result.value);
       else setError(result.error);

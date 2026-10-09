@@ -32,14 +32,14 @@ hiding.
 
 Phase P0: the foundation, and nothing above it.
 
-**A patch, as data.** `keplerk diff [path] [--rev <rev>] [--json]` returns the changes as files and
+**A patch, as data.** `orbitree diff [path] [--rev <rev>] [--json]` returns the changes as files and
 hunks (`path`, `oldPath`, `status`, `binary`, and per hunk the header, the starts and the lines with
 their kind), each keeping the raw text git printed. Without `--json` it prints the patch, which is
 what a terminal wants. Every path and status is cross-checked against git's own `--name-status`,
 `--numstat` and `--name-only -z` output, on a friendly fixture and on one with filenames that force
 git to quote them.
 
-**A commit, as data.** `keplerk show [path] [--rev <rev>] [--json]` answers "what did this commit
+**A commit, as data.** `orbitree show [path] [--rev <rev>] [--json]` answers "what did this commit
 change": the commit metadata (hash, parents, author, authored and committed time, subject and
 message body) plus the patch, in exactly the shape `diff` returns. A merge is shown as one diff
 against its first parent — plain `git show` prints nothing for a merge, and `-m` alone prints one
@@ -49,7 +49,7 @@ truthfully. Every field is compared against `git log -1 --format=%H/%P/%an/%ae/%
 file and line count against `git show --name-status`/`--numstat`, on a merge, an ordinary commit
 and a root commit.
 
-**Core** (`@keplerk/core`) — no UI, no Electron, no network:
+**Core** (`@orbitree/core`) — no UI, no Electron, no network:
 
 - one typed `GitCommand` union (22 operations) with an exhaustive `riskOf` and a pure `toArgv`;
 - one executor: `spawn` with an argv array and `shell: false`, timeouts, redaction, a confirmation
@@ -57,11 +57,11 @@ and a root commit.
 - total parsers for `status --porcelain=v2 -z` and `log -z --format`, keeping every raw record;
 - a pure, deterministic commit-graph layout (lanes, edges, merge continuity).
 
-**CLI** (`@keplerk/cli`) — `status`, `graph`, `refs`, `ops`, `run`, `doctor`, `schema`; `--json`
+**CLI** (`@orbitree/cli`) — `status`, `graph`, `refs`, `ops`, `run`, `doctor`, `schema`; `--json`
 prints one object on stdout, exit codes 0–5 are a documented contract, and a destructive operation
 needs `--confirm "<reason>"` or `--dry-run`. Runs straight from TypeScript source with no build.
 
-**Desktop** (`@keplerk/desktop`) — an Electron 44 window that opens a repository, draws the commit
+**Desktop** (`@orbitree/desktop`) — an Electron 44 window that opens a repository, draws the commit
 graph on a canvas with lane colours and ref badges, lists the working tree, and runs quick commands
 from a bar with a confirmation sheet that demands a reason.
 

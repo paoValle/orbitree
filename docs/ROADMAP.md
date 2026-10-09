@@ -24,7 +24,7 @@ The repository, the process, and the one vertical slice that proves the architec
 - [x] Eight invariants, each with a test that names it (`docs/INVARIANTS.md`).
 
 **Exit**: `make verify` is green on three operating systems, and
-`keplerk graph . --json` prints lanes and edges for a real repository.
+`orbitree graph . --json` prints lanes and edges for a real repository.
 
 ---
 
@@ -37,13 +37,13 @@ Make the repository legible. No mutation beyond staging yet.
       and badges for HEAD/branches/tags/remotes, `--all`.
 - [ ] Per-branch filters in the graph pane.
 - [x] Commit detail: message, author, date, changed files, unified diff, per-file diff. The data is
-      already there (`readCommit` / `keplerk show`): message, body, `against` and the parsed patch.
+      already there (`readCommit` / `orbitree show`): message, body, `against` and the parsed patch.
       What is missing is the pane that draws it.
 - [ ] Working tree: staged and unstaged sections, per-file diff, file-kind icons.
 - [ ] Stash list (read-only), submodule badge (read-only), conflict markers visible.
 - [ ] Empty, unborn, detached, mid-merge states each get a designed screen, not a fallback.
 
-**Exit**: `keplerk graph . --json --limit 2000` returns in under a second on a repository with
+**Exit**: `orbitree graph . --json --limit 2000` returns in under a second on a repository with
 2000 commits, and the UI opens that repository and draws it without dropping a frame.
 
 ## P2 — Change
@@ -55,9 +55,9 @@ The working tree becomes editable, and the confirmation machinery gets its real 
 - [ ] Merge, and the conflict screen: ours/theirs/both at the hunk level.
 - [ ] Stash push/pop/apply/drop, with a diff preview.
 - [ ] Undo: every change in the session is listed with the `git` command that reverses it.
-- [ ] Every one of those is reachable through `keplerk run --op <op>`, with `--dry-run` first.
+- [ ] Every one of those is reachable through `orbitree run --op <op>`, with `--dry-run` first.
 
-**Exit**: `keplerk run --op commit --message x --json` and the app's Commit button produce the
+**Exit**: `orbitree run --op commit --message x --json` and the app's Commit button produce the
 same commit object on the same input — asserted by a test, not by inspection.
 
 ## P3 — Sync
@@ -88,7 +88,7 @@ The requested centrepiece, finished.
 - [ ] Command palettes: the same commands from a keyboard, and from the CLI by id.
 - [ ] Sharing: a quick-command preset is a JSON file someone can commit to their dotfiles.
 
-**Exit**: `keplerk run --op <op> --dry-run --json` and the GUI's confirmation sheet print the
+**Exit**: `orbitree run --op <op> --dry-run --json` and the GUI's confirmation sheet print the
 same argv for the same button — asserted against the shipped preset list.
 
 ## P5 — Forges
@@ -103,25 +103,25 @@ Pull requests and merge requests, without becoming a forge client.
 - [ ] Recorded HTTP fixtures in the test suite, plus a live test against a containerised
       self-hosted forge, marked opt-in so CI stays reproducible.
 
-**Exit**: `keplerk requests . --json` lists open requests for a GitHub repository and for a
+**Exit**: `orbitree requests . --json` lists open requests for a GitHub repository and for a
 self-hosted GitLab project, with the same schema.
 
 ## P6 — Agents
 
 Make the machine-readable surface a first-class product, not a side door.
 
-- [ ] `keplerk mcp` — an MCP server exposing every operation with the CLI's schemas, plus
+- [ ] `orbitree mcp` — an MCP server exposing every operation with the CLI's schemas, plus
       read-only resources for the graph and the working tree.
-- [ ] `keplerk schema --json` publishes a versioned JSON Schema per command; the schema version
+- [ ] `orbitree schema --json` publishes a versioned JSON Schema per command; the schema version
       is bumped by policy, and a test fails when `data` changes without a bump.
-- [ ] `keplerk watch --json` — a line-delimited stream of repository state changes, so an agent
+- [ ] `orbitree watch --json` — a line-delimited stream of repository state changes, so an agent
       can wait for a change instead of polling.
 - [ ] A written contract for agents: what is safe to call without asking, what is not, and how
       to undo (`docs/AGENT-CLI.md`).
 - [ ] Operational history in the app: every command an agent ran, with its argv and exit code.
 
 **Exit**: an agent completes "find the commit that broke the test, revert it, verify" using only
-`keplerk` in machine-readable mode, and the app shows what it did.
+`orbitree` in machine-readable mode, and the app shows what it did.
 
 ## P7 — Ship
 
@@ -138,7 +138,7 @@ Releases people can install and trust.
 - [ ] SBOM and a dependency-update cadence that a bot keeps honest.
 
 **Exit**: a fresh machine on each of the three operating systems installs the published artifact,
-opens a repository, and `keplerk doctor` reports nothing to fix.
+opens a repository, and `orbitree doctor` reports nothing to fix.
 
 ---
 

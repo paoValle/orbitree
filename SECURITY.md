@@ -2,7 +2,7 @@
 
 ## What this program does with your secrets
 
-`keplerk` reads repositories from your disk and runs the installed `git`. It does not have an
+`orbitree` reads repositories from your disk and runs the installed `git`. It does not have an
 account, a server, or a place to send your data to.
 
 - **Credentials** are used by whatever git itself uses: your system credential helper, your SSH
@@ -20,7 +20,7 @@ account, a server, or a place to send your data to.
 
 ## Reporting a vulnerability
 
-Open a [private security advisory](https://github.com/paoValle/keplerk/security/advisories/new) or
+Open a [private security advisory](https://github.com/paoValle/orbitree/security/advisories/new) or
 email the maintainer. Please include the version, the operating system, and what you did to make
 it happen.
 

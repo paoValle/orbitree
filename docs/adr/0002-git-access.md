@@ -13,7 +13,7 @@ allowed to build a `git` argument list.
 
 Run the installed `git`, and route every invocation through one typed command union in
 `packages/core/src/git/command.ts`. Minimum accepted version: **2.43**, checked by
-`keplerk doctor`.
+`orbitree doctor`.
 
 ```ts
 { op: 'push', remote: 'origin', branch: 'main', force: true }
@@ -37,7 +37,7 @@ Run the installed `git`, and route every invocation through one typed command un
   terminal).
 
 **Accepted cost**: `git` must be on `PATH`. A user without it gets a message naming the problem
-and the download page (`GitNotFoundError`), and `keplerk doctor` reports it before anything else.
+and the download page (`GitNotFoundError`), and `orbitree doctor` reports it before anything else.
 **Bundling a git binary for Windows is a packaging decision for a later release** (dugite, or Git
 for Windows minus the installer), to be made with a measured artifact size, not by default.
 

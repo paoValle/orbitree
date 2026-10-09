@@ -35,8 +35,8 @@ export function App(): React.ReactElement {
     setBusy(true);
     setError(null);
     const [graphResult, statusResult] = await Promise.all([
-      window.keplerk.graph(target, { limit: 300, all: true }),
-      window.keplerk.status(target),
+      window.orbitree.graph(target, { limit: 300, all: true }),
+      window.orbitree.status(target),
     ]);
     if (!graphResult.ok) setError(graphResult.error);
     else {
@@ -54,7 +54,7 @@ export function App(): React.ReactElement {
   }, [refresh]);
 
   const pick = async (): Promise<void> => {
-    const chosen = await window.keplerk.pickDirectory();
+    const chosen = await window.orbitree.pickDirectory();
     if (chosen !== null) void refresh(chosen);
   };
 
@@ -62,7 +62,7 @@ export function App(): React.ReactElement {
     async (command: QuickCommand, reason?: string) => {
       if (root === null) return;
       setBusy(true);
-      const result = await window.keplerk.run({
+      const result = await window.orbitree.run({
         path: root,
         command: command.command,
         ...(reason === undefined ? {} : { confirm: reason }),
@@ -84,7 +84,7 @@ export function App(): React.ReactElement {
       <header className="topbar">
         <div className="brand">
           <span className="dot" />
-          keplerk
+          orbitree
         </div>
         <input
           className="path"

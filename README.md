@@ -1,4 +1,4 @@
-# keplerk
+# orbitree
 
 A local-first Git client: a desktop app for understanding a repository, and a CLI that does
 everything the app does — because it *is* the app, without the window.
@@ -14,7 +14,7 @@ everything the app does — because it *is* the app, without the window.
   property-based tests behind it.
 - **A working tree you can act on.** Stage, commit, branch, merge, push — with the quick-command
   bar as the primary surface, and a reason required before anything destructive runs.
-- **A CLI an agent can drive.** `keplerk … --json` prints one object on stdout with stable exit
+- **A CLI an agent can drive.** `orbitree … --json` prints one object on stdout with stable exit
   codes, and goes through the same core as the app.
 - **No account, no cloud, no telemetry.** MIT. Local-first. The forge is an integration, not a
   dependency.
@@ -24,15 +24,15 @@ everything the app does — because it *is* the app, without the window.
 Requires **Node ≥ 22.12** and **git ≥ 2.43** on `PATH`.
 
 ```bash
-git clone https://github.com/paoValle/keplerk && cd keplerk
+git clone https://github.com/paoValle/orbitree && cd orbitree
 make setup            # pnpm install --frozen-lockfile
 make verify           # format, lint, types, invariants, tests
 
-./bin/keplerk doctor .            # is this machine able to run it?
-./bin/keplerk status .            # the working tree
-./bin/keplerk graph . --limit 20  # the graph, as text
-./bin/keplerk graph . --json      # the graph, as data
-./bin/keplerk show . --json       # one commit: metadata and its patch
+./bin/orbitree doctor .            # is this machine able to run it?
+./bin/orbitree status .            # the working tree
+./bin/orbitree graph . --limit 20  # the graph, as text
+./bin/orbitree graph . --json      # the graph, as data
+./bin/orbitree show . --json       # one commit: metadata and its patch
 
 make desktop          # the Electron app
 ```
@@ -46,15 +46,15 @@ made.
 
 | Command | What it returns |
 |---|---|
-| `keplerk status [path] --json` | `HEAD` (branch / detached / unborn, ahead and behind), staged, unstaged, renamed, unmerged and untracked entries |
-| `keplerk graph [path] --json` | commits, rows with lanes, edges, and the refs on each commit |
-| `keplerk refs [path] --json` | branches, tags and remote refs |
-| `keplerk diff [path] --json [--rev <rev>] [--path <path>]` | the patch against `HEAD` (or `--rev`), as files and hunks; without `--json`, the raw patch |
-| `keplerk show [path] --json [--rev <rev>]` | one commit: its metadata and the patch it introduced, with `against` saying what the patch is measured against |
-| `keplerk ops --json` | every operation, its risk level, and the argv it produces |
-| `keplerk run --op <op> [--dry-run] [--confirm <reason>]` | the guarded way to change a repository |
-| `keplerk doctor --json` | platform, node, git version, repository root |
-| `keplerk schema` | the JSON envelope, the error kinds and the exit codes |
+| `orbitree status [path] --json` | `HEAD` (branch / detached / unborn, ahead and behind), staged, unstaged, renamed, unmerged and untracked entries |
+| `orbitree graph [path] --json` | commits, rows with lanes, edges, and the refs on each commit |
+| `orbitree refs [path] --json` | branches, tags and remote refs |
+| `orbitree diff [path] --json [--rev <rev>] [--path <path>]` | the patch against `HEAD` (or `--rev`), as files and hunks; without `--json`, the raw patch |
+| `orbitree show [path] --json [--rev <rev>]` | one commit: its metadata and the patch it introduced, with `against` saying what the patch is measured against |
+| `orbitree ops --json` | every operation, its risk level, and the argv it produces |
+| `orbitree run --op <op> [--dry-run] [--confirm <reason>]` | the guarded way to change a repository |
+| `orbitree doctor --json` | platform, node, git version, repository root |
+| `orbitree schema` | the JSON envelope, the error kinds and the exit codes |
 
 The desktop app opens a repository, draws the commit graph on a canvas, lists the working tree,
 and runs quick commands with a confirmation sheet for the destructive ones.
@@ -141,5 +141,5 @@ an installer of roughly 100 MB (measured in CI at packaging time, not estimated 
 alternative — the system webview — was rejected because a commit graph must look the same on every
 platform. Reasoning in [docs/adr/0001](docs/adr/0001-desktop-stack.md).
 
-The `keplerk` name is a working name with existing projects of the same name; the decision is open
+The `orbitree` name is a working name with existing projects of the same name; the decision is open
 and the rename is one `grep`. See [docs/adr/0003](docs/adr/0003-name.md).

@@ -1,8 +1,8 @@
 {
-  "name": "@keplerk/desktop",
+  "name": "@orbitree/desktop",
   "version": "0.0.0",
   "private": true,
-  "description": "The desktop app. A window onto @keplerk/core, and nothing else.",
+  "description": "The desktop app. A window onto @orbitree/core, and nothing else.",
   "license": "MIT",
   "type": "module",
   "main": "./out/main/index.js",
@@ -14,7 +14,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@keplerk/core": "workspace:*",
+    "@orbitree/core": "workspace:*",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "zod": "4.6.5"
@@ -29,8 +29,8 @@
     "vite": "7.3.7"
   },
   "build": {
-    "appId": "dev.keplerk.app",
-    "productName": "keplerk",
+    "appId": "dev.orbitree.app",
+    "productName": "orbitree",
     "files": [
       "out/**/*"
     ],

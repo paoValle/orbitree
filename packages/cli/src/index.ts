@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * `keplerk` — the CLI.
+ * `orbitree` — the CLI.
  *
  * Two rules, both for the benefit of whoever drives this from a script or an agent:
  *   1. `--json` prints exactly one JSON object on stdout and nothing else;
  *   2. every mutation of the repository is refused unless it is a `--dry-run` or carries
  *      a `--confirm "<reason>"`.
  *
- * There is no second implementation under here. Every command calls `@keplerk/core` —
+ * There is no second implementation under here. Every command calls `@orbitree/core` —
  * the same functions the desktop app calls, which is what makes the two agree by
  * construction rather than by maintenance.
  */
@@ -37,7 +37,7 @@ import {
   riskOf,
   SCHEMA_VERSION,
   toArgv,
-} from '@keplerk/core';
+} from '@orbitree/core';
 import { Command } from 'commander';
 
 /** Exit codes are part of the contract: `docs/AGENT-CLI.md` documents them. */
@@ -263,7 +263,7 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
     .command('run')
     .description('run one guarded operation — the same command the app builds')
     .argument('[path]', 'a path inside the repository', '.')
-    .requiredOption('--op <op>', 'the operation name, as listed by `keplerk ops`')
+    .requiredOption('--op <op>', 'the operation name, as listed by `orbitree ops`')
     .option('--arg <value...>', 'arguments for the operation, in the order `ops` shows them')
     .option('--message <text>', 'the commit message', '')
     .option('--dry-run', 'print the argv and change nothing')
@@ -384,7 +384,7 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
   return program;
 }
 
-/** One example per operation: the list `keplerk ops` prints and the tests iterate. */
+/** One example per operation: the list `orbitree ops` prints and the tests iterate. */
 export const OP_EXAMPLES: readonly GitCommand[] = [
   { op: 'status' },
   { op: 'graph', limit: 50 },
@@ -477,7 +477,7 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
         : { op: 'tag-create', name: args[0], rev: args[1] ?? 'HEAD' };
     default:
       throw new InvalidArgumentError(
-        `unknown op "${op}"; run \`keplerk ops\` for the list, or use a typed command`,
+        `unknown op "${op}"; run \`orbitree ops\` for the list, or use a typed command`,
       );
   }
 }

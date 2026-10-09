@@ -1,8 +1,8 @@
 {
-  "name": "keplerk-workspace",
+  "name": "orbitree-workspace",
   "version": "0.0.0",
   "private": true,
-  "description": "Workspace root for keplerk — a local-first, agent-drivable Git client.",
+  "description": "Workspace root for orbitree — a local-first, agent-drivable Git client.",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -21,8 +21,8 @@
     "fmt:check": "biome format .",
     "format": "biome check --write .",
     "cli": "node --experimental-strip-types packages/cli/src/index.ts",
-    "desktop:dev": "pnpm --filter @keplerk/desktop run dev",
-    "desktop:build": "pnpm --filter @keplerk/desktop run build"
+    "desktop:dev": "pnpm --filter @orbitree/desktop run dev",
+    "desktop:build": "pnpm --filter @orbitree/desktop run build"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

@@ -1,12 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { KeplerkApi, RunRequest } from '../shared/api.ts';
+import type { OrbitreeApi, RunRequest } from '../shared/api.ts';
 import { CHANNELS } from '../shared/channels.ts';
 
 /**
  * The whole surface the renderer gets. No generic `invoke`, so a compromised renderer
  * cannot reach a channel this file does not name.
  */
-const api: KeplerkApi = {
+const api: OrbitreeApi = {
   open: (path) => ipcRenderer.invoke(CHANNELS.open, path),
   status: (path) => ipcRenderer.invoke(CHANNELS.status, path),
   graph: (path, request) => ipcRenderer.invoke(CHANNELS.graph, { path, ...request }),
@@ -16,4 +16,4 @@ const api: KeplerkApi = {
   pickDirectory: () => ipcRenderer.invoke(CHANNELS.pickDirectory),
 };
 
-contextBridge.exposeInMainWorld('keplerk', api);
+contextBridge.exposeInMainWorld('orbitree', api);

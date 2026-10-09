@@ -24,7 +24,7 @@ review.
 | `make prove` | re-measures the numbers the README claims |
 | `make fmt` | writes formatting (Biome) |
 | `make cli` | the CLI from source, for a manual check |
-| `./bin/keplerk <cmd> --json` | the product's own machine-readable surface |
+| `./bin/orbitree <cmd> --json` | the product's own machine-readable surface |
 
 ## Rules that fail the gate if broken
 
@@ -43,7 +43,7 @@ review.
 6. **Numbers in prose come from `make prove`.** If you write a number, run the command and copy
    the output. Never write a number you did not see printed.
 7. **The layering.** `packages/core` imports `node:*` and nothing else. The front-ends do not
-   import `node:child_process`. The renderer does not import `@keplerk/core` at runtime or any
+   import `node:child_process`. The renderer does not import `@orbitree/core` at runtime or any
    node builtin.
 8. **No new dependency** without a paragraph in the pull request saying why the standard library
    or an existing dependency does not do.
@@ -76,7 +76,7 @@ Before opening a pull request:
 
 ```bash
 make verify
-./bin/keplerk status . --json | head -40   # if the change touches what the CLI prints
+./bin/orbitree status . --json | head -40   # if the change touches what the CLI prints
 ```
 
 If the change closes a phase item in `docs/ROADMAP.md`, tick the box in the same pull request, and

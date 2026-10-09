@@ -72,7 +72,7 @@ test, prefer that shape.
 
 ## Reporting a bug
 
-Use the issue template. `keplerk doctor --json` output is the fastest way to make a report
+Use the issue template. `orbitree doctor --json` output is the fastest way to make a report
 actionable, and it contains no repository contents.
 
 ## Licence

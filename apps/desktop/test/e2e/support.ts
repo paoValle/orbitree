@@ -24,7 +24,7 @@ export async function git(cwd: string, args: readonly string[]): Promise<string>
 }
 
 export async function makeRepo(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), 'keplerk-e2e-'));
+  const root = await mkdtemp(join(tmpdir(), 'orbitree-e2e-'));
   await git(root, ['init', '-b', 'main', '--quiet']);
   await git(root, ['config', 'user.name', 'E2E Author']);
   await git(root, ['config', 'user.email', 'e2e@example.invalid']);

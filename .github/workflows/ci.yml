@@ -90,7 +90,7 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: node apps/desktop/node_modules/electron/install.js
-      - run: xvfb-run -a pnpm --filter @keplerk/desktop run e2e
+      - run: xvfb-run -a pnpm --filter @orbitree/desktop run e2e
       - uses: actions/upload-artifact@v4
         if: always()
         with:

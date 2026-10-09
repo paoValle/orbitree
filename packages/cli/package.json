@@ -1,12 +1,12 @@
 {
-  "name": "@keplerk/cli",
+  "name": "@orbitree/cli",
   "version": "0.0.0",
   "private": true,
-  "description": "The headless half of keplerk: everything the app can do, scriptable.",
+  "description": "The headless half of orbitree: everything the app can do, scriptable.",
   "license": "MIT",
   "type": "module",
   "bin": {
-    "keplerk": "./src/index.ts"
+    "orbitree": "./src/index.ts"
   },
   "exports": {
     ".": "./src/index.ts"
@@ -15,7 +15,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@keplerk/core": "workspace:*",
+    "@orbitree/core": "workspace:*",
     "commander": "15.0.0"
   }
 }

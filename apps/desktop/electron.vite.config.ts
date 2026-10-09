@@ -6,7 +6,7 @@ export default defineConfig({
   main: {
     build: {
       rollupOptions: {
-        // `@keplerk/core` is TypeScript source in this workspace, not a published build:
+        // `@orbitree/core` is TypeScript source in this workspace, not a published build:
         // bundling it keeps the packaged app free of a runtime module resolution step.
         external: ['electron'],
       },

@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { openRepo, readStatus } from '@keplerk/core';
+import { openRepo, readStatus } from '@orbitree/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type CliIo, EXIT, main } from '../src/index.ts';
 
@@ -12,7 +12,7 @@ const execFileAsync = promisify(execFile);
 let root: string;
 
 beforeAll(async () => {
-  root = await mkdtemp(join(tmpdir(), 'keplerk-cli-'));
+  root = await mkdtemp(join(tmpdir(), 'orbitree-cli-'));
   const git = (...args: string[]): Promise<unknown> =>
     execFileAsync('git', args, { cwd: root, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
   await git('init', '-b', 'main', '--quiet');

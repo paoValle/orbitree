@@ -1,7 +1,7 @@
-import type { KeplerkApi } from '../shared/api.ts';
+import type { OrbitreeApi } from '../shared/api.ts';
 
 declare global {
   interface Window {
-    readonly keplerk: KeplerkApi;
+    readonly orbitree: OrbitreeApi;
   }
 }

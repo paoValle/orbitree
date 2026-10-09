@@ -14,13 +14,13 @@
                  └───────────────▲─────────────────────────────┘
                                  │  imports
    ┌─────────────────────────────┴─────────────────────────────┐
-   │  @keplerk/core                                             │
+   │  @orbitree/core                                             │
    │  command union → risk → argv → executor → parsers → layout │
    │  no Electron, no React, no network                         │
    └─────────────────────────────▲─────────────────────────────┘
                                  │  imports (the same package)
                  ┌───────────────┴─────────────────────────────┐
-                 │  @keplerk/cli   status/graph/refs/run/…      │
+                 │  @orbitree/cli   status/graph/refs/run/…      │
                  └─────────────────────────────────────────────┘
                                  │  spawn, argv array, shell:false
                              the installed `git`
@@ -56,7 +56,7 @@ re-implementation.
   drivers, GPG signing: the semantics are git's, because it is git.
 - **No native addons.** `nodegit`-class dependencies need a rebuild per Node and per Electron
   ABI; that is a support burden for a client whose job is to be reliable.
-- **Cost accepted**: `git` must be on `PATH`, at a version we state (`2.43`). `keplerk doctor`
+- **Cost accepted**: `git` must be on `PATH`, at a version we state (`2.43`). `orbitree doctor`
   checks it and says what to install. Bundling a git binary for Windows is a packaging decision
   for a later release, not a hidden requirement now.
 
@@ -117,10 +117,10 @@ are better in the user's own language.
 | Layer | May import | May not |
 |---|---|---|
 | `packages/core` | `node:*`, nothing else | Electron, React, HTTP clients, `apps/*` |
-| `packages/cli` | `@keplerk/core`, node, `commander` | `child_process` directly, `apps/*` |
-| `apps/desktop/src/main`, `src/preload` | `@keplerk/core`, Electron, `zod` | the renderer's modules |
+| `packages/cli` | `@orbitree/core`, node, `commander` | `child_process` directly, `apps/*` |
+| `apps/desktop/src/main`, `src/preload` | `@orbitree/core`, Electron, `zod` | the renderer's modules |
 | `apps/desktop/src/shared` | types and schemas only | node builtins, Electron |
-| `apps/desktop/src/renderer` | `shared`, React | node builtins, Electron, `@keplerk/core`'s runtime |
+| `apps/desktop/src/renderer` | `shared`, React | node builtins, Electron, `@orbitree/core`'s runtime |
 
 The first and the second row of prohibitions are checked by a test
 (`packages/core/test/boundaries.test.ts`), because a layering rule that nobody verifies is a

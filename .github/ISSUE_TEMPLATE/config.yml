@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
   - name: A guard rail did not hold
-    url: https://github.com/paoValle/keplerk/security/advisories/new
+    url: https://github.com/paoValle/orbitree/security/advisories/new
     about: A confirmation that could be bypassed, a secret in output, or an escape from the renderer sandbox is a security report — please do not open it publicly first.
   - name: How to contribute
-    url: https://github.com/paoValle/keplerk/blob/main/CONTRIBUTING.md
+    url: https://github.com/paoValle/orbitree/blob/main/CONTRIBUTING.md
     about: One command, one test that fails without the change, one coherent commit.

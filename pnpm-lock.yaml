@@ -38,7 +38,7 @@ importers:
 
   apps/desktop:
     dependencies:
-      '@keplerk/core':
+      '@orbitree/core':
         specifier: workspace:*
         version: link:../../packages/core
       react:
@@ -75,7 +75,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@keplerk/core':
+      '@orbitree/core':
         specifier: workspace:*
         version: link:../core
       commander:

@@ -6,7 +6,7 @@
  * is asserted to cover `GitCommand` at compile time, so the IPC surface cannot drift away
  * from what the core actually accepts.
  */
-import type { CommitData, GitCommand, GraphData, Ref, RepoState } from '@keplerk/core';
+import type { CommitData, GitCommand, GraphData, Ref, RepoState } from '@orbitree/core';
 import { z } from 'zod';
 import { CHANNELS } from './channels.ts';
 
@@ -20,7 +20,7 @@ export type {
   GraphData,
   Ref,
   RepoState,
-} from '@keplerk/core';
+} from '@orbitree/core';
 
 export { CHANNELS };
 
@@ -127,7 +127,7 @@ export type Result<T> =
  * `invoke(channel, anything)` escape hatch, so the preload script is a whitelist and not
  * a pipe.
  */
-export interface KeplerkApi {
+export interface OrbitreeApi {
   readonly open: (path: string) => Promise<Result<{ root: string }>>;
   readonly status: (path: string) => Promise<Result<StatusPayload>>;
   readonly graph: (

@@ -37,7 +37,7 @@ Five things, and no more:
    asking for a reason first.
 
 And one thing that has to be true from the first commit: **every one of those five is
-available headlessly**, as `keplerk <command> --json`.
+available headlessly**, as `orbitree <command> --json`.
 
 ## The feature sift
 
@@ -103,7 +103,7 @@ two releases, `Later` is deliberately unbuilt until someone asks, `Never` is a d
 | Risk | Why it bites | Mitigation |
 |---|---|---|
 | Installer size (Electron bundles a browser) | a 100 MB download for a Git client is a real objection | state it up front; the CI sizes the artifact so the number is known, not guessed |
-| `git` not on `PATH` on Windows | the first run fails in a way that looks like our bug | `keplerk doctor` names it; bundling a git binary is a decision for a later release, not a surprise |
+| `git` not on `PATH` on Windows | the first run fails in a way that looks like our bug | `orbitree doctor` names it; bundling a git binary is a decision for a later release, not a surprise |
 | Behaviour differences across platforms (path separators, `\n`, file modes) | the tests pass on macOS and the Windows user sees nothing | CI runs the suite on three operating systems; fixtures set `core.autocrlf=false` themselves |
 | Provider APIs drift | an integration rots silently | recorded fixtures plus an opt-in live test against a containerised self-hosted forge |
 | Scope creep toward "everything a Git client does" | the graph never gets good | the sift table above is the contract; `Later` means unbuilt |
@@ -114,6 +114,6 @@ two releases, `Later` is deliberately unbuilt until someone asks, `Never` is a d
 
 - A person can open a repository, understand a branch, stage a file, commit and push without
   reading the `git` documentation.
-- An agent can do the same through `keplerk --json`, with no screen involved.
+- An agent can do the same through `orbitree --json`, with no screen involved.
 - Every number in the README was produced by `make prove` on a machine that ran the code.
 - A contributor can go from clone to a green `make verify` in one command.

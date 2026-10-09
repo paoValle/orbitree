@@ -52,7 +52,7 @@ export interface FixtureSet {
 }
 
 export async function makeFixtures(): Promise<FixtureSet> {
-  const base = await mkdtemp(join(tmpdir(), 'keplerk-fixtures-'));
+  const base = await mkdtemp(join(tmpdir(), 'orbitree-fixtures-'));
   const fixtures: Fixture[] = [];
 
   const create = async (name: string): Promise<string> => {

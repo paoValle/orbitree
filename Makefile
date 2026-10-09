@@ -48,7 +48,7 @@ verify: fmt-check lint typecheck verify-invariants test ## exactly what CI runs 
 check: verify ## alias
 
 cli: ## run the CLI against the current directory
-	./bin/keplerk status .
+	./bin/orbitree status .
 
 desktop: ## run the desktop app against this repository
 	@test -f apps/desktop/node_modules/electron/path.txt || \
@@ -56,7 +56,7 @@ desktop: ## run the desktop app against this repository
 	pnpm run desktop:dev
 
 e2e: ## run the UI test on the real window
-	pnpm --filter @keplerk/desktop run e2e
+	pnpm --filter @orbitree/desktop run e2e
 
 clean: ## remove build output
 	rm -rf node_modules packages/*/node_modules apps/*/node_modules packages/*/dist apps/*/out coverage reports .tmp

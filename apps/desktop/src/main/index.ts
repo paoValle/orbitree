@@ -8,7 +8,7 @@ import {
   readRefs,
   readStatus,
   riskOf,
-} from '@keplerk/core';
+} from '@orbitree/core';
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { CHANNELS, commitReadRequestSchema, type Result, runRequestSchema } from '../shared/api.ts';
 
@@ -176,5 +176,5 @@ app.on('window-all-closed', () => {
 // Nothing in this app should ever reach the crash reporter with a token in it.
 process.on('uncaughtException', (error) => {
   const message = error instanceof ConfirmationRequiredError ? error.message : error.message;
-  console.error(`keplerk: ${message}`);
+  console.error(`orbitree: ${message}`);
 });
