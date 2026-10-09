@@ -1,18 +1,22 @@
-import { mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  type DiffFile,
   gitVersion,
   InvalidArgumentError,
   MINIMUM_GIT_VERSION,
   meetsMinimumGitVersion,
   NotARepositoryError,
   openRepo,
+  readDiff,
   readGraph,
   readStatus,
   run,
 } from '../src/index.ts';
-import { type FixtureSet, makeFixtures } from './support/fixtures.ts';
+import { type FixtureSet, git, makeFixtures } from './support/fixtures.ts';
+import { parseNumstat } from './support/patch-crosscheck.ts';
 
 let set: FixtureSet;
 
@@ -79,6 +83,109 @@ describe('reading a repository end to end', () => {
     for (const ref of graph.refs) {
       if (ref.kind === 'tag') expect(hashes.has(ref.target)).toBe(true);
     }
+  });
+});
+
+describe("the three diff questions, each against git's own numstat", () => {
+  let root = '';
+
+  beforeAll(async () => {
+    root = await mkdtemp(join(tmpdir(), 'orbitree-diff-modes-'));
+    const run = async (...args: string[]): Promise<void> => {
+      const result = await git(root, ...args);
+      if (result.code !== 0) throw new Error(`git ${args.join(' ')} failed: ${result.stderr}`);
+    };
+    const write = async (path: string, content: string): Promise<void> => {
+      const full = join(root, path);
+      await mkdir(dirname(full), { recursive: true });
+      await writeFile(full, content, 'utf8');
+    };
+
+    await run('init', '-b', 'main', '--quiet');
+    await run('config', 'user.name', 'Diff Modes');
+    await run('config', 'user.email', 'diff-modes@example.invalid');
+    await run('config', 'commit.gpgsign', 'false');
+    await run('config', 'core.autocrlf', 'false');
+
+    // The base every comparison starts from.
+    await write('same.txt', 'base for both\n');
+    await write('staged.txt', 'base for staged\n');
+    await write('unstaged.txt', 'base for unstaged\n');
+    await run('add', '-A');
+    await run('commit', '--quiet', '-m', 'base');
+
+    // A file ready in the index and then edited again: both sides hold a different line.
+    await write('same.txt', 'the index side\n');
+    await run('add', 'same.txt');
+    await write('same.txt', 'the worktree side\n');
+    // Staged and untouched in the working tree.
+    await write('staged.txt', 'the staged side\n');
+    await run('add', 'staged.txt');
+    // Untouched in the index, changed in the working tree.
+    await write('unstaged.txt', 'the unstaged side\n');
+    // New, and only in the index.
+    await write('new-staged.txt', 'a brand new staged file\n');
+    await run('add', 'new-staged.txt');
+  });
+
+  afterAll(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  function counted(files: readonly DiffFile[]): Map<string, { added: number; deleted: number }> {
+    return new Map(
+      files.map((file) => [
+        file.path,
+        {
+          added: file.hunks.reduce(
+            (total, hunk) => total + hunk.lines.filter((line) => line.kind === 'add').length,
+            0,
+          ),
+          deleted: file.hunks.reduce(
+            (total, hunk) => total + hunk.lines.filter((line) => line.kind === 'del').length,
+            0,
+          ),
+        },
+      ]),
+    );
+  }
+
+  it('[I5] readDiff asks three questions and git agrees on all three', async () => {
+    const repo = await openRepo(root);
+    const modes = [
+      {
+        name: 'the index against HEAD',
+        request: { cached: true },
+        gitArgs: ['diff', '--cached', 'HEAD', '--numstat', '-z', '-M'],
+      },
+      {
+        name: 'the working tree against HEAD',
+        request: { rev: 'HEAD' },
+        gitArgs: ['diff', 'HEAD', '--numstat', '-z', '-M'],
+      },
+      {
+        name: 'the working tree against the index',
+        request: {},
+        gitArgs: ['diff', '--numstat', '-z', '-M'],
+      },
+    ] as const;
+
+    for (const mode of modes) {
+      const files = await readDiff(repo, mode.request);
+      const expected = parseNumstat((await git(root, ...mode.gitArgs)).stdout);
+      expect(expected.size, mode.name).toBeGreaterThan(0);
+      expect(counted(files), mode.name).toEqual(expected);
+    }
+
+    // The split is the point: the same file is one answer in the index and another in the
+    // working tree, and the two questions never see each other's line.
+    const index = await readDiff(repo, { cached: true });
+    const worktree = await readDiff(repo, {});
+    const indexSame = index.find((file) => file.path === 'same.txt');
+    const worktreeSame = worktree.find((file) => file.path === 'same.txt');
+    expect(indexSame?.raw).toContain('the index side');
+    expect(indexSame?.raw).not.toContain('the worktree side');
+    expect(worktreeSame?.raw).toContain('the worktree side');
   });
 });
 

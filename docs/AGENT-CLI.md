@@ -21,7 +21,7 @@ human prose go to stderr. So:
 
 ```jsonc
 {
-  "schemaVersion": 1,          // bumped when the shape of `data` changes
+  "schemaVersion": 2,          // bumped when the shape of `data` changes
   "command": "status",         // the command that produced this
   "ok": true,
   "data": { /* command-specific */ }
@@ -32,7 +32,7 @@ and on failure, the same object with `ok: false` and **no `data`**:
 
 ```jsonc
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "command": "status",
   "ok": false,
   "error": { "kind": "not-a-repository", "message": "…" }
@@ -81,7 +81,7 @@ destructive needs a confirmation token, or a --dry-run
 orbitree status [path] --json
 orbitree graph  [path] --json [--limit 200] [--all] [--rev <rev>]
 orbitree refs   [path] --json
-orbitree diff   [path] --json [--rev <rev>] [--path <path>]
+orbitree diff   [path] --json [--rev <rev>] [--cached | --unstaged] [--path <path>]
 orbitree show   [path] --json [--rev <rev>]
 ```
 
@@ -98,7 +98,21 @@ the read history holds (`HEAD`, the revision named by `--rev`, or every ref with
 which it is: `14 commits · 1 lane`, or `2000 of 2053 commits · 2 lanes` when `--limit` cut the
 history. Row `0` is the newest commit; the picture is complete without drawing anything.
 
-`diff` returns `files` for the patch against `HEAD` (or `--rev`): each with `path` (unquoted, no
+`diff` answers one of three different questions, chosen by the flags, because a staged change
+and an unstaged change are not the same comparison:
+
+| invocation | the question | git argv |
+|---|---|---|
+| `diff` | the working tree against a revision | `git diff HEAD` |
+| `diff --cached` | the index against a revision (`--rev`, `HEAD` by default) | `git diff --cached HEAD` |
+| `diff --unstaged` | the working tree against the index | `git diff` |
+
+`--cached` and `--unstaged` together is a usage error (exit 2): they are two questions, not a
+filter and its inverse. Without either flag the behaviour is the working tree against `--rev`
+(`HEAD` by default), unchanged from before those flags existed. In `--unstaged` mode `data.rev`
+is `null`, because there is no revision on either side of that comparison.
+
+Whatever the mode, `diff` returns `files`: each with `path` (unquoted, no
 `a/`/`b/` prefix), `oldPath` when the file was renamed or copied, `status`, `binary`, and `hunks`.
 A hunk carries its `header`, `oldStart`, `newStart`, and `lines` (each a `kind` of `context`,
 `add`, `del` or `note`) with `oldLines`/`newLines` recomputed from them. Every file and hunk

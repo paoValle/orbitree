@@ -18,7 +18,12 @@ export type GitCommand =
   | { readonly op: 'graph'; readonly limit: number; readonly all?: boolean; readonly rev?: string }
   | { readonly op: 'count'; readonly all?: boolean; readonly rev?: string }
   | { readonly op: 'refs' }
-  | { readonly op: 'diff'; readonly rev: string; readonly path?: string }
+  | {
+      readonly op: 'diff';
+      readonly rev?: string;
+      readonly cached?: boolean;
+      readonly path?: string;
+    }
   | { readonly op: 'commit-detail'; readonly rev: string }
   | { readonly op: 'commit-patch'; readonly rev: string }
   // --- local: changes the repository on this disk ---
@@ -165,14 +170,22 @@ export function toArgv(cmd: GitCommand): string[] {
     case 'refs':
       return ['for-each-ref', `--format=${REF_FORMAT}`];
 
+    // Three different questions share one git subcommand, and the argv has to be able to ask
+    // all three. `--cached <rev>` is the index against a commit; `<rev>` is the working tree
+    // against that commit; no revision at all is the working tree against the index, which
+    // reads as a missing argument rather than a feature unless it is named here.
     case 'diff':
       return [
         'diff',
+        ...(cmd.cached === true
+          ? ['--cached', assertSafeRef(cmd.rev ?? 'HEAD')]
+          : cmd.rev === undefined
+            ? []
+            : [assertSafeRef(cmd.rev)]),
         '--no-color',
         '--no-ext-diff',
         '--patch',
         '--find-renames',
-        assertSafeRef(cmd.rev),
         ...(cmd.path === undefined ? [] : ['--', cmd.path]),
       ];
 

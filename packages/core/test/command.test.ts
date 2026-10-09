@@ -147,6 +147,25 @@ describe('the argv a command produces', () => {
     expect(argv).toEqual(expect.arrayContaining(['--no-color', '--no-ext-diff', '--patch']));
   });
 
+  it('the three diff questions are three different argv shapes', () => {
+    // The index against a commit.
+    expect(toArgv({ op: 'diff', cached: true }).slice(0, 3)).toEqual(['diff', '--cached', 'HEAD']);
+    expect(toArgv({ op: 'diff', cached: true, rev: 'HEAD~1' }).slice(0, 3)).toEqual([
+      'diff',
+      '--cached',
+      'HEAD~1',
+    ]);
+    // The working tree against a commit.
+    const against = toArgv({ op: 'diff', rev: 'HEAD~1' });
+    expect(against.slice(0, 2)).toEqual(['diff', 'HEAD~1']);
+    expect(against).not.toContain('--cached');
+    // The working tree against the index: no revision, and that is the question.
+    const index = toArgv({ op: 'diff' });
+    expect(index.slice(0, 2)).toEqual(['diff', '--no-color']);
+    expect(index).not.toContain('--cached');
+    expect(index).not.toContain('HEAD');
+  });
+
   it('[I2] a pull is fast-forward only', () => {
     expect(toArgv({ op: 'pull' })).toEqual(['pull', '--ff-only']);
   });

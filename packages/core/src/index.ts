@@ -16,4 +16,4 @@ export * from './git/redact.ts';
 export * from './git/status.ts';
 export * from './graph/layout.ts';
 export * from './repo.ts';
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;

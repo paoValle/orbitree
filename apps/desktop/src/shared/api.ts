@@ -6,7 +6,7 @@
  * is asserted to cover `GitCommand` at compile time, so the IPC surface cannot drift away
  * from what the core actually accepts.
  */
-import type { CommitData, GitCommand, GraphData, Ref, RepoState } from '@orbitree/core';
+import type { CommitData, DiffFile, GitCommand, GraphData, Ref, RepoState } from '@orbitree/core';
 import { z } from 'zod';
 import { CHANNELS } from './channels.ts';
 
@@ -20,6 +20,7 @@ export type {
   GraphData,
   Ref,
   RepoState,
+  StatusEntry,
 } from '@orbitree/core';
 
 export { CHANNELS };
@@ -42,7 +43,12 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
     rev: z.exactOptional(z.string().min(1)),
   }),
   z.object({ op: literal('refs') }),
-  z.object({ op: literal('diff'), rev: z.string(), path: z.exactOptional(z.string()) }),
+  z.object({
+    op: literal('diff'),
+    rev: z.exactOptional(z.string()),
+    cached: z.exactOptional(z.boolean()),
+    path: z.exactOptional(z.string()),
+  }),
   z.object({ op: literal('commit-detail'), rev: z.string() }),
   z.object({ op: literal('commit-patch'), rev: z.string() }),
   z.object({ op: literal('add'), paths: z.readonly(z.array(z.string())) }),
@@ -114,6 +120,24 @@ export interface RefsPayload {
   readonly refs: readonly Ref[];
 }
 
+export interface DiffPayload {
+  readonly root: string;
+  readonly files: readonly DiffFile[];
+}
+
+/**
+ * A working-tree diff is one of three questions. `cached` picks the index-as-base form, and
+ * leaving `rev` out picks the index-as-other-side form; both booleans and the revision are
+ * validated here even though the caller controls the flag, because the renderer is a web page.
+ */
+export const diffRequestSchema = z.object({
+  path: z.string().min(1),
+  rev: z.exactOptional(z.string().min(1)),
+  cached: z.exactOptional(z.boolean()),
+});
+
+export type DiffRequest = z.infer<typeof diffRequestSchema>;
+
 export interface RunPayload {
   readonly op: string;
   readonly risk: string;
@@ -141,6 +165,10 @@ export interface OrbitreeApi {
     request: { limit: number; all?: boolean; rev?: string },
   ) => Promise<Result<GraphPayload>>;
   readonly refs: (path: string) => Promise<Result<RefsPayload>>;
+  readonly diff: (
+    path: string,
+    request: { rev?: string; cached?: boolean },
+  ) => Promise<Result<DiffPayload>>;
   readonly readCommit: (path: string, rev: string) => Promise<Result<CommitData>>;
   readonly run: (request: RunRequest) => Promise<Result<RunPayload>>;
   readonly pickDirectory: () => Promise<string | null>;

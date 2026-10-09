@@ -217,21 +217,56 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
 
   program
     .command('diff')
-    .description('a patch: the changes between a revision and the working tree')
+    .description('a patch: staged, unstaged, or the working tree against a revision')
     .argument('[path]', 'a path inside the repository', '.')
     .option('--rev <rev>', 'the revision to diff against', 'HEAD')
+    .option('--cached', 'the index against the revision (what is staged)')
+    .option('--unstaged', 'the working tree against the index (what is not staged)')
     .option('--path <path>', 'only report changes under this path')
     .option('--json', 'one JSON object on stdout')
-    .action(async (path: string, opts: { rev: string; path?: string; json?: boolean }) => {
-      const repo = await openRepo(path);
-      const files = await readDiff(repo, {
-        rev: opts.rev,
-        ...(opts.path === undefined ? {} : { path: opts.path }),
-      });
-      emit(io, opts.json === true, 'diff', { root: repo.root, rev: opts.rev, files }, (data) =>
-        data.files.map((file) => file.raw).join(''),
-      );
-    });
+    .action(
+      async (
+        path: string,
+        opts: {
+          rev: string;
+          cached?: boolean;
+          unstaged?: boolean;
+          path?: string;
+          json?: boolean;
+        },
+      ) => {
+        if (opts.cached === true && opts.unstaged === true) {
+          throw new InvalidArgumentError(
+            '--cached and --unstaged are different questions; pass at most one',
+          );
+        }
+        const repo = await openRepo(path);
+        // `--unstaged` is the one mode with no base revision: the index is the base, and the
+        // absence of a revision is exactly how `readDiff` asks that question.
+        const request =
+          opts.unstaged === true
+            ? { ...(opts.path === undefined ? {} : { path: opts.path }) }
+            : {
+                rev: opts.rev,
+                ...(opts.cached === true ? { cached: true } : {}),
+                ...(opts.path === undefined ? {} : { path: opts.path }),
+              };
+        const files = await readDiff(repo, request);
+        emit(
+          io,
+          opts.json === true,
+          'diff',
+          {
+            root: repo.root,
+            // `null` is a real answer here: the working tree against the index has no
+            // revision on either side, and printing `HEAD` would name a commit we never read.
+            rev: opts.unstaged === true ? null : opts.rev,
+            files,
+          },
+          (data) => data.files.map((file) => file.raw).join(''),
+        );
+      },
+    );
 
   program
     .command('show')

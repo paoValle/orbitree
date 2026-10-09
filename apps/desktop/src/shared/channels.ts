@@ -10,6 +10,7 @@ export const CHANNELS = {
   status: 'repo:status',
   graph: 'repo:graph',
   refs: 'repo:refs',
+  diff: 'repo:diff',
   run: 'repo:run',
   commitRead: 'commit:read',
   pickDirectory: 'app:pick-directory',

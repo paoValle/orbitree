@@ -90,13 +90,16 @@ export async function readRefs(
 
 export async function readDiff(
   repo: RepoHandle,
-  request: { rev: string; path?: string } = { rev: 'HEAD' },
+  request: { rev?: string; cached?: boolean; path?: string } = { rev: 'HEAD' },
   options: Partial<ExecuteOptions> = {},
 ): Promise<readonly DiffFile[]> {
   const { stdout } = await executeOrThrow(
     {
       op: 'diff',
-      rev: request.rev,
+      // No revision and not cached is the working tree against the index; an omitted `rev`
+      // is a question, not an oversight, so it is only sent when the caller named one.
+      ...(request.rev === undefined ? {} : { rev: request.rev }),
+      ...(request.cached === true ? { cached: true } : {}),
       ...(request.path === undefined ? {} : { path: request.path }),
     },
     { cwd: repo.root, ...options },

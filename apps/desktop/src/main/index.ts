@@ -4,13 +4,20 @@ import {
   execute,
   openRepo,
   readCommit,
+  readDiff,
   readGraph,
   readRefs,
   readStatus,
   riskOf,
 } from '@orbitree/core';
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
-import { CHANNELS, commitReadRequestSchema, type Result, runRequestSchema } from '../shared/api.ts';
+import {
+  CHANNELS,
+  commitReadRequestSchema,
+  diffRequestSchema,
+  type Result,
+  runRequestSchema,
+} from '../shared/api.ts';
 
 const isDev = !app.isPackaged;
 
@@ -60,6 +67,18 @@ function registerHandlers(): void {
     attempt(async () => {
       const repo = await openRepo(String(path));
       return { root: repo.root, refs: await readRefs(repo) };
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.diff, (_event, request: unknown) =>
+    attempt(async () => {
+      const parsed = diffRequestSchema.parse(request);
+      const repo = await openRepo(parsed.path);
+      const files = await readDiff(repo, {
+        ...(parsed.rev === undefined ? {} : { rev: parsed.rev }),
+        ...(parsed.cached === true ? { cached: true } : {}),
+      });
+      return { root: repo.root, files };
     }),
   );
 

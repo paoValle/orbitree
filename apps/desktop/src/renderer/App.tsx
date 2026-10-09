@@ -8,6 +8,7 @@ import {
 } from '../shared/api.ts';
 import { CommitPanel } from './CommitPanel.tsx';
 import { GraphPane } from './GraphPane.tsx';
+import { WorkingTreePanel } from './WorkingTreePanel.tsx';
 
 interface Pending {
   readonly command: QuickCommand;
@@ -221,40 +222,20 @@ export function App(): React.ReactElement {
         <aside className="side">
           <CommitPanel root={root} hash={selected} />
 
-          <div className="card">
-            <h2>Working tree</h2>
-            {status === null ? (
-              <p className="empty">nothing loaded</p>
-            ) : (
-              <>
-                <p className="headline">{describeHead(status)}</p>
-                <ul className="entries">
-                  {status.entries.map((entry) => (
-                    <li key={`${entry.kind}:${entry.path}`}>
-                      <span className={`code ${entry.kind}`}>{entryCode(entry)}</span>
-                      <span className="ename">{entry.path}</span>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() =>
-                          void runCommand({
-                            id: 'stage',
-                            label: 'Stage',
-                            hint: '',
-                            danger: false,
-                            command: { op: 'add', paths: [entry.path] },
-                          })
-                        }
-                      >
-                        stage
-                      </button>
-                    </li>
-                  ))}
-                  {status.entries.length === 0 && <li className="empty">clean</li>}
-                </ul>
-              </>
-            )}
-          </div>
+          <WorkingTreePanel
+            root={root}
+            state={status}
+            busy={busy}
+            onStage={(entryPath) =>
+              void runCommand({
+                id: 'stage',
+                label: 'Stage',
+                hint: '',
+                danger: false,
+                command: { op: 'add', paths: [entryPath] },
+              })
+            }
+          />
 
           <div className="card">
             <h2>Activity</h2>
@@ -299,36 +280,6 @@ export function App(): React.ReactElement {
       )}
     </div>
   );
-}
-
-function entryCode(entry: RepoState['entries'][number]): string {
-  switch (entry.kind) {
-    case 'untracked':
-      return '??';
-    case 'ignored':
-      return '!!';
-    case 'unmerged':
-      return 'UU';
-    default:
-      return `${entry.index === 'unmodified' ? '.' : codeLetter(entry.index)}${entry.worktree === 'unmodified' ? '.' : codeLetter(entry.worktree)}`;
-  }
-}
-
-function codeLetter(status: string): string {
-  return status === 'typechange' ? 'T' : status.slice(0, 1).toUpperCase();
-}
-
-function describeHead(state: RepoState): string {
-  if (state.head.kind === 'branch') {
-    const tracking =
-      state.head.upstream === null
-        ? ''
-        : ` · ${state.head.ahead}↑ ${state.head.behind}↓ ${state.head.upstream}`;
-    return `on ${state.head.name}${tracking}`;
-  }
-  if (state.head.kind === 'unborn')
-    return `on ${state.head.name ?? 'an unnamed branch'} — no commits yet`;
-  return `detached at ${state.head.oid.slice(0, 7)}`;
 }
 
 function summarize(result: RunPayload): string {

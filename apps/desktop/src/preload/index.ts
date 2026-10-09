@@ -11,6 +11,7 @@ const api: OrbitreeApi = {
   status: (path) => ipcRenderer.invoke(CHANNELS.status, path),
   graph: (path, request) => ipcRenderer.invoke(CHANNELS.graph, { path, ...request }),
   refs: (path) => ipcRenderer.invoke(CHANNELS.refs, path),
+  diff: (path, request) => ipcRenderer.invoke(CHANNELS.diff, { path, ...request }),
   readCommit: (path, rev) => ipcRenderer.invoke(CHANNELS.commitRead, { path, rev }),
   run: (request: RunRequest) => ipcRenderer.invoke(CHANNELS.run, request),
   pickDirectory: () => ipcRenderer.invoke(CHANNELS.pickDirectory),

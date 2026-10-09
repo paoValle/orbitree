@@ -455,6 +455,56 @@ button.danger,
   font-size: 11px;
 }
 
+.wt-section {
+  margin-bottom: 8px;
+}
+
+.wt-section h3 {
+  margin: 8px 0 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+}
+
+.entries .entry-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 2px 6px;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.entries .entry-item.selected {
+  background: rgb(106 169 255 / 22%);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.entry-kind {
+  flex: none;
+  width: 18px;
+  text-align: center;
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.status-code {
+  flex: none;
+  color: var(--text-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+
+.wt-diff {
+  margin-top: 8px;
+}
+
 pre {
   margin: 0;
   font-size: 11px;

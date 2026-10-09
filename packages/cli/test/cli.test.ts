@@ -170,4 +170,46 @@ describe('the CLI and the app are the same program', () => {
     expect(await cli(['--help']).then((result) => result.code)).toBe(EXIT.ok);
     expect(await cli(['nonsense']).then((result) => result.code)).toBe(EXIT.usage);
   });
+
+  it('diff names the three questions and refuses to answer two at once', async () => {
+    const repo = await mkdtemp(join(tmpdir(), 'orbitree-cli-diff-'));
+    const git = (...args: string[]): Promise<unknown> =>
+      execFileAsync('git', args, { cwd: repo, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
+    try {
+      await git('init', '-b', 'main', '--quiet');
+      await git('config', 'user.name', 'CLI Diff');
+      await git('config', 'user.email', 'cli-diff@example.invalid');
+      await writeFile(join(repo, 'a.txt'), 'base\n', 'utf8');
+      await git('add', '-A');
+      await git('commit', '--quiet', '-m', 'base');
+      // The index holds one side of the change; the working tree holds the other.
+      await writeFile(join(repo, 'a.txt'), 'STAGED_SIDE\n', 'utf8');
+      await git('add', 'a.txt');
+      await writeFile(join(repo, 'a.txt'), 'WORKTREE_SIDE\n', 'utf8');
+
+      const staged = await cli(['diff', repo, '--cached', '--json']);
+      expect(staged.code).toBe(EXIT.ok);
+      const stagedData = JSON.parse(staged.lines[0] as string) as {
+        data: { rev: string; files: { raw: string }[] };
+      };
+      expect(stagedData.data.rev).toBe('HEAD');
+      expect(stagedData.data.files.map((file) => file.raw).join('')).toContain('STAGED_SIDE');
+      expect(stagedData.data.files.map((file) => file.raw).join('')).not.toContain('WORKTREE_SIDE');
+
+      const unstaged = await cli(['diff', repo, '--unstaged', '--json']);
+      expect(unstaged.code).toBe(EXIT.ok);
+      const unstagedData = JSON.parse(unstaged.lines[0] as string) as {
+        data: { rev: string | null; files: { raw: string }[] };
+      };
+      expect(unstagedData.data.rev).toBeNull();
+      expect(unstagedData.data.files.map((file) => file.raw).join('')).toContain('WORKTREE_SIDE');
+
+      const conflict = await cli(['diff', repo, '--cached', '--unstaged', '--json']);
+      expect(conflict.code).toBe(EXIT.usage);
+      const conflictData = JSON.parse(conflict.lines[0] as string) as { error: { kind: string } };
+      expect(conflictData.error.kind).toBe('invalid-argument');
+    } finally {
+      await rm(repo, { recursive: true, force: true });
+    }
+  });
 });
