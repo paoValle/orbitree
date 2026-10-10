@@ -67,7 +67,10 @@ Make the repository legible. No mutation beyond staging yet.
 
 The working tree becomes editable, and the confirmation machinery gets its real workout.
 
-- [ ] Stage, unstage, discard (per file and per hunk), amend, commit, commit-and-push.
+- [ ] Stage, unstage, discard (per file and per hunk), amend, commit, commit-and-push. Stage,
+      unstage, amend and commit are in, and the parity half of this phase's exit criterion is
+      asserted by `apps/desktop/test/e2e/commit.spec.ts`. Discard (per file and per hunk) and
+      commit-and-push are not.
 - [ ] Branch create/switch/rename/delete, tag create/delete, checkout of a commit (detached).
 - [ ] Merge, and the conflict screen: ours/theirs/both at the hunk level.
 - [ ] Stash push/pop/apply/drop, with a diff preview.
