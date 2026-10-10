@@ -208,6 +208,20 @@ describe('the argv a command produces', () => {
     expect(() => toArgv({ op: 'commit', message: '  ' })).toThrow(InvalidArgumentError);
   });
 
+  it('an amend with no message keeps the existing one instead of opening an editor', () => {
+    expect(toArgv({ op: 'commit', message: '', amend: true })).toEqual([
+      'commit',
+      '--amend',
+      '--no-edit',
+    ]);
+    expect(toArgv({ op: 'commit', message: 'a new subject', amend: true })).toEqual([
+      'commit',
+      '--amend',
+      '-m',
+      'a new subject',
+    ]);
+  });
+
   it('fuzz: no emitted argv ever contains a bare --force or a shell metacharacter escape', () => {
     const commands: GitCommand[] = Object.values(EXAMPLE);
     fc.assert(

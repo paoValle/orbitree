@@ -241,11 +241,20 @@ export function toArgv(cmd: GitCommand): string[] {
     case 'unstage':
       return ['restore', '--staged', '--', ...assertSafePaths(cmd.paths)];
 
+    // An amend with no message keeps the existing one. `--no-edit` is what makes that true
+    // for a process with no terminal: plain `--amend` would open an editor and wait for it.
     case 'commit':
+      if (cmd.amend === true) {
+        return [
+          'commit',
+          '--amend',
+          ...(cmd.message.trim() === '' ? ['--no-edit'] : ['-m', cmd.message]),
+        ];
+      }
       if (cmd.message.trim() === '') {
         throw new InvalidArgumentError('a commit needs a message');
       }
-      return ['commit', '-m', cmd.message, ...(cmd.amend === true ? ['--amend'] : [])];
+      return ['commit', '-m', cmd.message];
 
     case 'branch-create':
       assertSafeName(cmd.name, 'branch name');

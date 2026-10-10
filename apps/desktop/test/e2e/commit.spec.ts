@@ -1,0 +1,118 @@
+import { mkdir, rm } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { expect, test } from '@playwright/test';
+import { closeApp, git, launchApp, mainWindow, makeRepo, orbitree } from './support.ts';
+
+const MESSAGE = 'the same commit from both keys';
+
+/**
+ * The three fields the index and the message decide. The timestamp is deliberately not one
+ * of them: it differs by construction, and asserting on it would make the test lie.
+ */
+interface CommitIdentity {
+  readonly tree: string;
+  readonly subject: string;
+  readonly author: string;
+}
+
+async function identity(repo: string): Promise<CommitIdentity> {
+  const [tree = '', subject = '', author = ''] = (
+    await git(repo, ['log', '-1', '--format=%T%n%s%n%an <%ae>'])
+  ).split('\n');
+  return { tree, subject, author };
+}
+
+test('the app and the CLI produce the same commit object', async () => {
+  const fixture = { base: 'base\n', staged: { path: 'change.txt', content: 'staged change\n' } };
+  const appRepo = await makeRepo(fixture);
+  const cliRepo = await makeRepo(fixture);
+  try {
+    // The CLI half: the same operation the app will run, through the product's own surface.
+    const cli = await orbitree(
+      ['run', cliRepo, '--op', 'commit', '--message', MESSAGE, '--json'],
+      cliRepo,
+    );
+    expect(cli.exitCode).toBe(0);
+
+    // The app half: type the message, click Commit, wait for the graph to show the commit.
+    const handle = await launchApp(appRepo);
+    try {
+      const page = await mainWindow(handle.app);
+      const messageBox = page.locator('[data-testid=commit-message]');
+      await expect(messageBox).toBeVisible();
+      // Something is staged but nothing is typed: the one reason the button is disabled here.
+      await expect(page.locator('[data-testid=commit-disabled-reason]')).toHaveText(
+        'a commit needs a message',
+      );
+      await messageBox.fill(MESSAGE);
+      await expect(page.locator('[data-testid=commit-button]')).toBeEnabled();
+      // Wait for the history to be drawn, so the screenshot shows the whole window.
+      await expect(page.locator('[data-testid=commit-row]')).toHaveCount(1);
+
+      // Taken with the message typed and the box enabled, so a person can look at it.
+      const screenshot = resolve('reports/commit.png');
+      await mkdir(dirname(screenshot), { recursive: true });
+      await page.screenshot({ path: screenshot });
+      console.log(`screenshot: ${screenshot}`);
+
+      await page.locator('[data-testid=commit-button]').click();
+      await expect(page.locator('[data-testid=commit-row]').first()).toContainText(MESSAGE);
+
+      // The app made exactly one commit, and left nothing behind in the working tree.
+      expect(await git(appRepo, ['rev-list', '--count', 'HEAD'])).toBe('2');
+      expect(await git(appRepo, ['status', '--porcelain'])).toBe('');
+      await expect(messageBox).toHaveValue('');
+      await expect(page.locator('[data-testid=commit-amend]')).not.toBeChecked();
+    } finally {
+      await closeApp(handle);
+    }
+
+    const appIdentity = await identity(appRepo);
+    const cliIdentity = await identity(cliRepo);
+    console.log(
+      `app: tree=${appIdentity.tree} subject=${JSON.stringify(appIdentity.subject)} author=${appIdentity.author}`,
+    );
+    console.log(
+      `cli: tree=${cliIdentity.tree} subject=${JSON.stringify(cliIdentity.subject)} author=${cliIdentity.author}`,
+    );
+    expect(appIdentity.tree).toBe(cliIdentity.tree);
+    expect(appIdentity.subject).toBe(cliIdentity.subject);
+    expect(appIdentity.author).toBe(cliIdentity.author);
+  } finally {
+    await rm(appRepo, { recursive: true, force: true });
+    await rm(cliRepo, { recursive: true, force: true });
+  }
+});
+
+test('amend rewrites the message without adding a commit', async () => {
+  const repo = await makeRepo({ base: 'the original message\n' });
+  const before = await git(repo, ['rev-list', '--count', 'HEAD']);
+  try {
+    const handle = await launchApp(repo);
+    try {
+      const page = await mainWindow(handle.app);
+      // Nothing is staged and nothing is typed: the reason names the missing stage first.
+      await expect(page.locator('[data-testid=commit-disabled-reason]')).toHaveText(
+        'nothing staged',
+      );
+      await page.locator('[data-testid=commit-message]').fill('the amended message');
+      await expect(page.locator('[data-testid=commit-disabled-reason]')).toHaveText(
+        'nothing staged',
+      );
+      // Amend is the one case where nothing staged is still a commit.
+      await page.locator('[data-testid=commit-amend]').check();
+      await expect(page.locator('[data-testid=commit-disabled-reason]')).toHaveCount(0);
+      await expect(page.locator('[data-testid=commit-button]')).toBeEnabled();
+      await page.locator('[data-testid=commit-button]').click();
+      await expect(page.locator('[data-testid=commit-row]').first()).toContainText(
+        'the amended message',
+      );
+    } finally {
+      await closeApp(handle);
+    }
+    expect(await git(repo, ['rev-list', '--count', 'HEAD'])).toBe(before);
+    expect(await git(repo, ['log', '-1', '--format=%s'])).toBe('the amended message');
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+  }
+});

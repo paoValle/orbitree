@@ -225,8 +225,8 @@ export function App(): React.ReactElement {
   );
 
   const runCommand = useCallback(
-    async (command: QuickCommand, reason?: string): Promise<void> => {
-      if (active === null || active.root === null) return;
+    async (command: QuickCommand, reason?: string): Promise<boolean> => {
+      if (active === null || active.root === null) return false;
       const target = active.root;
       const selection = active.filter;
       const requested = active.limit;
@@ -240,10 +240,11 @@ export function App(): React.ReactElement {
       setPending(null);
       if (!result.ok) {
         setError(result.error);
-        return;
+        return false;
       }
       setLog((previous) => [summarize(result.value), ...previous].slice(0, 8));
       await refresh(target, active.id, selection, requested);
+      return true;
     },
     [active, refresh],
   );
@@ -460,6 +461,24 @@ export function App(): React.ReactElement {
                 hint: '',
                 danger: false,
                 command: { op: 'add', paths: [entryPath] },
+              })
+            }
+            onUnstage={(entryPath) =>
+              void runCommand({
+                id: 'unstage',
+                label: 'Unstage',
+                hint: '',
+                danger: false,
+                command: { op: 'unstage', paths: [entryPath] },
+              })
+            }
+            onCommit={(message, amend) =>
+              runCommand({
+                id: 'commit',
+                label: 'Commit',
+                hint: '',
+                danger: false,
+                command: { op: 'commit', message, ...(amend ? { amend: true } : {}) },
               })
             }
           />

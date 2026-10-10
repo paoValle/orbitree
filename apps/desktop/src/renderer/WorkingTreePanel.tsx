@@ -14,8 +14,11 @@ export interface WorkingTreePanelProps {
   readonly root: string | null;
   readonly state: RepoState | null;
   readonly busy?: boolean;
-  /** Staging is still the only mutation in this pane; the callback runs the real `add`. */
+  /** The callbacks run the real operations through the app's one `run` path. */
   readonly onStage?: (path: string) => void;
+  readonly onUnstage?: (path: string) => void;
+  /** `true` means the commit ran; the message is only cleared when it did. */
+  readonly onCommit?: (message: string, amend: boolean) => Promise<boolean>;
 }
 
 interface SectionSpec {
@@ -57,7 +60,12 @@ export function WorkingTreePanel({
   state,
   busy,
   onStage,
+  onUnstage,
+  onCommit,
 }: WorkingTreePanelProps): React.ReactElement {
+  const [message, setMessage] = useState('');
+  const [amend, setAmend] = useState(false);
+  const [committing, setCommitting] = useState(false);
   const [selected, setSelected] = useState<{
     readonly section: WorkingTreeSection;
     readonly path: string;
@@ -111,6 +119,17 @@ export function WorkingTreePanel({
 
   const current = loaded !== null && loaded.key === key ? loaded : null;
   const file = current?.files?.find((entry) => entry.path === path) ?? null;
+
+  // An amend can run with nothing staged (it only rewrites the last message), and an empty
+  // message means "keep the existing one". An ordinary commit needs both a stage and a message.
+  const stagedCount = state === null ? 0 : entriesFor(state, 'staged').length;
+  const disabledReason = amend
+    ? null
+    : stagedCount === 0
+      ? 'nothing staged'
+      : message.trim() === ''
+        ? 'a commit needs a message'
+        : null;
 
   return (
     <div className="card working-tree" data-testid="working-tree">
@@ -173,6 +192,17 @@ export function WorkingTreePanel({
                               stage
                             </button>
                           )}
+                        {onUnstage !== undefined && spec.section === 'staged' && (
+                          <button
+                            type="button"
+                            className="stage"
+                            data-testid="unstage-button"
+                            disabled={busy === true}
+                            onClick={() => onUnstage(entry.path)}
+                          >
+                            unstage
+                          </button>
+                        )}
                       </li>
                     );
                   })}
@@ -185,6 +215,51 @@ export function WorkingTreePanel({
             <p className="empty">clean apart from ignored files</p>
           )}
           {state.entries.length === 0 && <p className="empty">clean</p>}
+          {onCommit !== undefined && (
+            <div className="commit-box" data-testid="commit-box">
+              <textarea
+                className="commit-message"
+                data-testid="commit-message"
+                placeholder="Commit message"
+                rows={3}
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+              />
+              <label className="commit-amend">
+                <input
+                  type="checkbox"
+                  data-testid="commit-amend"
+                  checked={amend}
+                  onChange={(event) => setAmend(event.target.checked)}
+                />
+                amend the last commit
+              </label>
+              {disabledReason !== null && (
+                <p className="commit-disabled-reason" data-testid="commit-disabled-reason">
+                  {disabledReason}
+                </p>
+              )}
+              <button
+                type="button"
+                className="primary"
+                data-testid="commit-button"
+                disabled={disabledReason !== null || committing}
+                onClick={() => {
+                  setCommitting(true);
+                  void onCommit(message, amend)
+                    .then((committed) => {
+                      if (committed) {
+                        setMessage('');
+                        setAmend(false);
+                      }
+                    })
+                    .finally(() => setCommitting(false));
+                }}
+              >
+                Commit
+              </button>
+            </div>
+          )}
         </>
       )}
       <div className="wt-diff" data-testid="wt-diff">

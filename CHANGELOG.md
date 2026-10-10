@@ -2,7 +2,17 @@
 
 Numbers quoted here come from a run of `make prove` on the date named, and from nothing else.
 
-## Unreleased — see
+## Unreleased
+
+**The app can commit, and the CLI's commit is the same commit.** The working tree pane has a
+message box, an amend checkbox and a Commit button, and a staged row can be unstaged. The button
+says why it is disabled instead of only being disabled, and a rejected commit keeps the message,
+because losing what was typed is what makes a person stop using a window. An amend with an empty
+message emits `git commit --amend --no-edit`: plain `--amend` opens an editor and would wait
+forever in a process that has no terminal. The parity this phase's exit criterion asks for is
+asserted rather than inspected — two identical repositories, one committed through the window and
+one through `orbitree run --op commit`, compared on the tree, the subject and the author that git
+itself reports, with the timestamp left out because it differs by construction.
 
 Phase P1 begins with the two panes that make a repository legible: the graph and a commit.
 

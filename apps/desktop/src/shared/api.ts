@@ -66,9 +66,11 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
   z.object({ op: literal('pending-operation'), ref: z.enum(PENDING_REFS) }),
   z.object({ op: literal('add'), paths: z.readonly(z.array(z.string())) }),
   z.object({ op: literal('unstage'), paths: z.readonly(z.array(z.string())) }),
+  // The message may be empty only when amending; the core is what refuses an empty message
+  // for an ordinary commit, so there is one guard rather than two that can disagree.
   z.object({
     op: literal('commit'),
-    message: z.string().min(1),
+    message: z.string(),
     amend: z.exactOptional(z.boolean()),
   }),
   z.object({ op: literal('branch-create'), name: z.string(), start: z.exactOptional(z.string()) }),

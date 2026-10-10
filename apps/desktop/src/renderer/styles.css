@@ -65,12 +65,14 @@ body {
 
 input,
 button,
-select {
+select,
+textarea {
   font: inherit;
   color: inherit;
 }
 
-input {
+input,
+textarea {
   background: var(--bg-input);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -78,7 +80,8 @@ input {
   outline: none;
 }
 
-input:focus-visible {
+input:focus-visible,
+textarea:focus-visible {
   border-color: var(--accent);
 }
 
@@ -558,6 +561,36 @@ button.danger,
 
 .wt-diff {
   margin-top: 8px;
+}
+
+.commit-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.commit-message {
+  resize: vertical;
+  min-height: 54px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+}
+
+.commit-amend {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.commit-disabled-reason {
+  margin: 0;
+  color: var(--danger);
+  font-size: 11px;
 }
 
 pre {

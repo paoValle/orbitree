@@ -15,6 +15,9 @@ const run = promisify(execFile);
 
 export const APP_PATH = join(import.meta.dirname, '..', '..');
 
+/** The CLI entry point, for the test that proves the app and the CLI build the same commit. */
+const CLI = join(APP_PATH, '..', '..', 'bin', 'orbitree');
+
 export interface AppHandle {
   readonly app: ElectronApplication;
   readonly userDataDir: string;
@@ -104,14 +107,62 @@ export async function git(cwd: string, args: readonly string[]): Promise<string>
   return stdout.trim();
 }
 
-export async function makeRepo(): Promise<string> {
+export interface MakeRepoOptions {
+  /** A first commit with this exact content, so HEAD is not unborn. */
+  readonly base?: string;
+  /** One file written and staged on top of the base, so there is something to commit. */
+  readonly staged?: { readonly path: string; readonly content: string };
+}
+
+export async function makeRepo(options: MakeRepoOptions = {}): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'orbitree-e2e-'));
   await git(root, ['init', '-b', 'main', '--quiet']);
   await git(root, ['config', 'user.name', 'E2E Author']);
   await git(root, ['config', 'user.email', 'e2e@example.invalid']);
   await git(root, ['config', 'commit.gpgsign', 'false']);
   await git(root, ['config', 'core.autocrlf', 'false']);
+  if (options.base !== undefined) {
+    await writeIn(root, 'base.txt', options.base);
+    await commit(root, 'base');
+  }
+  if (options.staged !== undefined) {
+    await writeIn(root, options.staged.path, options.staged.content);
+    await git(root, ['add', options.staged.path]);
+  }
   return root;
+}
+
+/**
+ * Runs the product's own CLI. `execFile` rejects on a non-zero exit, and that exit code is
+ * the assertion, so it is returned instead of thrown.
+ */
+export function orbitree(
+  args: readonly string[],
+  cwd: string,
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      CLI,
+      [...args],
+      {
+        cwd,
+        env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' },
+        maxBuffer: 32 * 1024 * 1024,
+      },
+      (error, stdout, stderr) => {
+        if (error === null) {
+          resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: 0 });
+          return;
+        }
+        const code = (error as NodeJS.ErrnoException & { code?: number }).code;
+        if (typeof code === 'number') {
+          resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: code });
+          return;
+        }
+        reject(error);
+      },
+    );
+  });
 }
 
 export async function writeIn(root: string, path: string, content: string): Promise<void> {
