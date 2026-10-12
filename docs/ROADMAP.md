@@ -63,6 +63,30 @@ Make the repository legible. No mutation beyond staging yet.
       mean a row count bounded by the viewport and a bounded scroll cost, which is what was measured;
       no frame timing was taken, and saying otherwise would be inventing a number.
 
+## P1.5 — Look
+
+The surface becomes its own thing instead of a by-product of the panes. The rules live in
+`docs/DESIGN.md`; this phase is the work of applying them.
+
+- [ ] The icon set: one component per glyph in `apps/desktop/src/renderer/icons.tsx`, on a 24px
+      grid with a 1.5px stroke, used on the quick bar, the file kinds, the ref badges, the tab bar
+      and the pane headings. The text glyphs the working tree uses today (`=`, `#`, `{}`, `~`) are
+      replaced rather than joined.
+- [ ] The motion pass, behind `prefers-reduced-motion: reduce`, with the six rules in
+      `docs/DESIGN.md` as the specification. Nothing animates the graph, and no transition is the
+      only way to see that something changed.
+- [ ] The command behind every action: an activity entry expands to the exact `git` argv, with a
+      copy button. The argv already exists in the core and the log already records the result.
+- [ ] Density and typography: one set of metrics, one monospace face for hashes and paths, and a
+      row height chosen so a branch boundary is visible without scrolling.
+- [ ] Colour that survives a colour-blind reader: ref kinds and status kinds carry a glyph as well
+      as a colour, and every state is legible in a still screenshot.
+
+**Exit**: `make e2e` green with a screenshot per spec, every screenshot looked at by a person, and
+the icon set visible in one of them with each glyph recognisable without its label. `grep -r
+'prefers-reduced-motion' apps/desktop/src` finds the one media query, and turning it on changes
+nothing that a test asserts.
+
 ## P2 — Change
 
 The working tree becomes editable, and the confirmation machinery gets its real workout.
@@ -94,6 +118,24 @@ Remotes, credentials, and the errors that come with the network.
 **Exit**: a real `git push` to a GitHub repository and to a self-hosted GitLab instance from
 the app, each with the token coming from the system helper and never appearing in a log —
 checked by a test that greps the session log for the token's shape.
+
+## P3.5 — Explain
+
+The read-only half of developer support: understanding a line, a file and a branch, without touching
+any of them. None of this mutates a repository, so none of it needs a confirmation.
+
+- [ ] Blame, per line, with the commit it came from and a jump into the graph at it.
+- [ ] File history: the commits that touched one path, in the graph's own shape.
+- [ ] Branch comparison in both directions: what this branch has that that one does not, and back.
+- [ ] Commit search: message, author, date range, path, and "only mine", applied to the graph as a
+      filter rather than as a separate list.
+- [ ] Open in editor, open in terminal, reveal in the file manager, each configured once.
+- [ ] A command palette over every action, by name and by keybinding, built from one registry that
+      the quick bar also reads.
+
+**Exit**: given a file and a line, the app names the commit that last changed it and opens the graph
+at that commit; given two branches, it lists the commits in each and not the other, and the lists
+disagree with `git log --left-right --cherry-pick` by nothing.
 
 ## P4 — Quick commands
 

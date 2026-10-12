@@ -120,6 +120,7 @@ a lane the commit was not in, and the cross-check test found the two-alphabet di
 | | |
 |---|---|
 | [docs/PRODUCT.md](docs/PRODUCT.md) | who it is for, the feature sift (must / should / later / never), risks |
+| [docs/DESIGN.md](docs/DESIGN.md) | the surface: icons, motion, density, and the developer-support sift |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | phases P0–P7, each with an exit criterion that is a command |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | layers, the decisions, the boundaries, the platform matrix |
 | [docs/INVARIANTS.md](docs/INVARIANTS.md) | the invariants and the test strategy |
