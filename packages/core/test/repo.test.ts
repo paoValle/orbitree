@@ -5,11 +5,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   type DiffFile,
   gitVersion,
-  InvalidArgumentError,
   MINIMUM_GIT_VERSION,
   meetsMinimumGitVersion,
   NotARepositoryError,
   openRepo,
+  PathNotFoundError,
   readDiff,
   readGraph,
   readStatus,
@@ -207,9 +207,12 @@ describe('the escape hatch', () => {
     expect(notARepo.stderr.toLowerCase()).toContain('not a git repository');
   });
 
-  it('a working directory that is not a directory is our error, not a fake missing-git', async () => {
+  it('a working directory that is not a directory is named, not faked as a missing git', async () => {
+    // Spawning with a bad directory fails with the same errno as a missing binary, and the two
+    // mean opposite things to a reader: one is "install git", the other is "that repository is
+    // not there". A GUI needs the second to be its own value, so it has its own name.
     await expect(
       run({ op: 'status' }, { cwd: join(process.cwd(), 'package.json') }),
-    ).rejects.toBeInstanceOf(InvalidArgumentError);
+    ).rejects.toBeInstanceOf(PathNotFoundError);
   });
 });

@@ -255,6 +255,9 @@ export const persistedStateSchema = z.object({
 });
 
 export const rememberRequestSchema = z.object({ path: z.string().min(1) });
+
+/** A repository that cannot be read any more, so that it stops being reopened on every launch. */
+export const forgetLastRequestSchema = z.object({ path: z.string().min(1) });
 export const setHotkeyRequestSchema = z.object({ hotkey: z.string().min(1) });
 
 export interface GraphPayload {
@@ -331,6 +334,7 @@ export interface OrbitreeApi {
   readonly readState: () => Promise<Result<PersistedState>>;
   readonly remember: (path: string) => Promise<Result<PersistedState>>;
   readonly setHotkey: (hotkey: string) => Promise<Result<PersistedState>>;
+  readonly forgetLast: (path: string) => Promise<Result<PersistedState>>;
 }
 
 /** A button in the Quick Commands bar. Data, not code, so a user can edit the list. */

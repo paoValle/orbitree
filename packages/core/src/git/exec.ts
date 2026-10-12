@@ -53,6 +53,22 @@ export class ConfirmationRequiredError extends Error {
   }
 }
 
+/**
+ * The working directory does not exist.
+ *
+ * Spawning with a bad working directory fails with the same errno as a missing binary, so the
+ * ambiguity is resolved here and given a name of its own. A GUI needs it: a remembered repository
+ * whose directory has gone is a state to show, not an error to print.
+ */
+export class PathNotFoundError extends Error {
+  override readonly name = 'PathNotFoundError';
+  readonly path: string;
+  constructor(path: string) {
+    super(`not a directory: ${path}`);
+    this.path = path;
+  }
+}
+
 export class OutputTooLargeError extends Error {
   override readonly name = 'OutputTooLargeError';
   readonly bytes: number;
@@ -142,7 +158,7 @@ export async function execute(cmd: GitCommand, options: ExecuteOptions): Promise
   // Spawning with a bad working directory fails with the same errno as a missing binary,
   // and "git is not installed" would be a lie. Checked here, once, where the ambiguity is.
   if (!isDirectory(options.cwd)) {
-    throw new InvalidArgumentError(`not a directory: ${options.cwd}`);
+    throw new PathNotFoundError(options.cwd);
   }
 
   const timeoutMs = options.timeoutMs ?? (risk === 'remote' ? REMOTE_TIMEOUT_MS : LOCAL_TIMEOUT_MS);

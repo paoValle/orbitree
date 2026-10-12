@@ -4,6 +4,19 @@ Numbers quoted here come from a run of `make prove` on the date named, and from 
 
 ## Unreleased
 
+**A repository that has gone is a place, and the app stops reopening it.** When a remembered
+directory no longer exists, the window shows a state screen — what is true, and what to do next —
+instead of a banner about a process status, and it clears the path from what it would reopen by
+itself. The path stays in the recents list, because a volume that is not mounted yet has not gone
+for good. The core named the condition (`PathNotFoundError`) rather than folding it into a bad
+argument, which is what lets a caller tell "install git" from "that repository is not there".
+
+**And two windows could lose the state file.** The window and the popup both react to the same
+event, both read-modify-write the same JSON file, and a write that interleaves can be read back as
+corrupt — which is, by design, the default. The symptom was `recents` coming back empty. Writes are
+serialised through one queue and land through `rename`, so a reader sees the old file or the new one
+and never half of either.
+
 **The app can commit, and the CLI's commit is the same commit.** The working tree pane has a
 message box, an amend checkbox and a Commit button, and a staged row can be unstaged. The button
 says why it is disabled instead of only being disabled, and a rejected commit keeps the message,

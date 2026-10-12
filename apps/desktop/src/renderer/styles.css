@@ -983,3 +983,7 @@ code {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.panes.single {
+  grid-template-columns: minmax(0, 1fr);
+}

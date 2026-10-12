@@ -10,7 +10,7 @@
  * reader can do next — because a screen that only says "something is wrong" is a fallback
  * with a nicer font.
  */
-export type ScreenState = 'unborn' | 'detached' | 'merge' | 'cherry-pick' | 'rebase';
+export type ScreenState = 'unborn' | 'detached' | 'merge' | 'cherry-pick' | 'rebase' | 'gone';
 
 interface ScreenCopy {
   readonly title: string;
@@ -20,6 +20,13 @@ interface ScreenCopy {
 }
 
 const SCREEN_COPY: Readonly<Record<ScreenState, ScreenCopy>> = {
+  gone: {
+    title: 'Repository not found',
+    truth: 'There is nothing at {detail} any more, so there is nothing to read from it.',
+    next:
+      'It stays in the recents list in case a volume is not mounted yet. The app will not reopen ' +
+      'it by itself; open it again from the recents once it is back, or choose another directory.',
+  },
   unborn: {
     title: 'No commits yet',
     truth: 'This repository has no commits: HEAD points at a branch that does not exist yet.',

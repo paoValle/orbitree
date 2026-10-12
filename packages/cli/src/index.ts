@@ -78,7 +78,7 @@ function emit<T>(
 function fail(io: CliIo, json: boolean, command: string, error: unknown): number {
   const known = error instanceof Error ? error : new Error(String(error));
   const kind =
-    known instanceof NotARepositoryError
+    known instanceof NotARepositoryError || known.name === 'PathNotFoundError'
       ? 'not-a-repository'
       : known.name === 'GitNotFoundError'
         ? 'git-not-found'

@@ -93,6 +93,13 @@ describe('the CLI and the app are the same program', () => {
     expect(printed.data.edges).toHaveLength(0);
   });
 
+  it('a directory that does not exist is reported as not-a-repository, not as a bad argument', async () => {
+    const result = await cli(['status', join(root, 'gone'), '--json']);
+    expect(result.code).toBe(EXIT.notARepository);
+    const printed = JSON.parse(result.lines[0] as string) as { error: { kind: string } };
+    expect(printed.error.kind).toBe('not-a-repository');
+  });
+
   it('a JSON failure is still one JSON object, with a kind and an exit code', async () => {
     const result = await cli(['status', '/tmp', '--json']);
     expect(result.code).toBe(EXIT.notARepository);

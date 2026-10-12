@@ -24,6 +24,7 @@ const api: OrbitreeApi = {
   readState: () => ipcRenderer.invoke(CHANNELS.stateRead),
   remember: (path) => ipcRenderer.invoke(CHANNELS.stateRemember, { path }),
   setHotkey: (hotkey) => ipcRenderer.invoke(CHANNELS.stateSetHotkey, { hotkey }),
+  forgetLast: (path) => ipcRenderer.invoke(CHANNELS.stateForgetLast, { path }),
 };
 
 contextBridge.exposeInMainWorld('orbitree', api);

@@ -34,6 +34,8 @@ interface Tab {
   readonly filter: string;
   /** The window, in commits. `Load more` raises it by `GRAPH_LIMIT` and reads again. */
   readonly limit: number;
+  /** Set when the directory could not be read at all: a state screen, not a banner. */
+  readonly gone: string | null;
 }
 
 const EMPTY_TAB = (id: number): Tab => ({
@@ -46,6 +48,7 @@ const EMPTY_TAB = (id: number): Tab => ({
   selected: null,
   filter: '*',
   limit: GRAPH_LIMIT,
+  gone: null,
 });
 
 /**
@@ -130,6 +133,17 @@ export function App(): React.ReactElement {
       setError(null);
       const statusResult = await window.orbitree.status(target);
       if (!statusResult.ok) {
+        // A repository whose directory has gone is a place the app can describe, so it does: a
+        // state screen instead of a banner, and no attempt to reopen it on the next launch. The
+        // path stays in the recents list, because the directory may only be unmounted.
+        const gone =
+          statusResult.kind === 'PathNotFoundError' || statusResult.kind === 'NotARepositoryError';
+        if (gone) {
+          void window.orbitree.forgetLast(target);
+          patchTab(id, { path: target, graph: null, status: null, gone: target, selected: null });
+          setBusy(false);
+          return null;
+        }
         setError(statusResult.error);
         patchTab(id, { graph: null, status: null });
         setBusy(false);
@@ -280,15 +294,17 @@ export function App(): React.ReactElement {
   }, [active, patchTab, refresh]);
 
   const screen: { state: ScreenState; detail: string | undefined } | null =
-    active?.status == null
-      ? null
-      : active.status.pending !== null
-        ? { state: active.status.pending, detail: undefined }
-        : active.status.head.kind === 'unborn'
-          ? { state: 'unborn', detail: active.status.head.name ?? undefined }
-          : active.status.head.kind === 'detached'
-            ? { state: 'detached', detail: active.status.head.oid.slice(0, 7) }
-            : null;
+    active?.gone != null
+      ? { state: 'gone', detail: active.gone }
+      : active?.status == null
+        ? null
+        : active.status.pending !== null
+          ? { state: active.status.pending, detail: undefined }
+          : active.status.head.kind === 'unborn'
+            ? { state: 'unborn', detail: active.status.head.name ?? undefined }
+            : active.status.head.kind === 'detached'
+              ? { state: 'detached', detail: active.status.head.oid.slice(0, 7) }
+              : null;
 
   return (
     <div className="app">
@@ -413,7 +429,9 @@ export function App(): React.ReactElement {
         </div>
       )}
 
-      <main className="panes">
+      {/* Without a side pane there is nothing to put in the second column: a repository that is
+          not there has one pane, and it takes the window. */}
+      <main className={active?.gone != null ? 'panes single' : 'panes'}>
         <section className="graph-pane">
           {active === null ? (
             <div className="empty" data-testid="no-tab">
@@ -442,11 +460,15 @@ export function App(): React.ReactElement {
                 <StateScreen state={screen.state} detail={screen.detail} variant="banner" />
               )}
               {active.graph === null ? (
-                <p className="empty">
-                  {screen?.state === 'unborn'
-                    ? 'There is no history to draw yet.'
-                    : 'Open a repository to see its graph.'}
-                </p>
+                // A repository that has gone says so once, above; the placeholder is for the tab
+                // that has nothing open at all.
+                screen?.state === 'gone' ? null : (
+                  <p className="empty">
+                    {screen?.state === 'unborn'
+                      ? 'There is no history to draw yet.'
+                      : 'Open a repository to see its graph.'}
+                  </p>
+                )
               ) : (
                 <GraphPane
                   graph={active.graph}
@@ -462,104 +484,108 @@ export function App(): React.ReactElement {
           )}
         </section>
 
-        <aside className="side">
-          <CommitPanel root={active?.root ?? null} hash={active?.selected ?? null} />
+        {active?.gone != null ? null : (
+          <aside className="side">
+            <CommitPanel root={active?.root ?? null} hash={active?.selected ?? null} />
 
-          <WorkingTreePanel
-            root={active?.root ?? null}
-            state={active?.status ?? null}
-            busy={busy}
-            onStage={(entryPath) =>
-              void runCommand({
-                id: 'stage',
-                label: 'Stage',
-                hint: '',
-                danger: false,
-                command: { op: 'add', paths: [entryPath] },
-              })
-            }
-            onUnstage={(entryPath) =>
-              void runCommand({
-                id: 'unstage',
-                label: 'Unstage',
-                hint: '',
-                danger: false,
-                command: { op: 'unstage', paths: [entryPath] },
-              })
-            }
-            onCommit={(message, amend) =>
-              runCommand({
-                id: 'commit',
-                label: 'Commit',
-                hint: '',
-                danger: false,
-                command: { op: 'commit', message, ...(amend ? { amend: true } : {}) },
-              })
-            }
-          />
+            <WorkingTreePanel
+              root={active?.root ?? null}
+              state={active?.status ?? null}
+              busy={busy}
+              onStage={(entryPath) =>
+                void runCommand({
+                  id: 'stage',
+                  label: 'Stage',
+                  hint: '',
+                  danger: false,
+                  command: { op: 'add', paths: [entryPath] },
+                })
+              }
+              onUnstage={(entryPath) =>
+                void runCommand({
+                  id: 'unstage',
+                  label: 'Unstage',
+                  hint: '',
+                  danger: false,
+                  command: { op: 'unstage', paths: [entryPath] },
+                })
+              }
+              onCommit={(message, amend) =>
+                runCommand({
+                  id: 'commit',
+                  label: 'Commit',
+                  hint: '',
+                  danger: false,
+                  command: { op: 'commit', message, ...(amend ? { amend: true } : {}) },
+                })
+              }
+            />
 
-          <div className="card">
-            <h2>
-              <StashBoxIcon size={13} />
-              Stashes
-            </h2>
-            {active !== null && active.stashes.length === 0 ? (
-              <p className="empty">no stash in this repository</p>
-            ) : (
-              <ul className="stash-list" data-testid="stash-list">
-                {(active?.stashes ?? []).map((entry) => (
-                  <li
-                    key={`${active?.id ?? 0}:${entry.selector}`}
-                    className="stash-entry"
-                    data-testid="stash-entry"
-                    data-selector={entry.selector}
-                  >
-                    <span className="selector">{entry.selector}</span>
-                    <span className="subject">{entry.subject}</span>
-                    <span className="stash-date">
-                      {new Date(entry.committedAt * 1000).toISOString().slice(0, 16)} UTC
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="empty">read-only: applying or dropping a stash is a P2 action</p>
-          </div>
-
-          <div className="card">
-            <h2>
-              <ActivityIcon size={13} />
-              Activity
-            </h2>
-            {runs.length === 0 ? (
-              <p className="empty">nothing run yet</p>
-            ) : (
-              <ul className="runs">
-                {runs.map((run) => (
-                  <li key={run.id} className="run">
-                    <code className="run-command" data-testid="activity-argv">
-                      {run.command}
-                    </code>
-                    <span className={run.exitCode === 0 ? 'rc ok' : 'rc bad'}>{run.exitCode}</span>
-                    <button
-                      type="button"
-                      className="run-copy"
-                      data-testid="activity-copy"
-                      data-command={run.command}
-                      title="Copy this command"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(run.command);
-                      }}
+            <div className="card">
+              <h2>
+                <StashBoxIcon size={13} />
+                Stashes
+              </h2>
+              {active !== null && active.stashes.length === 0 ? (
+                <p className="empty">no stash in this repository</p>
+              ) : (
+                <ul className="stash-list" data-testid="stash-list">
+                  {(active?.stashes ?? []).map((entry) => (
+                    <li
+                      key={`${active?.id ?? 0}:${entry.selector}`}
+                      className="stash-entry"
+                      data-testid="stash-entry"
+                      data-selector={entry.selector}
                     >
-                      <CopyIcon size={12} />
-                    </button>
-                    {run.detail === '' ? null : <span className="run-detail">{run.detail}</span>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </aside>
+                      <span className="selector">{entry.selector}</span>
+                      <span className="subject">{entry.subject}</span>
+                      <span className="stash-date">
+                        {new Date(entry.committedAt * 1000).toISOString().slice(0, 16)} UTC
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="empty">read-only: applying or dropping a stash is a P2 action</p>
+            </div>
+
+            <div className="card">
+              <h2>
+                <ActivityIcon size={13} />
+                Activity
+              </h2>
+              {runs.length === 0 ? (
+                <p className="empty">nothing run yet</p>
+              ) : (
+                <ul className="runs">
+                  {runs.map((run) => (
+                    <li key={run.id} className="run">
+                      <code className="run-command" data-testid="activity-argv">
+                        {run.command}
+                      </code>
+                      <span className={run.exitCode === 0 ? 'rc ok' : 'rc bad'}>
+                        {run.exitCode}
+                      </span>
+                      <button
+                        type="button"
+                        className="run-copy"
+                        data-testid="activity-copy"
+                        data-command={run.command}
+                        title="Copy this command"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(run.command);
+                        }}
+                      >
+                        <CopyIcon size={12} />
+                      </button>
+                      {run.detail === '' ? null : <span className="run-detail">{run.detail}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </aside>
+        )}
       </main>
 
       {pending !== null && (

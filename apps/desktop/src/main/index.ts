@@ -26,6 +26,7 @@ import {
   CHANNELS,
   commitReadRequestSchema,
   diffRequestSchema,
+  forgetLastRequestSchema,
   type Result,
   rememberRequestSchema,
   runRequestSchema,
@@ -34,7 +35,7 @@ import {
   statusPathSchema,
   statusPayloadSchema,
 } from '../shared/api.ts';
-import { readState, writeState } from './state.ts';
+import { mutateState, readState } from './state.ts';
 
 const isDev = !app.isPackaged;
 
@@ -174,20 +175,28 @@ function registerHandlers(): void {
   ipcMain.handle(CHANNELS.stateRemember, (_event, request: unknown) =>
     attempt(async () => {
       const { path } = rememberRequestSchema.parse(request);
-      const state = await readState();
-      const recents = [path, ...state.recents.filter((entry) => entry !== path)].slice(0, 12);
-      const next = { ...state, recents, last: path };
-      await writeState(next);
-      return next;
+      return mutateState((state) => {
+        const recents = [path, ...state.recents.filter((entry) => entry !== path)].slice(0, 12);
+        return { ...state, recents, last: path };
+      });
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.stateForgetLast, (_event, request: unknown) =>
+    attempt(async () => {
+      const { path } = forgetLastRequestSchema.parse(request);
+      // Only `last`. The path stays in the recents list, because a volume that is not mounted yet
+      // is not a repository that has gone for good, and a list that forgets is a list nobody can
+      // trust. What is cleared is what the app would reopen by itself, which would fail again on
+      // every launch.
+      return mutateState((state) => (state.last === path ? { ...state, last: null } : state));
     }),
   );
 
   ipcMain.handle(CHANNELS.stateSetHotkey, (_event, request: unknown) =>
     attempt(async () => {
       const { hotkey } = setHotkeyRequestSchema.parse(request);
-      const state = await readState();
-      const next = { ...state, hotkey };
-      await writeState(next);
+      const next = await mutateState((state) => ({ ...state, hotkey }));
       await registerHotkey(next);
       return next;
     }),
