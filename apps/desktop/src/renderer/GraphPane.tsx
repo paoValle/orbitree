@@ -4,9 +4,9 @@ import {
   BranchIcon,
   ChevronDownIcon,
   HeadIcon,
+  type IconProps,
   RemoteIcon,
   TagIcon,
-  type IconProps,
 } from './icons.tsx';
 
 export const ROW_HEIGHT = 26;

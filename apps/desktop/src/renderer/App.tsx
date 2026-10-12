@@ -8,7 +8,7 @@ import {
 } from '../shared/api.ts';
 import { CommitPanel } from './CommitPanel.tsx';
 import { GraphPane } from './GraphPane.tsx';
-import { ActivityIcon, CloseIcon, StashBoxIcon, quickIcon } from './icons.tsx';
+import { ActivityIcon, CloseIcon, quickIcon, StashBoxIcon } from './icons.tsx';
 import { type ScreenState, StateScreen } from './StateScreen.tsx';
 import { type Pending, summarize } from './shared.ts';
 import { WorkingTreePanel } from './WorkingTreePanel.tsx';

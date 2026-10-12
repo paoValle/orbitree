@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { DiffFile, RepoState, StatusEntry } from '../shared/api.ts';
 import { DiffView } from './DiffView.tsx';
-import { fileKind, type FileKind } from './fileKind.ts';
+import { type FileKind, fileKind } from './fileKind.ts';
 import {
   FileBinaryIcon,
   FileCodeIcon,
@@ -195,7 +195,10 @@ export function WorkingTreePanel({
                           onClick={() => setSelected({ section: spec.section, path: entry.path })}
                         >
                           <span className="entry-kind" data-testid="entry-kind" aria-hidden="true">
-                            <KindIcon />
+                            {/* 16 rather than 14: the family mark has to be legible in a column
+                                that a person scans, and a mark inside a page outline loses a third
+                                of its size to the outline. */}
+                            <KindIcon size={16} />
                           </span>
                           {entry.submodule === null ? null : (
                             <span

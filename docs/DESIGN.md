@@ -55,6 +55,24 @@ forty.
 **The test.** A screenshot with every icon visible can be read by a person who has not seen the app
 before, and the meaning survives being printed in a single colour.
 
+**Two rules learned by getting them wrong.**
+
+A mark drawn inside a silhouette must dominate it. The eight file glyphs were built on one shared
+page outline with the family mark in the lower half, and the mark came out about seven units in a
+thirteen-by-eighteen page: at 14px, four pixels with a sub-pixel stroke. Five different file kinds
+read as the same sheet of paper, which was worse than the text glyphs they replaced, because those
+at least differed. The mark is now scaled to about eleven units about its own centre, with
+`vector-effect="non-scaling-stroke"` so it stays the same weight as the outline, and the file column
+draws at 16px rather than 14.
+
+Colour is a second channel and never the only one. A file kind carries a colour so a column of
+twenty rows can be scanned, and the mark, the test id and the name still differ, so a reader who
+cannot tell two of the colours apart loses nothing. This is the same rule the status codes and the
+ref badges follow.
+
+The general form: **judge an icon at the size it is used, in the app, in a screenshot.** Every one of
+these was invisible in a diff and obvious in the window.
+
 ## Motion
 
 Motion in a Git client is a hint about what just changed, and nothing else. It never carries

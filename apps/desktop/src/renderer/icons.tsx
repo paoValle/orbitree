@@ -44,8 +44,31 @@ function Page({ children }: { readonly children: React.ReactNode }): React.React
     <>
       <path d="M13.5 3H7.5A2 2 0 0 0 5.5 5v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V8.5z" />
       <path d="M13.5 3v5.5h5" />
-      {children}
+      <Mark>{children}</Mark>
     </>
+  );
+}
+
+/**
+ * The family mark, scaled about its own centre.
+ *
+ * Drawn at its natural size the mark occupied about seven units in the lower half of a
+ * thirteen-by-eighteen page, which at 14px is a four-pixel shape with a sub-pixel stroke: every
+ * file kind read as the same sheet of paper, which is a regression from the text glyphs it
+ * replaced. Scaling about the centre keeps the path data that was already reviewed and makes the
+ * mark the thing you see.
+ */
+function Mark({ children }: { readonly children: React.ReactNode }): React.ReactElement {
+  return (
+    // `non-scaling-stroke` so the mark is bigger while staying the same weight as the silhouette
+    // around it: scaling a group scales its stroke too, which made the marks the heaviest thing
+    // in the glyph and left the grid's 1.5px rule with an exception nobody had written down.
+    <g
+      transform="translate(12 15.25) scale(1.6) translate(-12 -15.25)"
+      vectorEffect="non-scaling-stroke"
+    >
+      {children}
+    </g>
   );
 }
 

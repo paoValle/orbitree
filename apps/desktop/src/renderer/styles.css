@@ -901,3 +901,17 @@ code {
     transition: none !important;
   }
 }
+
+/*
+ * A file kind carries a colour as well as a mark. The mark is what distinguishes them; the colour
+ * is what makes a column of twenty rows scannable, and it is never the only difference, because a
+ * reader who cannot tell two of these colours apart still has the shapes and the names.
+ */
+[data-icon='file-code'] { color: #7fb0ff; }
+[data-icon='file-shell'] { color: #8bd5a0; }
+[data-icon='file-markdown'] { color: #9aa7ff; }
+[data-icon='file-json'] { color: #d5c46b; }
+[data-icon='file-config'] { color: #f0a35e; }
+[data-icon='file-image'] { color: #c792ea; }
+[data-icon='file-binary'] { color: #9aa4b2; }
+[data-icon='file-text'] { color: #c8d0da; }
