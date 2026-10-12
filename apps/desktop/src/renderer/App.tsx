@@ -214,6 +214,15 @@ export function App(): React.ReactElement {
     })();
   }, [refresh]);
 
+  /**
+   * The dialog belongs to the main process, so the button asks for a path and opens whatever
+   * comes back. Cancelling is not an error and not a state change.
+   */
+  const pick = useCallback(async (): Promise<void> => {
+    const chosen = await window.orbitree.pickDirectory();
+    if (chosen !== null) openPath(chosen);
+  }, [openPath]);
+
   const closeTab = useCallback(
     (id: number): void => {
       const remaining = tabs.filter((tab) => tab.id !== id);
@@ -302,8 +311,9 @@ export function App(): React.ReactElement {
         />
         <button
           type="button"
-          onClick={() => void openPath(active?.path ?? '')}
-          disabled={(active?.path ?? '') === '' || busy}
+          onClick={() => void pick()}
+          disabled={busy}
+          title="Choose a repository directory"
         >
           Browse
         </button>
