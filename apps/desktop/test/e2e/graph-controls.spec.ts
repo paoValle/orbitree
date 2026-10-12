@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { expect, test } from '@playwright/test';
-import { APP_PATH, closeApp, git, launchApp } from './support.ts';
+import { APP_PATH, closeApp, git, launchApp, mainWindow } from './support.ts';
 
 const run = promisify(execFile);
 const repoRoot = resolve(APP_PATH, '..', '..');
@@ -38,7 +38,7 @@ test('the ref filter reads the history it names', async () => {
 
   const handle = await launchApp(repo);
   try {
-    const page = await handle.app.firstWindow();
+    const page = await mainWindow(handle.app);
 
     // `*` is every ref, which is what `--all` counts.
     await expect(page.locator('[data-testid=graph-count]')).toContainText(
@@ -88,7 +88,7 @@ test('load more extends the window by a page', async () => {
 
   const handle = await launchApp(repo);
   try {
-    const page = await handle.app.firstWindow();
+    const page = await mainWindow(handle.app);
     const count = page.locator('[data-testid=graph-count]');
     const loadMore = page.locator('[data-testid=load-more]');
 

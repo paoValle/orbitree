@@ -1,6 +1,6 @@
 import { rm } from 'node:fs/promises';
 import { expect, type Page, test } from '@playwright/test';
-import { closeApp, commit, launchApp, makeRepo, writeIn } from './support.ts';
+import { closeApp, commit, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
 
 function renderedHashes(page: Page): Promise<string[]> {
   return page
@@ -24,7 +24,7 @@ test('a long history renders a window, not the whole log', async () => {
   const app = handle.app;
 
   try {
-    const page = await app.firstWindow();
+    const page = await mainWindow(app);
     await expect(page.locator('[data-testid=graph-count]')).toContainText('60 commits');
 
     const rows = page.locator('[data-testid=commit-row]');

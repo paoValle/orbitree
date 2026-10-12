@@ -3,7 +3,7 @@ import { mkdir, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { expect, type Page, test } from '@playwright/test';
-import { closeApp, commit, git, launchApp, makeRepo, writeIn } from './support.ts';
+import { closeApp, commit, git, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
 
 const run = promisify(execFile);
 
@@ -104,7 +104,7 @@ test('the working tree pane separates staged from unstaged and diffs what you cl
 
   const handle = await launchApp(repo);
   try {
-    const page = await handle.app.firstWindow();
+    const page = await mainWindow(handle.app);
     await expect(page.locator('[data-testid=working-tree]')).toBeVisible();
 
     // The sections that exist, in the pane's own order, are the ones git says have entries.

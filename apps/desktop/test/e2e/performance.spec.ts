@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { expect, test } from '@playwright/test';
-import { APP_PATH, closeApp, launchApp } from './support.ts';
+import { APP_PATH, closeApp, launchApp, mainWindow } from './support.ts';
 
 const run = promisify(execFile);
 
@@ -40,7 +40,7 @@ test('@perf the window opens a large repository and draws a window, not the whol
   const handle = await launchApp(repo);
   const app = handle.app;
   try {
-    const page = await app.firstWindow();
+    const page = await mainWindow(app);
     await expect(page.locator('[data-testid=graph-count]')).toBeVisible();
     const firstDrawMs = Date.now() - started;
     console.log(`[perf] time to first draw = ${firstDrawMs} ms`);

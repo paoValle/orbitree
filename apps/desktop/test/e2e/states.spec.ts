@@ -1,7 +1,7 @@
 import { mkdir, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { closeApp, commit, git, launchApp, makeRepo, writeIn } from './support.ts';
+import { closeApp, commit, git, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
 
 /**
  * The four places a repository can be, each of which used to arrive as the same thing: an
@@ -20,7 +20,7 @@ test('an unborn repository is a screen, and the working tree still works', async
 
   const handle = await launchApp(repo);
   try {
-    const page = await handle.app.firstWindow();
+    const page = await mainWindow(handle.app);
 
     const screen = page.locator('[data-testid=state-screen]');
     await expect(screen).toHaveAttribute('data-state', 'unborn');
@@ -50,7 +50,7 @@ test('a detached head is a banner on a history that still reads', async () => {
 
   const handle = await launchApp(repo);
   try {
-    const page = await handle.app.firstWindow();
+    const page = await mainWindow(handle.app);
 
     const screen = page.locator('[data-testid=state-screen]');
     await expect(screen).toHaveAttribute('data-state', 'detached');
@@ -88,7 +88,7 @@ test('a conflicted merge is stated above the history, with the markers in the di
 
   const handle = await launchApp(repo);
   try {
-    const page = await handle.app.firstWindow();
+    const page = await mainWindow(handle.app);
 
     const screen = page.locator('[data-testid=state-screen]');
     await expect(screen).toHaveAttribute('data-state', 'merge');

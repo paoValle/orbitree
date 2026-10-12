@@ -1,7 +1,7 @@
 import { mkdir, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { closeApp, commit, git, launchApp, makeRepo, writeIn } from './support.ts';
+import { closeApp, commit, git, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
 
 /**
  * The contract between this test and the components is the `data-testid` set, and nothing
@@ -27,7 +27,7 @@ test('the graph pane and the commit panel on the real window', async () => {
   const app = handle.app;
 
   try {
-    const page = await app.firstWindow();
+    const page = await mainWindow(app);
 
     // Four commits, and the merge is what makes the second lane exist.
     await expect(page.locator('[data-testid=graph-count]')).toContainText('4 commits');

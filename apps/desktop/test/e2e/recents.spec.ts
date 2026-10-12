@@ -2,7 +2,15 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { closeApp, commit, launchApp, makeRepo, readStateFile, writeIn } from './support.ts';
+import {
+  closeApp,
+  commit,
+  launchApp,
+  mainWindow,
+  makeRepo,
+  readStateFile,
+  writeIn,
+} from './support.ts';
 
 /**
  * The recents and the last repository, proven by launching twice into the same user-data
@@ -20,7 +28,7 @@ test('the last repository reopens, and the recents list what came before it', as
 
   const opened = await launchApp(first, { userDataDir: dir });
   try {
-    const page = await opened.app.firstWindow();
+    const page = await mainWindow(opened.app);
     await expect(page.locator('[data-testid=graph-count]')).toBeVisible();
     await page.locator('input.path').fill(second);
     await page.locator('input.path').press('Enter');
@@ -53,7 +61,7 @@ test('the last repository reopens, and the recents list what came before it', as
   // and the header says whose history it is showing.
   const reopened = await launchApp(undefined, { userDataDir: dir });
   try {
-    const page = await reopened.app.firstWindow();
+    const page = await mainWindow(reopened.app);
     await expect(page.locator('[data-testid=graph-count]')).toHaveText(/1 of 1 commits/);
   } finally {
     await closeApp(reopened);

@@ -1,7 +1,7 @@
 import { mkdir, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { closeApp, commit, git, launchApp, makeRepo, writeIn } from './support.ts';
+import { closeApp, commit, git, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
 
 /**
  * The stash and the submodule, both read only.
@@ -43,7 +43,7 @@ test('the stash list and a submodule, read from the app', async () => {
 
   const handle = await launchApp(repo);
   try {
-    const page = await handle.app.firstWindow();
+    const page = await mainWindow(handle.app);
     await expect(page.locator('[data-testid=working-tree]')).toBeVisible();
 
     // The stash card: one entry, the selector git prints, and git's subject rather than ours.
@@ -76,7 +76,7 @@ test('a repository with no stash says so instead of showing an empty card', asyn
 
   const handle = await launchApp(repo);
   try {
-    const page = await handle.app.firstWindow();
+    const page = await mainWindow(handle.app);
     await expect(page.locator('[data-testid=working-tree]')).toBeVisible();
     await expect(page.locator('[data-testid=stash-entry]')).toHaveCount(0);
     await expect(page.locator('text=no stash in this repository')).toBeVisible();

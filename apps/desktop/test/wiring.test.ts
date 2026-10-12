@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -127,6 +127,25 @@ describe('the icon set', () => {
  * changed, the reduced-motion block is edited, the canvas is animated. A rule with no check
  * is a comment, so each one is asserted by name against the stylesheet text.
  */
+describe('the window a spec is allowed to talk to', () => {
+  it('never asks for the first window, because that is the popup half the time', () => {
+    const specs = readdirSync(join(ROOT, 'test', 'e2e'), { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.spec.ts'))
+      .map((entry) => join(entry.parentPath, entry.name));
+
+    expect(specs.length).toBeGreaterThan(8);
+    const offenders = specs
+      .filter((path) => readFileSync(path, 'utf8').includes('firstWindow()'))
+      .map((path) => path.replace(`${ROOT}/`, ''));
+
+    // The app creates its quick window at startup, so `firstWindow()` returns whichever of the
+    // two Electron enumerated first. Nine specs did this, and the suite failed in a different
+    // one each time depending on which window won the race: a screenshot of the failure showed
+    // the popup, with "no repository" where the graph should have been.
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe('the motion rules', () => {
   it('removes every transition and animation under reduced motion, with no exception', () => {
     const start = styles.indexOf('@media (prefers-reduced-motion: reduce)');

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { closeApp, commit, launchApp, makeRepo, writeIn } from './support.ts';
+import { closeApp, commit, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
 
 /**
  * Two repositories open at once, each one its own reading.
@@ -19,7 +19,7 @@ test('two repositories at once, each with its own selection', async () => {
 
   const handle = await launchApp(first);
   try {
-    const page = await handle.app.firstWindow();
+    const page = await mainWindow(handle.app);
     await expect(page.locator('[data-testid=graph-count]')).toBeVisible();
 
     // A second repository, in a new tab, from the path box.
