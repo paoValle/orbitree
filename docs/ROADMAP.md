@@ -189,6 +189,8 @@ Make the machine-readable surface a first-class product, not a side door.
 
 Releases people can install and trust.
 
+- [ ] A release is a pull request from `next` into `main`, then a tag and a GitHub release, with the
+      version in the manifest and the CHANGELOG bumped in the same pull request.
 - [ ] electron-builder targets: macOS (arm64/x64, signed and notarised), Windows (NSIS, signed),
       Linux (AppImage + deb).
 - [ ] Auto-update from the release artifacts, with a channel for pre-releases.

@@ -3,6 +3,14 @@
 Thanks for looking. This document is short on purpose: the rules are few and they are enforced by
 commands.
 
+## Where a change goes
+
+`next` is the development branch and the default one: branch from it, open a pull request against
+it, and it merges there. `main` holds releases only, and receives a pull request from `next` when
+something is released. Both branches are protected: no direct pushes, and an approval from the
+maintainer is required before either merges. Name the branch for its change (`feat/`, `fix/`,
+`test/`, `docs/`, `chore/`, `release/`), one change per branch.
+
 ## The one command
 
 ```bash

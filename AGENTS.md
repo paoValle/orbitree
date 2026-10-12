@@ -61,6 +61,13 @@ From `docs/INVARIANTS.md`, and rejected in review:
 The preferred shape is a check against something that is not the product: the real `git` binary,
 `--porcelain=v1`, `rev-parse`, `ls-files`, a randomly generated DAG, or a mutation.
 
+## Branches
+
+`next` is the development branch and the default: branch from it and open a pull request against
+it. `main` is releases only and receives a pull request from `next`. Both are protected, so a
+direct push will be refused — do not work around it, and do not push to `main` at all except as a
+release. Names: `feat/…`, `fix/…`, `test/…`, `docs/…`, `chore/…`, `release/…`.
+
 ## The shape of a change
 
 One issue, one branch, one coherent commit. The commit subject is imperative and under ~72

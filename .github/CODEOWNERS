@@ -1,0 +1,3 @@
+# One maintainer, and everything is theirs: this file exists so that the ruleset's
+# "require code owner review" has something to require.
+* @paoValle

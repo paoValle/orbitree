@@ -1,7 +1,9 @@
 name: CI
 
 on:
-  push: { branches: [main] }
+  # `next` is where work lands; `main` only ever receives a release, through a pull request, so a
+  # push to it is either a merge that already ran here or something that should not happen.
+  push: { branches: [next] }
   pull_request:
 
 concurrency:

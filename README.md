@@ -127,6 +127,17 @@ a lane the commit was not in, and the cross-check test found the two-alphabet di
 | [docs/AGENT-CLI.md](docs/AGENT-CLI.md) | the machine-readable contract, for scripts and agents |
 | [docs/adr/](docs/adr/) | decisions with their trade-offs written down |
 
+## Branches
+
+| Branch | What it is |
+|---|---|
+| `next` | development, and the default branch. Every change lands here, through a pull request. |
+| `main` | releases only. A release is a pull request from `next` into `main`, then a tag. |
+
+Both are protected: no direct pushes, no force pushes, no deletion, and a pull request with an
+approval from the maintainer before anything merges. Work happens on `feat/…`, `fix/…`, `test/…`,
+`docs/…`, `chore/…` or `release/…` branches, one per change.
+
 ## Contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md). The short version: one issue per change, a test that
