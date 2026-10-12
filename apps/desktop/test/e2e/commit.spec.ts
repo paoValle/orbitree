@@ -45,6 +45,9 @@ test('the app and the CLI produce the same commit object', async () => {
         'a commit needs a message',
       );
       await messageBox.fill(MESSAGE);
+      // Exactly, not as a substring: `toContainText` accepts a message with stray characters
+      // appended, and one run produced `"…keyser"`, which is how this went unnoticed.
+      await expect(messageBox).toHaveValue(MESSAGE);
       await expect(page.locator('[data-testid=commit-button]')).toBeEnabled();
       // Wait for the history to be drawn, so the screenshot shows the whole window.
       await expect(page.locator('[data-testid=commit-row]')).toHaveCount(1);
@@ -96,6 +99,7 @@ test('amend rewrites the message without adding a commit', async () => {
         'nothing staged',
       );
       await page.locator('[data-testid=commit-message]').fill('the amended message');
+      await expect(page.locator('[data-testid=commit-message]')).toHaveValue('the amended message');
       await expect(page.locator('[data-testid=commit-disabled-reason]')).toHaveText(
         'nothing staged',
       );
