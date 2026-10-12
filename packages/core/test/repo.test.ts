@@ -19,9 +19,19 @@ import { type FixtureSet, git, makeFixtures } from './support/fixtures.ts';
 import { parseNumstat } from './support/patch-crosscheck.ts';
 
 let set: FixtureSet;
+/**
+ * A directory that exists everywhere and is not a repository.
+ *
+ * Both tests below used `/tmp`, which is not a path on Windows at all, so the guard refused the
+ * working directory before git could be asked anything and the tests failed for a reason that had
+ * nothing to do with what they assert.
+ */
+let notARepository = '';
 
 beforeAll(async () => {
   set = await makeFixtures();
+  notARepository = join(dirname(fixtureRoot('clean')), 'not-a-repository');
+  await mkdir(notARepository, { recursive: true });
 });
 
 afterAll(async () => {
@@ -47,7 +57,7 @@ describe('opening a repository', () => {
   });
 
   it('a directory that is not a repository is an error, not an empty state', async () => {
-    await expect(openRepo('/tmp')).rejects.toBeInstanceOf(NotARepositoryError);
+    await expect(openRepo(notARepository)).rejects.toBeInstanceOf(NotARepositoryError);
   });
 
   it('git is present and new enough for what the product asks of it', async () => {
@@ -202,7 +212,7 @@ describe('the escape hatch', () => {
     expect(missingRev.stderr.length).toBeGreaterThan(0);
 
     // A directory that is not a repository: same contract, and the message says so.
-    const notARepo = await run({ op: 'graph', limit: 1 }, { cwd: '/tmp' });
+    const notARepo = await run({ op: 'graph', limit: 1 }, { cwd: notARepository });
     expect(notARepo.exitCode).not.toBe(0);
     expect(notARepo.stderr.toLowerCase()).toContain('not a git repository');
   });
