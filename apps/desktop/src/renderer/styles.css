@@ -915,3 +915,71 @@ code {
 [data-icon='file-image'] { color: #c792ea; }
 [data-icon='file-binary'] { color: #9aa4b2; }
 [data-icon='file-text'] { color: #c8d0da; }
+
+/*
+ * An activity entry keeps its parts apart: the command in monospace because it is meant to be
+ * copied into a terminal, the exit code as a badge, and the output dimmed underneath.
+ */
+.runs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.run {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: 'command code copy' 'detail detail detail';
+  align-items: center;
+  gap: 2px 6px;
+}
+
+.run-command {
+  grid-area: command;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run .rc {
+  grid-area: code;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 1px solid currentcolor;
+}
+
+.run .rc.ok {
+  color: var(--ok);
+}
+
+.run .rc.bad {
+  color: var(--danger);
+}
+
+.run .run-copy {
+  grid-area: copy;
+  padding: 2px 5px;
+  line-height: 0;
+  color: var(--text-dim);
+}
+
+.run .run-copy:hover {
+  color: var(--text);
+}
+
+.run-detail {
+  grid-area: detail;
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

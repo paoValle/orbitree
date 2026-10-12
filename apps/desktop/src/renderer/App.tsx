@@ -8,9 +8,9 @@ import {
 } from '../shared/api.ts';
 import { CommitPanel } from './CommitPanel.tsx';
 import { GraphPane } from './GraphPane.tsx';
-import { ActivityIcon, CloseIcon, quickIcon, StashBoxIcon } from './icons.tsx';
+import { ActivityIcon, CloseIcon, CopyIcon, quickIcon, StashBoxIcon } from './icons.tsx';
 import { type ScreenState, StateScreen } from './StateScreen.tsx';
-import { type Pending, summarize } from './shared.ts';
+import { type Pending, type RunRecord, recordRun } from './shared.ts';
 import { WorkingTreePanel } from './WorkingTreePanel.tsx';
 
 /**
@@ -64,7 +64,7 @@ export function App(): React.ReactElement {
   const [recents, setRecents] = useState<readonly string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [log, setLog] = useState<readonly string[]>([]);
+  const [runs, setRuns] = useState<readonly RunRecord[]>([]);
   const [pending, setPending] = useState<Pending | null>(null);
   // The confirmation sheet takes focus when it opens. Done with a ref rather than the
   // `autoFocus` attribute, which steals focus from a screen reader's reading position.
@@ -252,7 +252,7 @@ export function App(): React.ReactElement {
         setError(result.error);
         return false;
       }
-      setLog((previous) => [summarize(result.value), ...previous].slice(0, 8));
+      setRuns((previous) => [recordRun(result.value), ...previous].slice(0, 8));
       await refresh(target, active.id, selection, requested);
       return true;
     },
@@ -531,10 +531,32 @@ export function App(): React.ReactElement {
               <ActivityIcon size={13} />
               Activity
             </h2>
-            {log.length === 0 ? (
+            {runs.length === 0 ? (
               <p className="empty">nothing run yet</p>
             ) : (
-              <pre>{log.join('\n')}</pre>
+              <ul className="runs">
+                {runs.map((run) => (
+                  <li key={run.id} className="run">
+                    <code className="run-command" data-testid="activity-argv">
+                      {run.command}
+                    </code>
+                    <span className={run.exitCode === 0 ? 'rc ok' : 'rc bad'}>{run.exitCode}</span>
+                    <button
+                      type="button"
+                      className="run-copy"
+                      data-testid="activity-copy"
+                      data-command={run.command}
+                      title="Copy this command"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(run.command);
+                      }}
+                    >
+                      <CopyIcon size={12} />
+                    </button>
+                    {run.detail === '' ? null : <span className="run-detail">{run.detail}</span>}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </aside>

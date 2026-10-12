@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_QUICK_COMMANDS, type QuickCommand, type RepoState } from '../shared/api.ts';
 import { quickIcon } from './icons.tsx';
-import { type Pending, summarize } from './shared.ts';
+import { type Pending, type RunRecord, recordRun } from './shared.ts';
 
 /**
  * The quick window: what is true about the repository right now, and the four or five
@@ -15,7 +15,7 @@ export function Popup(): React.ReactElement {
   const [path, setPath] = useState('');
   const [state, setState] = useState<RepoState | null>(null);
   const [hotkey, setHotkey] = useState<string | null>(null);
-  const [log, setLog] = useState<readonly string[]>([]);
+  const [runs, setRuns] = useState<readonly RunRecord[]>([]);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
   // Focused when the sheet opens, through a ref: the `autoFocus` attribute would move a
@@ -64,7 +64,7 @@ export function Popup(): React.ReactElement {
       setBusy(false);
       setPending(null);
       if (!result.ok) return;
-      setLog((previous) => [summarize(result.value), ...previous].slice(0, 6));
+      setRuns((previous) => [recordRun(result.value), ...previous].slice(0, 6));
       const status = await window.orbitree.status(path);
       if (status.ok) setState(status.value.state);
     },
@@ -109,7 +109,16 @@ export function Popup(): React.ReactElement {
         </p>
       )}
 
-      {log.length > 0 && <pre className="popup-log">{log.join('\n')}</pre>}
+      {runs.length > 0 && (
+        <ul className="runs">
+          {runs.map((run) => (
+            <li key={run.id} className="run">
+              <code className="run-command">{run.command}</code>
+              <span className={run.exitCode === 0 ? 'rc ok' : 'rc bad'}>{run.exitCode}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <footer className="popup-foot">
         <button type="button" onClick={() => void window.orbitree.showWindow()}>

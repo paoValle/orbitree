@@ -317,6 +317,15 @@ export function ActivityIcon({ size }: IconProps): React.ReactElement {
   );
 }
 
+export function CopyIcon({ size }: IconProps): React.ReactElement {
+  return (
+    <Glyph name="copy" size={size}>
+      <rect x="4.5" y="4.5" width="11" height="11" rx="1.5" />
+      <rect x="8.5" y="8.5" width="11" height="11" rx="1.5" />
+    </Glyph>
+  );
+}
+
 export function CloseIcon({ size }: IconProps): React.ReactElement {
   return (
     <Glyph name="close" size={size}>
