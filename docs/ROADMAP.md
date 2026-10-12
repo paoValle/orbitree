@@ -75,8 +75,12 @@ The surface becomes its own thing instead of a by-product of the panes. The rule
 - [ ] The motion pass, behind `prefers-reduced-motion: reduce`, with the six rules in
       `docs/DESIGN.md` as the specification. Nothing animates the graph, and no transition is the
       only way to see that something changed.
-- [ ] The command behind every action: an activity entry expands to the exact `git` argv, with a
-      copy button. The argv already exists in the core and the log already records the result.
+- [x] The command behind every action: an activity entry shows the exact `git` argv, with a copy
+      button. The argv already exists in the core and the log already records the result.
+- [ ] A WIP node at the top of the graph, so the working tree is a place in the picture rather than a
+      card beside it, and the stash nodes among the ordinary ones.
+- [ ] A commit's own context menu: create a branch here, create a tag here, check out, reset to here,
+      copy the sha, copy the message. Reachable with the keyboard, not only with a mouse.
 - [ ] Density and typography: one set of metrics, one monospace face for hashes and paths, and a
       row height chosen so a branch boundary is visible without scrolling.
 - [ ] Colour that survives a colour-blind reader: ref kinds and status kinds carry a glyph as well
@@ -96,6 +100,11 @@ The working tree becomes editable, and the confirmation machinery gets its real 
       asserted by `apps/desktop/test/e2e/commit.spec.ts`. Discard (per file and per hunk) and
       commit-and-push are not.
 - [ ] Branch create/switch/rename/delete, tag create/delete, checkout of a commit (detached).
+- [ ] A left panel of sections: Local, Remote, Tags, Stashes, Submodules, each collapsible and
+      resizable, replacing the `All branches` dropdown. It is the largest structural gap against the
+      conventions the category has settled on.
+- [ ] Summary and description as two fields in the commit box, because the summary is what the graph
+      shows and everything after it is for the reader of the commit.
 - [ ] Merge, and the conflict screen: ours/theirs/both at the hunk level.
 - [ ] Stash push/pop/apply/drop, with a diff preview.
 - [ ] Undo: every change in the session is listed with the `git` command that reverses it.
@@ -132,6 +141,10 @@ any of them. None of this mutates a repository, so none of it needs a confirmati
 - [ ] Open in editor, open in terminal, reveal in the file manager, each configured once.
 - [ ] A command palette over every action, by name and by keybinding, built from one registry that
       the quick bar also reads.
+- [ ] Tab shortcuts: `Cmd/Ctrl+1-9` to switch, `Cmd/Ctrl+T` and `+` to open, `Cmd/Ctrl+W` and a
+      middle click to close.
+- [ ] A ghost branch for the selected commit, with a double click to check it out, and an optional
+      highlight of a branch's commits on hover.
 
 **Exit**: given a file and a line, the app names the commit that last changed it and opens the graph
 at that commit; given two branches, it lists the commits in each and not the other, and the lists
