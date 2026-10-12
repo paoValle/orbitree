@@ -11,7 +11,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await set.cleanup();
+  await set?.cleanup();
 });
 
 describe('the submodule field git prints', () => {

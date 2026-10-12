@@ -16,7 +16,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await set.cleanup();
+  await set?.cleanup();
 });
 
 describe('a stash, read', () => {
