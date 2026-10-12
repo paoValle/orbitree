@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   DEFAULT_QUICK_COMMANDS,
+  type GitCommand,
   type GraphData,
   type QuickCommand,
   type RepoState,
   type StashPayload,
 } from '../shared/api.ts';
 import { CommitPanel } from './CommitPanel.tsx';
-import { GraphPane } from './GraphPane.tsx';
+import { type CommitAction, GraphPane } from './GraphPane.tsx';
 import { ActivityIcon, CloseIcon, CopyIcon, quickIcon, StashBoxIcon } from './icons.tsx';
 import { type ScreenState, StateScreen } from './StateScreen.tsx';
 import { type Pending, type RunRecord, recordRun } from './shared.ts';
@@ -60,6 +61,13 @@ const GRAPH_LIMIT = 300;
 
 const MAX_TABS = 8;
 
+/** One value the commit menu needs before it can run: a branch or a tag name. */
+interface AskState {
+  readonly kind: 'branch' | 'tag';
+  readonly hash: string;
+  readonly value: string;
+}
+
 export function App(): React.ReactElement {
   const [tabs, setTabs] = useState<readonly Tab[]>([]);
   const [activeId, setActiveId] = useState<number | null>(null);
@@ -69,12 +77,17 @@ export function App(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [runs, setRuns] = useState<readonly RunRecord[]>([]);
   const [pending, setPending] = useState<Pending | null>(null);
+  const [ask, setAsk] = useState<AskState | null>(null);
   // The confirmation sheet takes focus when it opens. Done with a ref rather than the
   // `autoFocus` attribute, which steals focus from a screen reader's reading position.
   const reasonInput = useRef<HTMLInputElement | null>(null);
+  const askInput = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
     if (pending !== null) reasonInput.current?.focus();
   }, [pending]);
+  useEffect(() => {
+    if (ask !== null) askInput.current?.focus();
+  }, [ask]);
 
   const active = tabs.find((tab) => tab.id === activeId) ?? null;
 
@@ -272,6 +285,72 @@ export function App(): React.ReactElement {
     },
     [active, refresh],
   );
+
+  /**
+   * The commit menu's actions. Everything that mutates goes through `runCommand`, the path
+   * the quick bar already uses, so there is still one place that reaches git.
+   */
+  const onCommitAction = useCallback(
+    (action: CommitAction, commit: { readonly hash: string; readonly subject: string }): void => {
+      switch (action) {
+        case 'create-branch':
+          setAsk({ kind: 'branch', hash: commit.hash, value: '' });
+          return;
+        case 'create-tag':
+          setAsk({ kind: 'tag', hash: commit.hash, value: '' });
+          return;
+        case 'checkout':
+          void runCommand({
+            id: 'checkout',
+            label: 'Check out this commit',
+            hint: `switch --detach ${commit.hash.slice(0, 7)}`,
+            danger: false,
+            command: { op: 'checkout', ref: commit.hash, detach: true },
+          });
+          return;
+        case 'reset-hard':
+          setPending({
+            command: {
+              id: 'reset-hard',
+              label: 'Reset --hard to here',
+              hint: `reset --hard ${commit.hash.slice(0, 7)}`,
+              danger: true,
+              command: { op: 'reset-hard', rev: commit.hash },
+            },
+            reason: '',
+          });
+          return;
+        case 'copy-sha':
+          void navigator.clipboard.writeText(commit.hash);
+          return;
+        case 'copy-short-sha':
+          void navigator.clipboard.writeText(commit.hash.slice(0, 7));
+          return;
+        case 'copy-message':
+          void navigator.clipboard.writeText(commit.subject);
+          return;
+      }
+    },
+    [runCommand],
+  );
+
+  const confirmAsk = useCallback((): void => {
+    if (ask === null) return;
+    const name = ask.value.trim();
+    if (name === '') return;
+    const command: GitCommand =
+      ask.kind === 'branch'
+        ? { op: 'branch-create', name, start: ask.hash }
+        : { op: 'tag-create', name, rev: ask.hash };
+    setAsk(null);
+    void runCommand({
+      id: ask.kind,
+      label: ask.kind === 'branch' ? 'Create branch here' : 'Create tag here',
+      hint: `${ask.kind === 'branch' ? 'branch' : 'tag'} ${name}`,
+      danger: false,
+      command,
+    });
+  }, [ask, runCommand]);
 
   const changeFilter = useCallback(
     async (selection: string): Promise<void> => {
@@ -478,6 +557,7 @@ export function App(): React.ReactElement {
                   onFilterChange={(value) => void changeFilter(value)}
                   pageSize={GRAPH_LIMIT}
                   onLoadMore={loadMore}
+                  onCommitAction={onCommitAction}
                 />
               )}
             </>
@@ -613,6 +693,52 @@ export function App(): React.ReactElement {
                 onClick={() => void runCommand(pending.command, pending.reason)}
               >
                 Run it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {ask !== null && (
+        <div className="modal-backdrop">
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            data-testid="ask-dialog"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                setAsk(null);
+              }
+            }}
+          >
+            <h2>{ask.kind === 'branch' ? 'Create branch here' : 'Create tag here'}</h2>
+            <input
+              ref={askInput}
+              data-testid="ask-input"
+              value={ask.value}
+              onChange={(event) => setAsk({ ...ask, value: event.target.value })}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  confirmAsk();
+                }
+              }}
+              placeholder={ask.kind === 'branch' ? 'branch name' : 'tag name'}
+            />
+            <div className="modal-actions">
+              <button type="button" onClick={() => setAsk(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                data-testid="ask-confirm"
+                className="primary"
+                disabled={ask.value.trim() === ''}
+                onClick={confirmAsk}
+              >
+                Create
               </button>
             </div>
           </div>

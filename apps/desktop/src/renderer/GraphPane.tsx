@@ -31,6 +31,41 @@ export function laneColor(lane: number): string {
   return LANE_COLORS[lane % LANE_COLORS.length] as string;
 }
 
+export interface CommitTarget {
+  readonly hash: string;
+  readonly subject: string;
+}
+
+/**
+ * The actions that act on a single commit. The list is closed because it is the set a
+ * toolbar cannot hold: branch, tag, checkout, reset and the copies describe one row.
+ */
+export type CommitAction =
+  | 'create-branch'
+  | 'create-tag'
+  | 'checkout'
+  | 'reset-hard'
+  | 'copy-sha'
+  | 'copy-short-sha'
+  | 'copy-message';
+
+interface CommitMenuItem {
+  readonly action: CommitAction;
+  readonly label: string;
+  /** Destructive, and drawn like the quick bar draws its own: red, before it is too late. */
+  readonly danger?: boolean;
+}
+
+const COMMIT_MENU_ITEMS: readonly CommitMenuItem[] = [
+  { action: 'create-branch', label: 'Create branch here…' },
+  { action: 'create-tag', label: 'Create tag here…' },
+  { action: 'checkout', label: 'Check out this commit' },
+  { action: 'reset-hard', label: 'Reset --hard to here…', danger: true },
+  { action: 'copy-sha', label: 'Copy commit SHA' },
+  { action: 'copy-short-sha', label: 'Copy short SHA' },
+  { action: 'copy-message', label: 'Copy message' },
+];
+
 /** The glyph a ref badge carries: HEAD is a pin, everything else is its ref kind. */
 const REF_ICONS: Readonly<Record<string, (props: IconProps) => React.ReactElement>> = {
   branch: BranchIcon,
@@ -60,6 +95,11 @@ export interface GraphPaneProps {
   /** One page of history; the load-more button asks for one more. */
   readonly pageSize: number;
   readonly onLoadMore: () => void;
+  /**
+   * Reports the chosen action so the app can run it through its one command path; the app
+   * owns the clipboard writes too, in the same place that reaches git.
+   */
+  readonly onCommitAction: (action: CommitAction, commit: CommitTarget) => void;
 }
 
 /**
@@ -80,6 +120,7 @@ export function GraphPane({
   onFilterChange,
   pageSize,
   onLoadMore,
+  onCommitAction,
 }: GraphPaneProps): React.ReactElement {
   const rows = graph.layout.rows;
   const edges = graph.layout.edges;
@@ -100,6 +141,96 @@ export function GraphPane({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+
+  // One menu at a time, anchored where it was opened. The pointer position is kept unclamped
+  // until the layout effect has measured the menu, so the clamp uses the menu's real size.
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuTriggerRef = useRef<HTMLElement | null>(null);
+  const menuItemsRef = useRef<Array<HTMLButtonElement | null>>([]);
+  const [menu, setMenu] = useState<
+    (CommitTarget & { readonly x: number; readonly y: number }) | null
+  >(null);
+  const [menuAt, setMenuAt] = useState<{ readonly left: number; readonly top: number } | null>(
+    null,
+  );
+  const [focusedItem, setFocusedItem] = useState(0);
+
+  const openMenu = useCallback(
+    (target: CommitTarget, x: number, y: number, trigger: HTMLElement) => {
+      menuTriggerRef.current = trigger;
+      setFocusedItem(0);
+      setMenuAt(null);
+      setMenu({ ...target, x, y });
+    },
+    [],
+  );
+
+  const closeMenu = useCallback((returnFocus: boolean) => {
+    setMenu(null);
+    setMenuAt(null);
+    const trigger = menuTriggerRef.current;
+    if (returnFocus && trigger?.isConnected) trigger.focus();
+  }, []);
+
+  useEffect(() => {
+    if (menu === null) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (menuRef.current !== null && !menuRef.current.contains(event.target as Node)) {
+        closeMenu(false);
+      }
+    };
+    // A menu that stays put while its row scrolls away is a menu about the wrong commit.
+    const onViewportChange = () => closeMenu(false);
+    document.addEventListener('mousedown', onPointerDown, true);
+    window.addEventListener('scroll', onViewportChange, true);
+    window.addEventListener('resize', onViewportChange);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown, true);
+      window.removeEventListener('scroll', onViewportChange, true);
+      window.removeEventListener('resize', onViewportChange);
+    };
+  }, [menu, closeMenu]);
+
+  useLayoutEffect(() => {
+    if (menu === null) return;
+    const element = menuRef.current;
+    if (element === null) return;
+    const { width, height } = element.getBoundingClientRect();
+    const margin = 8;
+    setMenuAt({
+      left: Math.max(margin, Math.min(menu.x, window.innerWidth - width - margin)),
+      top: Math.max(margin, Math.min(menu.y, window.innerHeight - height - margin)),
+    });
+  }, [menu]);
+
+  useEffect(() => {
+    if (menu === null) return;
+    menuItemsRef.current[focusedItem]?.focus();
+  }, [menu, focusedItem]);
+
+  const onMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      closeMenu(true);
+      return;
+    }
+    const count = COMMIT_MENU_ITEMS.length;
+    let next: number | null = null;
+    if (event.key === 'ArrowDown') next = (focusedItem + 1) % count;
+    else if (event.key === 'ArrowUp') next = (focusedItem - 1 + count) % count;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = count - 1;
+    if (next === null) return;
+    event.preventDefault();
+    setFocusedItem(next);
+  };
+
+  const activateMenuItem = (action: CommitAction): void => {
+    if (menu === null) return;
+    closeMenu(true);
+    onCommitAction(action, { hash: menu.hash, subject: menu.subject });
+  };
 
   useLayoutEffect(() => {
     const element = scrollRef.current;
@@ -264,6 +395,33 @@ export function GraphPane({
                   paddingLeft: laneCount * LANE_WIDTH + LANE_WIDTH + TEXT_GUTTER,
                 }}
                 onClick={() => onSelect(row.commit.hash)}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  onSelect(row.commit.hash);
+                  openMenu(
+                    { hash: row.commit.hash, subject: row.commit.subject },
+                    event.clientX,
+                    event.clientY,
+                    event.currentTarget,
+                  );
+                }}
+                onKeyDown={(event) => {
+                  // Shift+F10 and the ContextMenu key are the keyboard's right-click: this is
+                  // the reason the menu is not a mouse-only feature.
+                  if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) {
+                    return;
+                  }
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onSelect(row.commit.hash);
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  openMenu(
+                    { hash: row.commit.hash, subject: row.commit.subject },
+                    rect.left + 12,
+                    rect.bottom,
+                    event.currentTarget,
+                  );
+                }}
               >
                 {isSelected && (
                   <span
@@ -288,6 +446,40 @@ export function GraphPane({
           })}
         </div>
       </div>
+      {menu !== null && (
+        <div
+          className="commit-menu"
+          data-testid="commit-menu"
+          role="menu"
+          aria-label="Commit actions"
+          ref={menuRef}
+          style={{ left: menuAt?.left ?? menu.x, top: menuAt?.top ?? menu.y }}
+          onKeyDown={onMenuKeyDown}
+        >
+          {COMMIT_MENU_ITEMS.map((item, index) => (
+            <button
+              key={item.action}
+              type="button"
+              role="menuitem"
+              data-testid="menu-item"
+              data-action={item.action}
+              className={[
+                'commit-menu-item',
+                index === focusedItem ? 'focused' : '',
+                item.danger === true ? 'danger' : '',
+              ]
+                .filter((name) => name !== '')
+                .join(' ')}
+              ref={(element) => {
+                menuItemsRef.current[index] = element;
+              }}
+              onClick={() => activateMenuItem(item.action)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
