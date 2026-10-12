@@ -98,8 +98,24 @@ button {
   cursor: pointer;
 }
 
+/* Hover, focus and pressed states settle in ~100ms: a click is acknowledged in the same frame. */
+button,
+input,
+select,
+textarea {
+  transition:
+    background-color 100ms ease-out,
+    border-color 100ms ease-out,
+    color 100ms ease-out,
+    box-shadow 100ms ease-out;
+}
+
 button:hover:not(:disabled) {
   border-color: #3a4353;
+}
+
+button:active:not(:disabled) {
+  border-color: var(--accent);
 }
 
 button:disabled {
@@ -129,6 +145,9 @@ button.danger,
 }
 
 .quick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 4px 10px;
   font-size: 12px;
 }
@@ -234,13 +253,27 @@ button.danger,
   font-size: 11px;
 }
 
-.graph-head select {
+.graph-head .select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
   margin-left: auto;
+}
+
+.graph-head select {
   max-width: 220px;
+  appearance: none;
   background: var(--bg-input);
   border: 1px solid var(--line);
   border-radius: 6px;
-  padding: 2px 6px;
+  padding: 2px 24px 2px 6px;
+}
+
+.graph-head .select-wrap > svg {
+  position: absolute;
+  right: 6px;
+  color: var(--text-dim);
+  pointer-events: none;
 }
 
 .graph-head button {
@@ -254,6 +287,7 @@ button.danger,
   min-height: 0;
   overflow: auto;
   outline: none;
+  transition: box-shadow 100ms ease-out;
 }
 
 .graph-scroll:focus-visible {
@@ -295,6 +329,10 @@ button.danger,
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
+  /* A row's selection background has its own 160ms; nothing here touches its transform. */
+  transition:
+    background-color 160ms ease-in-out,
+    box-shadow 120ms ease-out;
 }
 
 .row:hover {
@@ -319,6 +357,9 @@ button.danger,
 }
 
 .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   padding: 1px 6px;
   border-radius: 999px;
   font-size: 10.5px;
@@ -352,6 +393,9 @@ button.danger,
 }
 
 .card h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0 0 6px;
   font-size: 11px;
   text-transform: uppercase;
@@ -397,6 +441,9 @@ button.danger,
   border: 0;
   border-radius: 6px;
   text-align: left;
+  transition:
+    background-color 160ms ease-in-out,
+    box-shadow 120ms ease-out;
 }
 
 .file-list .file.selected {
@@ -536,6 +583,9 @@ button.danger,
   border: 0;
   border-radius: 6px;
   text-align: left;
+  transition:
+    background-color 160ms ease-in-out,
+    box-shadow 120ms ease-out;
 }
 
 .entries .entry-item.selected {
@@ -544,12 +594,12 @@ button.danger,
 }
 
 .entry-kind {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: none;
   width: 18px;
-  text-align: center;
   color: var(--accent);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
 }
 
 .status-code {
@@ -680,6 +730,10 @@ code {
   font-size: 12px;
   white-space: nowrap;
   max-width: 220px;
+  transition:
+    background-color 160ms ease-in-out,
+    border-color 100ms ease-out,
+    color 100ms ease-out;
 }
 
 .tab.active {
@@ -804,4 +858,46 @@ code {
   color: var(--accent);
   text-decoration: underline;
   cursor: pointer;
+}
+
+/*
+ * Entering moves, leaving does not. A card or a panel rises 2px over 160ms as it arrives;
+ * it disappears at once. `@starting-style` is the keyframe-free way to run a transition on
+ * a first render — a rule with no keyframes cannot be mistaken for one that loops.
+ */
+.card,
+.modal {
+  transition:
+    opacity 160ms ease-out,
+    translate 160ms ease-out;
+}
+
+/* A whole pane that was empty first takes 200ms; a state change in place takes 160ms. */
+.graph-pane > .state-screen {
+  transition: opacity 200ms ease-in-out;
+}
+
+@starting-style {
+  .card,
+  .modal {
+    opacity: 0;
+    translate: 0 2px;
+  }
+
+  .graph-pane > .state-screen {
+    opacity: 0;
+  }
+}
+
+/*
+ * Rule two, in one block and with no exception: reduced motion removes every transition and
+ * every animation rather than shortening them. This stays the last block in the file.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

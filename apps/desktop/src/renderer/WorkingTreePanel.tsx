@@ -1,7 +1,32 @@
 import { useEffect, useState } from 'react';
 import type { DiffFile, RepoState, StatusEntry } from '../shared/api.ts';
 import { DiffView } from './DiffView.tsx';
-import { fileKind, kindGlyph } from './fileKind.ts';
+import { fileKind, type FileKind } from './fileKind.ts';
+import {
+  FileBinaryIcon,
+  FileCodeIcon,
+  FileConfigIcon,
+  FileImageIcon,
+  FileJsonIcon,
+  FileMarkdownIcon,
+  FileShellIcon,
+  FileTextIcon,
+  type IconProps,
+  TreeIcon,
+} from './icons.tsx';
+
+/** One glyph per file family, so the working-tree column names the kind and not the letter. */
+const KIND_ICON: Readonly<Record<FileKind, (props: IconProps) => React.ReactElement>> = {
+  code: FileCodeIcon,
+  shell: FileShellIcon,
+  markdown: FileMarkdownIcon,
+  text: FileTextIcon,
+  json: FileJsonIcon,
+  config: FileConfigIcon,
+  image: FileImageIcon,
+  binary: FileBinaryIcon,
+  other: FileTextIcon,
+};
 
 /**
  * The working tree, split by the question each entry answers. A file can be staged and also
@@ -133,7 +158,10 @@ export function WorkingTreePanel({
 
   return (
     <div className="card working-tree" data-testid="working-tree">
-      <h2>Working tree</h2>
+      <h2>
+        <TreeIcon size={13} />
+        Working tree
+      </h2>
       {state === null ? (
         <p className="empty">nothing loaded</p>
       ) : (
@@ -153,6 +181,7 @@ export function WorkingTreePanel({
                 <ul className="entries">
                   {entries.map((entry) => {
                     const kind = fileKind(entry.path);
+                    const KindIcon = KIND_ICON[kind];
                     const active = section === spec.section && path === entry.path;
                     return (
                       <li key={`${spec.section}:${entry.path}`}>
@@ -166,7 +195,7 @@ export function WorkingTreePanel({
                           onClick={() => setSelected({ section: spec.section, path: entry.path })}
                         >
                           <span className="entry-kind" data-testid="entry-kind" aria-hidden="true">
-                            {kindGlyph(kind)}
+                            <KindIcon />
                           </span>
                           {entry.submodule === null ? null : (
                             <span

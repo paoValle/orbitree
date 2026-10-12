@@ -14,6 +14,39 @@ const main = read('src/main/index.ts');
 const preload = read('src/preload/index.ts');
 const html = read('src/renderer/index.html');
 const config = read('electron.vite.config.ts');
+const styles = read('src/renderer/styles.css');
+const icons = read('src/renderer/icons.tsx');
+
+/** Every glyph `docs/DESIGN.md` names, so a rename cannot silently drop one. */
+const REQUIRED_ICONS = [
+  'fetch',
+  'pull',
+  'push',
+  'stash',
+  'unstash',
+  'clean',
+  'reset',
+  'file-text',
+  'file-code',
+  'file-json',
+  'file-image',
+  'file-binary',
+  'file-config',
+  'file-shell',
+  'file-markdown',
+  'branch',
+  'remote',
+  'tag',
+  'head',
+  'commit',
+  'tree',
+  'stash-box',
+  'activity',
+  'close',
+  'chevron-down',
+  'folder',
+  'search',
+] as const;
 
 describe('the window the app opens', () => {
   it('is an ordinary web page, not a shell', () => {
@@ -67,5 +100,63 @@ describe('the boundary between the renderer and the process that can run git', (
     expect(referenced?.split('/').pop()).toBe(emitted);
     // And a sandboxed preload cannot be an ES module.
     expect(emitted).not.toMatch(/\.mjs$/);
+  });
+});
+
+/**
+ * The icon set is source, not a dependency, so its contract is checked in the same place the
+ * window's configuration is: every glyph the design names exists and carries its own name.
+ */
+describe('the icon set', () => {
+  it('declares every glyph under its kebab-case data-icon name', () => {
+    for (const name of REQUIRED_ICONS) {
+      expect(icons).toContain(`name="${name}"`);
+    }
+  });
+
+  it('draws each glyph on the 24px grid with a single 1.5px current-colour stroke', () => {
+    expect(icons).toContain('viewBox="0 0 24 24"');
+    expect(icons).toContain('strokeWidth={1.5}');
+    expect(icons).toContain('stroke="currentColor"');
+    expect(icons).toContain('fill="none"');
+  });
+});
+
+/**
+ * The motion rules that are easy to break silently: a keyframe creeps in, a duration is
+ * changed, the reduced-motion block is edited, the canvas is animated. A rule with no check
+ * is a comment, so each one is asserted by name against the stylesheet text.
+ */
+describe('the motion rules', () => {
+  it('removes every transition and animation under reduced motion, with no exception', () => {
+    const start = styles.indexOf('@media (prefers-reduced-motion: reduce)');
+    expect(start).toBeGreaterThan(-1);
+    const block = styles.slice(start);
+    expect(block).toContain('animation: none');
+    expect(block).toContain('transition: none');
+    expect(block).toContain('*::before');
+    expect(block).toContain('*::after');
+  });
+
+  it('declares no keyframe anywhere', () => {
+    expect(styles).not.toContain('@keyframes');
+  });
+
+  it('never transitions the graph canvas, the lanes or a row transform', () => {
+    const canvasRule = /\.commit-graph\s*\{([^}]*)\}/.exec(styles)?.[1] ?? '';
+    expect(canvasRule).not.toContain('transition');
+    // A row declares no `transform`: the graph appears with its content or not at all.
+    const rowRule = /\.row\s*\{([^}]*)\}/.exec(styles)?.[1] ?? '';
+    expect(rowRule).not.toContain('transform');
+  });
+
+  it('never runs a transition longer than the 240ms whole-pane ceiling', () => {
+    const declarations = styles.match(/transition\s*:[^;]*;/g) ?? [];
+    expect(declarations.length).toBeGreaterThan(0);
+    const durations = declarations.flatMap((declaration) =>
+      [...declaration.matchAll(/(\d+)ms/g)].map((match) => Number(match[1])),
+    );
+    expect(durations.length).toBeGreaterThan(0);
+    for (const duration of durations) expect(duration).toBeLessThanOrEqual(240);
   });
 });

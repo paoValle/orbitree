@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_QUICK_COMMANDS, type QuickCommand, type RepoState } from '../shared/api.ts';
+import { quickIcon } from './icons.tsx';
 import { type Pending, summarize } from './shared.ts';
 
 /**
@@ -79,20 +80,24 @@ export function Popup(): React.ReactElement {
       </header>
 
       <div className="popup-commands">
-        {DEFAULT_QUICK_COMMANDS.map((command) => (
-          <button
-            key={command.id}
-            type="button"
-            className={command.danger ? 'quick danger' : 'quick'}
-            disabled={path === '' || busy}
-            onClick={() => {
-              if (command.danger) setPending({ command, reason: '' });
-              else void runCommand(command);
-            }}
-          >
-            {command.label}
-          </button>
-        ))}
+        {DEFAULT_QUICK_COMMANDS.map((command) => {
+          const Glyph = quickIcon(command.id);
+          return (
+            <button
+              key={command.id}
+              type="button"
+              className={command.danger ? 'quick danger' : 'quick'}
+              disabled={path === '' || busy}
+              onClick={() => {
+                if (command.danger) setPending({ command, reason: '' });
+                else void runCommand(command);
+              }}
+            >
+              {Glyph === null ? null : <Glyph />}
+              <span>{command.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {state !== null && (

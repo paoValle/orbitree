@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { GraphData } from '../shared/api.ts';
+import {
+  BranchIcon,
+  ChevronDownIcon,
+  HeadIcon,
+  RemoteIcon,
+  TagIcon,
+  type IconProps,
+} from './icons.tsx';
 
 export const ROW_HEIGHT = 26;
 export const LANE_WIDTH = 16;
@@ -21,6 +29,19 @@ const LANE_COLORS = [
 
 export function laneColor(lane: number): string {
   return LANE_COLORS[lane % LANE_COLORS.length] as string;
+}
+
+/** The glyph a ref badge carries: HEAD is a pin, everything else is its ref kind. */
+const REF_ICONS: Readonly<Record<string, (props: IconProps) => React.ReactElement>> = {
+  branch: BranchIcon,
+  remote: RemoteIcon,
+  tag: TagIcon,
+  other: BranchIcon,
+};
+
+function RefIcon({ kind, isHead }: { readonly kind: string; readonly isHead: boolean }) {
+  const Glyph = isHead ? HeadIcon : (REF_ICONS[kind] ?? BranchIcon);
+  return <Glyph size={11} />;
 }
 
 /** The header always says which window of the history is on screen: `300 of 2054 commits`. */
@@ -183,24 +204,27 @@ export function GraphPane({
     <div className="graph">
       <div className="graph-head">
         <span data-testid="graph-count">{describeWindow(graph, laneCount)}</span>
-        <select
-          data-testid="ref-filter"
-          aria-label="History"
-          value={filter}
-          onChange={(event) => {
-            onFilterChange(event.target.value);
-            // Release the select so the arrow keys stay on the graph rows, which is where
-            // the reader is looking after asking for a different history.
-            scrollRef.current?.focus();
-          }}
-        >
-          <option value="*">All branches</option>
-          {refOptions.map((ref) => (
-            <option key={ref.name} value={ref.shortName}>
-              {ref.shortName}
-            </option>
-          ))}
-        </select>
+        <span className="select-wrap">
+          <select
+            data-testid="ref-filter"
+            aria-label="History"
+            value={filter}
+            onChange={(event) => {
+              onFilterChange(event.target.value);
+              // Release the select so the arrow keys stay on the graph rows, which is where
+              // the reader is looking after asking for a different history.
+              scrollRef.current?.focus();
+            }}
+          >
+            <option value="*">All branches</option>
+            {refOptions.map((ref) => (
+              <option key={ref.name} value={ref.shortName}>
+                {ref.shortName}
+              </option>
+            ))}
+          </select>
+          <ChevronDownIcon size={12} />
+        </span>
         {graph.truncated && (
           <button type="button" data-testid="load-more" onClick={onLoadMore}>
             Load {pageSize} more
@@ -251,6 +275,7 @@ export function GraphPane({
                 )}
                 {badges.map((badge) => (
                   <span key={badge.name} className={`badge ${badge.kind}`}>
+                    <RefIcon kind={badge.kind} isHead={badge.isHead} />
                     {badge.shortName}
                   </span>
                 ))}

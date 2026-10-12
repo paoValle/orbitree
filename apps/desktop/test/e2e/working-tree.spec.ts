@@ -9,13 +9,25 @@ const run = promisify(execFile);
 
 const FILE_KINDS = [
   'code',
-  'doc',
-  'markup',
-  'style',
+  'shell',
+  'markdown',
+  'text',
+  'json',
+  'config',
   'image',
   'binary',
-  'config',
   'other',
+] as const;
+
+const FILE_ICONS = [
+  'file-code',
+  'file-shell',
+  'file-markdown',
+  'file-text',
+  'file-json',
+  'file-config',
+  'file-image',
+  'file-binary',
 ] as const;
 
 /**
@@ -165,7 +177,7 @@ test('the working tree pane separates staged from unstaged and diffs what you cl
       .click();
     await expect(wtDiff).toContainText('neither the index nor any commit');
 
-    // Every entry says what kind of file it is, and the icon carries the glyph.
+    // Every entry says what kind of file it is, and the icon carries the name, not a drawing.
     const kinds = await page
       .locator('[data-testid=entry-item]')
       .evaluateAll((elements) =>
@@ -173,8 +185,14 @@ test('the working tree pane separates staged from unstaged and diffs what you cl
       );
     expect(kinds.length).toBeGreaterThan(0);
     for (const kind of kinds) expect(FILE_KINDS).toContain(kind);
-    expect(kinds.some((kind) => kind === 'code' || kind === 'doc')).toBe(true);
-    await expect(page.locator('[data-testid=entry-kind]').first()).not.toBeEmpty();
+    expect(kinds.some((kind) => kind === 'code' || kind === 'markdown')).toBe(true);
+    const icons = await page
+      .locator('[data-testid=entry-kind] svg')
+      .evaluateAll((elements) =>
+        elements.map((element) => element.getAttribute('data-icon') ?? ''),
+      );
+    expect(icons.length).toBe(kinds.length);
+    for (const icon of icons) expect(FILE_ICONS).toContain(icon);
   } finally {
     await closeApp(handle);
     await rm(repo, { recursive: true, force: true });

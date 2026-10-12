@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CommitData } from '../shared/api.ts';
 import { DiffView } from './DiffView.tsx';
+import { CommitIcon } from './icons.tsx';
 
 export interface CommitPanelProps {
   readonly root: string | null;
@@ -36,7 +37,10 @@ export function CommitPanel({ root, hash }: CommitPanelProps): React.ReactElemen
   if (hash === null) {
     return (
       <div className="card">
-        <h2>Commit</h2>
+        <h2>
+          <CommitIcon size={13} />
+          Commit
+        </h2>
         <p className="empty">Select a commit in the graph.</p>
       </div>
     );
@@ -46,7 +50,10 @@ export function CommitPanel({ root, hash }: CommitPanelProps): React.ReactElemen
 
   return (
     <div className="card commit-panel" data-testid="commit-panel">
-      <h2>Commit</h2>
+      <h2>
+        <CommitIcon size={13} />
+        Commit
+      </h2>
       {data === null && error === null && <p className="empty">loading…</p>}
       {error !== null && <p className="empty">{error}</p>}
       {data !== null && (

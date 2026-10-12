@@ -8,6 +8,7 @@ import {
 } from '../shared/api.ts';
 import { CommitPanel } from './CommitPanel.tsx';
 import { GraphPane } from './GraphPane.tsx';
+import { ActivityIcon, CloseIcon, StashBoxIcon, quickIcon } from './icons.tsx';
 import { type ScreenState, StateScreen } from './StateScreen.tsx';
 import { type Pending, summarize } from './shared.ts';
 import { WorkingTreePanel } from './WorkingTreePanel.tsx';
@@ -348,7 +349,7 @@ export function App(): React.ReactElement {
                   closeTab(tab.id);
                 }}
               >
-                ×
+                <CloseIcon size={12} />
               </button>
             </button>
           ))}
@@ -372,21 +373,25 @@ export function App(): React.ReactElement {
 
       {active !== null && (
         <div className="quickbar">
-          {DEFAULT_QUICK_COMMANDS.map((command) => (
-            <button
-              key={command.id}
-              type="button"
-              title={command.hint}
-              className={command.danger ? 'quick danger' : 'quick'}
-              disabled={busy}
-              onClick={() => {
-                if (command.danger) setPending({ command, reason: '' });
-                else void runCommand(command);
-              }}
-            >
-              {command.label}
-            </button>
-          ))}
+          {DEFAULT_QUICK_COMMANDS.map((command) => {
+            const Glyph = quickIcon(command.id);
+            return (
+              <button
+                key={command.id}
+                type="button"
+                title={command.hint}
+                className={command.danger ? 'quick danger' : 'quick'}
+                disabled={busy}
+                onClick={() => {
+                  if (command.danger) setPending({ command, reason: '' });
+                  else void runCommand(command);
+                }}
+              >
+                {Glyph === null ? null : <Glyph />}
+                <span>{command.label}</span>
+              </button>
+            );
+          })}
           <span className="spacer" />
           <button
             type="button"
@@ -494,7 +499,10 @@ export function App(): React.ReactElement {
           />
 
           <div className="card">
-            <h2>Stashes</h2>
+            <h2>
+              <StashBoxIcon size={13} />
+              Stashes
+            </h2>
             {active !== null && active.stashes.length === 0 ? (
               <p className="empty">no stash in this repository</p>
             ) : (
@@ -519,7 +527,10 @@ export function App(): React.ReactElement {
           </div>
 
           <div className="card">
-            <h2>Activity</h2>
+            <h2>
+              <ActivityIcon size={13} />
+              Activity
+            </h2>
             {log.length === 0 ? (
               <p className="empty">nothing run yet</p>
             ) : (
