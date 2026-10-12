@@ -22,7 +22,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await set.cleanup();
+  await set?.cleanup();
 });
 
 interface RawMetadata {

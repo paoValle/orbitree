@@ -11,7 +11,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await set.cleanup();
+  await set?.cleanup();
 });
 
 function fixtureRoot(name: string): string {

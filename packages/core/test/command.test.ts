@@ -57,7 +57,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await set.cleanup();
+  await set?.cleanup();
 });
 
 describe('the risk of an operation', () => {

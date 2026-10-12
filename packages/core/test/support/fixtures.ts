@@ -27,6 +27,14 @@ export async function git(cwd: string, ...args: string[]): Promise<GitOut> {
       env: {
         ...process.env,
         GIT_TERMINAL_PROMPT: '0',
+        // Identity in the environment rather than in each repository's config: `git config
+        // user.name` inside a fresh repository worked on this machine and not on a Linux runner,
+        // and a fixture that depends on a config write can fail for reasons that have nothing to
+        // do with the product. These variables cannot be missing and cost no write.
+        GIT_AUTHOR_NAME: 'Fixture Author',
+        GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
+        GIT_COMMITTER_NAME: 'Fixture Author',
+        GIT_COMMITTER_EMAIL: 'fixture@example.invalid',
         GIT_AUTHOR_DATE: '2026-01-01T00:00:00+00:00',
         GIT_COMMITTER_DATE: '2026-01-01T00:00:00+00:00',
         LC_ALL: 'C',
@@ -39,6 +47,18 @@ export async function git(cwd: string, ...args: string[]): Promise<GitOut> {
     return { stdout: failure.stdout ?? '', stderr: failure.stderr ?? '', code: failure.code ?? 1 };
   }
 }
+
+/**
+ * Names that are hostile to the shell of the platform, and legal as filenames on it.
+ *
+ * POSIX gets the double quote, which `sh` treats as syntax. Windows gets `^` (its escape
+ * character) and `%` (its variable expansion), because a double quote in a filename is not a
+ * hostile name there — it is not a filename at all.
+ */
+const HOSTILE_EXTRA_NAMES: readonly string[] =
+  process.platform === 'win32'
+    ? ["quote^and'apostrophe.txt", '%TEMP%-substitution.txt']
+    : ['quote"and\'apostrophe.txt'];
 
 export interface Fixture {
   readonly name: string;
@@ -138,12 +158,14 @@ export async function makeFixtures(): Promise<FixtureSet> {
   await git(history, 'checkout', '--quiet', '--detach', 'HEAD~1');
 
   // --- 6. filenames that are genuinely hostile to shell-less argument passing ---
+  // Hostile to the shell of the platform this runs on, and legal there: Windows cannot create a
+  // file whose name holds a double quote, and `^` and `%` are what its own shell mangles.
   const nasty = await create('nasty');
   await write(nasty, 'with space.txt', 'space\n');
   await write(nasty, 'caffè-ünicode.txt', 'unicode\n');
   await write(nasty, '-leading-dash.txt', 'dash\n');
-  await write(nasty, 'quote"and\'apostrophe.txt', 'quotes\n');
   await write(nasty, '$(touch pwned).txt', 'substitution\n');
+  for (const name of HOSTILE_EXTRA_NAMES) await write(nasty, name, 'quotes\n');
   await commit(nasty, 'hostile names');
   await write(nasty, 'with space.txt', 'space changed\n');
 

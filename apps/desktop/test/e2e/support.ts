@@ -135,7 +135,17 @@ export async function closeApp(handle: AppHandle, options: CloseOptions = {}): P
   await new Promise((resolve) => child.once('exit', resolve));
   // Deleted by default so a run leaves nothing behind, but a test that proves persistence
   // across two launches has to keep the first one's directory.
-  if (options.keep !== true) await rm(handle.userDataDir, { recursive: true, force: true });
+  // Retried: the app writes into this directory while it shuts down, so a removal can find it
+  // non-empty again after the check. `force` covers a missing directory, not a racing writer, and
+  // Linux surfaced it as ENOTEMPTY where macOS had been quiet.
+  if (options.keep !== true) {
+    await rm(handle.userDataDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100,
+    });
+  }
 }
 
 /**
@@ -162,7 +172,17 @@ export async function readStateFile(userDataDir: string): Promise<Record<string,
 export async function git(cwd: string, args: readonly string[]): Promise<string> {
   const { stdout } = await run('git', args, {
     cwd,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' },
+    env: {
+      ...process.env,
+      GIT_TERMINAL_PROMPT: '0',
+      // In the environment, not in each repository's config: the core's fixtures failed on a Linux
+      // runner with "Author identity unknown" for exactly this reason.
+      GIT_AUTHOR_NAME: 'E2E Author',
+      GIT_AUTHOR_EMAIL: 'e2e@example.invalid',
+      GIT_COMMITTER_NAME: 'E2E Author',
+      GIT_COMMITTER_EMAIL: 'e2e@example.invalid',
+      LC_ALL: 'C',
+    },
     maxBuffer: 32 * 1024 * 1024,
   });
   return stdout.trim();
@@ -207,7 +227,17 @@ export function orbitree(
       [...args],
       {
         cwd,
-        env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' },
+        env: {
+          ...process.env,
+          GIT_TERMINAL_PROMPT: '0',
+          // In the environment, not in each repository's config: the core's fixtures failed on a Linux
+          // runner with "Author identity unknown" for exactly this reason.
+          GIT_AUTHOR_NAME: 'E2E Author',
+          GIT_AUTHOR_EMAIL: 'e2e@example.invalid',
+          GIT_COMMITTER_NAME: 'E2E Author',
+          GIT_COMMITTER_EMAIL: 'e2e@example.invalid',
+          LC_ALL: 'C',
+        },
         maxBuffer: 32 * 1024 * 1024,
       },
       (error, stdout, stderr) => {
