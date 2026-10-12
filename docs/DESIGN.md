@@ -133,6 +133,53 @@ and the most defensible: the argv already exists in the core, the activity log a
 result, and showing the command turns every click into a `git` lesson. It is in the visual phase
 because it is a surface, not a feature.
 
+## Measured against the category
+
+The conventions below are the ones a person arrives with, read from the documentation of the dense
+commercial clients this product is measured against. They are the *category's* conventions, not one
+product's: where we follow, we follow the convention, and where we differ we say why.
+
+### The window, as the category arranges it
+
+| Region | The convention | Ours | Verdict |
+|---|---|---|---|
+| Toolbar | Undo, Redo, Pull (with a behaviour dropdown), Push, Branch, Stash, Pop; labels toggleable | Fetch, Pull, Push, Stash, Unstash, and two destructive commands | **differ**: destructive commands belong in a context menu, not one stray click away; and undo is missing, which is the bigger gap |
+| Left panel | Local, Remote, Pull Requests, Issues, Teams, Tags, Stashes, Submodules, sections collapsible, resizable, maximizable by double-click | a single `All branches` dropdown and a right-hand side pane | **follow, and it is the largest structural gap**: refs need a panel of their own, with sections |
+| Centre | the commit graph, with a WIP node for the working tree and nodes for stashes | the graph, no WIP node | **follow**: the WIP node is a good idea and it is one row |
+| Right | a Commit Panel that shows the selection's files and diff, or the working tree, and stages inside it | a side pane of four cards: commit, working tree, stashes, activity | **partly follow**: the panel's job is the selection; splitting it into cards is our own choice and it costs vertical space |
+| Columns in the graph | Branch/Tag, Graph, Message, plus optional Author, Date, Sha; reorderable, resizable, toggleable from a header menu, remembered per repository | fixed: badges, graph, subject, author, short hash | **later**: the conventions are worth having and not worth building before the graph is denser |
+| Tabs | Cmd/Ctrl+1-9, +/Cmd+T, middle-click and Cmd/Ctrl+W to close, drag to rearrange, right-click to alias | click to switch, × to close, + to open | **should**: the shortcuts are cheap and the keyboard is how a client stops being slow |
+| Status bar | launchpad summary, plan, zoom selector | nothing | **differ**: no plan, no launchpad, and no status bar until there is something to put in it |
+| Command palette | Cmd/Ctrl+P over commands, files, repositories, settings | planned in P3.5 | **follow** |
+
+### Behaviours in the graph worth copying
+
+- **A ghost branch.** Hovering or selecting a commit shows the nearest branch that contains it, and
+  double-clicking checks out that branch's head. It answers "where am I in relation to this commit"
+  without a second view. **Should.**
+- **Highlighting a branch on hover**, fading the commits it does not contain. **Later**, behind a
+  setting: fading is a strong gesture and it is disorienting the first time.
+- **A WIP node at the top of the graph**, with the stash nodes among the ordinary ones. It makes
+  "not committed yet" a place in the same picture as everything else, which is the same argument
+  this product already makes for detached heads and stopped merges. **Must.**
+- **A commit's context menu**, holding the actions that act on a commit: create a branch here, create
+  a tag here, check out, reset to here, copy the sha, copy the message. **Must**, and it is the
+  answer to a toolbar that cannot hold everything.
+- **Column headers with a menu**, so Author, Date and Sha are choices rather than decisions made for
+  the reader. **Later.**
+
+### The features the category treats as table stakes
+
+| Feature | Ours | Where |
+|---|---|---|
+| Undo/redo as toolbar buttons, driven by the operation log | missing | P2, already listed as "every change in the session is listed with the `git` command that reverses it" |
+| A configurable pull behaviour with a remembered default | hardcoded `--ff-only` | P3; the safe default stays the default, and it becomes a choice |
+| Summary and description as two fields | one textarea | P2, small and worth it: the summary is what the graph shows |
+| Staging inside the selection's panel | staging in its own card | P2, when the panel is reworked |
+| Repository aliases, tab reordering, drag and drop | none | Later |
+| Profiles that switch identity and tabs together | none | Later, next to the per-repository identity already listed |
+| A terminal | none | **Never**: the user has one, and it is better |
+
 ## How any of this is judged
 
 `make e2e` drives the real window and writes a screenshot per spec. A design change is accepted when
