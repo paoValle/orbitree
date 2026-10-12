@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { closeApp, commit, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
+import {
+  closeApp,
+  commit,
+  launchApp,
+  mainWindow,
+  makeRepo,
+  readStateFrom,
+  writeIn,
+} from './support.ts';
 
 /**
  * Closing the window hides the app, and the quick window is something the machine can
@@ -17,7 +25,7 @@ test('closing the window hides it, and the quick window opens without a mouse', 
   await commit(repo, 'the only commit');
   const name = repo.slice(repo.lastIndexOf('/') + 1);
 
-  const handle = await launchApp(repo);
+  const handle = await launchApp(repo, { tray: true, quiet: false });
   try {
     const page = await mainWindow(handle.app);
     await expect(page.locator('[data-testid=graph-count]')).toBeVisible();
@@ -25,7 +33,7 @@ test('closing the window hides it, and the quick window opens without a mouse', 
     // The hotkey is a setting: it persists, and the main process reads it back.
     await page.evaluate(() => window.orbitree.setHotkey('CommandOrControl+Alt+O'));
     await expect
-      .poll(async () => (await page.evaluate(() => window.orbitree.readState())).value?.hotkey)
+      .poll(async () => (await readStateFrom(page)).hotkey)
       .toBe('CommandOrControl+Alt+O');
 
     // The quick window, through the same action the hotkey calls. It is a second window

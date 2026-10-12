@@ -55,8 +55,11 @@ desktop: ## run the desktop app against this repository
 		{ echo "the Electron binary is missing: run 'make setup' first" >&2; exit 1; }
 	pnpm run desktop:dev
 
-e2e: ## run the fast UI tests on the real window
-	pnpm --filter @orbitree/desktop run e2e
+e2e: ## run the fast UI tests on the real window (the log lands in reports/e2e.log)
+	@mkdir -p reports
+	@# The target keeps the log rather than the caller. Three times a flaky test failed while the
+	@# output was piped into grep, and each time the evidence was gone before it could be read.
+	@pnpm --filter @orbitree/desktop run e2e > reports/e2e.log 2>&1; status=$$?; tail -25 reports/e2e.log; exit $$status
 
 perf: ## measure the UI on a large repository
 	pnpm --filter @orbitree/desktop run e2e:perf

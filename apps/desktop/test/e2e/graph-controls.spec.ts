@@ -1,10 +1,9 @@
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { expect, test } from '@playwright/test';
-import { APP_PATH, closeApp, git, launchApp, mainWindow } from './support.ts';
+import { APP_PATH, closeApp, git, launchApp, mainWindow, makeRunDir } from './support.ts';
 
 const run = promisify(execFile);
 const repoRoot = resolve(APP_PATH, '..', '..');
@@ -23,7 +22,7 @@ function lines(output: string): string[] {
 
 test('the ref filter reads the history it names', async () => {
   test.setTimeout(180_000);
-  const base = await mkdtemp(join(tmpdir(), 'orbitree-controls-'));
+  const base = await makeRunDir('orbitree-controls-');
   const repo = await buildBigRepo(base, 'filtered', '40', '25');
 
   const allCount = Number(await git(repo, ['rev-list', '--count', '--all']));
@@ -80,7 +79,7 @@ test('the ref filter reads the history it names', async () => {
 
 test('load more extends the window by a page', async () => {
   test.setTimeout(180_000);
-  const base = await mkdtemp(join(tmpdir(), 'orbitree-controls-'));
+  const base = await makeRunDir('orbitree-controls-');
   const repo = await buildBigRepo(base, 'big', '310', '200');
 
   const total = Number(await git(repo, ['rev-list', '--count', '--all']));

@@ -5,13 +5,51 @@
  * with the app when the app is wrong, so it must not share the app's code.
  */
 import { execFile } from 'node:child_process';
+import { rmSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import { type ElectronApplication, _electron as electron, type Page } from '@playwright/test';
+import type { PersistedState } from '../../src/shared/api.ts';
 
 const run = promisify(execFile);
+
+/**
+ * One directory per run, holding every repository and every user-data directory this run creates.
+ *
+ * Per spec they leaked: a spec that forgot to remove its fixture left it in the system temp
+ * directory for good, and a day of runs left 229 of them and 43 MB behind. One parent directory,
+ * removed when the process ends however it ends, means forgetting is no longer possible.
+ */
+let runRootPromise: Promise<string> | null = null;
+
+function runRoot(): Promise<string> {
+  // Created by `globalSetup` so that `globalTeardown` can remove it whatever happens to a worker.
+  const fromSetup = process.env.ORBITREE_RUN_DIR;
+  if (fromSetup !== undefined && fromSetup !== '') return Promise.resolve(fromSetup);
+  runRootPromise ??= mkdtemp(join(tmpdir(), 'orbitree-run-')).then((root) => {
+    // A spec that kills the process, or a runner that stops the suite, still leaves nothing: the
+    // synchronous removal in an exit handler runs on every path out.
+    process.once('exit', () => {
+      try {
+        rmSync(root, { recursive: true, force: true });
+      } catch {
+        // Nothing useful to do while the process is going away.
+      }
+    });
+    return root;
+  });
+  return runRootPromise;
+}
+
+/**
+ * A directory of this run's own, for a spec that needs one that is not a repository or a
+ * user-data directory. Inside the run root, so the exit handler removes it too.
+ */
+export async function makeRunDir(prefix: string): Promise<string> {
+  return mkdtemp(join(await runRoot(), prefix));
+}
 
 export const APP_PATH = join(import.meta.dirname, '..', '..');
 
@@ -30,12 +68,22 @@ export interface AppHandle {
  */
 export async function launchApp(
   repo?: string,
-  options: { readonly userDataDir?: string } = {},
+  options: {
+    readonly userDataDir?: string;
+    readonly tray?: boolean;
+    readonly quiet?: boolean;
+  } = {},
 ): Promise<AppHandle> {
-  const userDataDir = options.userDataDir ?? (await mkdtemp(join(tmpdir(), 'orbitree-userdata-')));
+  const userDataDir = options.userDataDir ?? (await mkdtemp(join(await runRoot(), 'userdata-')));
   const app = await electron.launch({
     args: [
       APP_PATH,
+      // Quiet by default, and it matters: without it every spec pops a window that steals focus
+      // from whoever is using the machine, and registers a global hotkey that swallows their
+      // keystrokes. The window is created and rendered either way; only its visibility changes.
+      // One spec is about a window being shown, and it is the one that passes `quiet: false`.
+      ...(options.quiet === false ? [] : ['--quiet']),
+      ...(options.tray === true ? ['--tray'] : []),
       ...(repo === undefined ? [] : [`--repo=${repo}`]),
       `--user-data-dir=${userDataDir}`,
     ],
@@ -90,6 +138,19 @@ export async function closeApp(handle: AppHandle, options: CloseOptions = {}): P
   if (options.keep !== true) await rm(handle.userDataDir, { recursive: true, force: true });
 }
 
+/**
+ * The state as the renderer sees it, unwrapped.
+ *
+ * `readState` answers with a result, not a value, and a spec that reads `.value` without asking
+ * whether it is there is a spec that would compare against `undefined` and call it a difference.
+ * A read that fails is a failed test.
+ */
+export async function readStateFrom(page: Page): Promise<PersistedState> {
+  const result = await page.evaluate(() => window.orbitree.readState());
+  if (!result.ok) throw new Error(`readState failed: ${result.error}`);
+  return result.value;
+}
+
 /** The persisted state, as the file itself says it is rather than as a channel reports it. */
 export async function readStateFile(userDataDir: string): Promise<Record<string, unknown>> {
   return JSON.parse(await readFile(join(userDataDir, 'state.json'), 'utf8')) as Record<
@@ -115,7 +176,7 @@ export interface MakeRepoOptions {
 }
 
 export async function makeRepo(options: MakeRepoOptions = {}): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), 'orbitree-e2e-'));
+  const root = await mkdtemp(join(await runRoot(), 'repo-'));
   await git(root, ['init', '-b', 'main', '--quiet']);
   await git(root, ['config', 'user.name', 'E2E Author']);
   await git(root, ['config', 'user.email', 'e2e@example.invalid']);
@@ -154,7 +215,8 @@ export function orbitree(
           resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: 0 });
           return;
         }
-        const code = (error as NodeJS.ErrnoException & { code?: number }).code;
+        // `execFile` reports the exit code on the error, and its type does not say so.
+        const code = (error as unknown as { code?: number }).code;
         if (typeof code === 'number') {
           resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: code });
           return;

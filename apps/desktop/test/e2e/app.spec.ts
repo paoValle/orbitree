@@ -29,6 +29,14 @@ test('the graph pane and the commit panel on the real window', async () => {
   try {
     const page = await mainWindow(app);
 
+    // The suite runs on the machine of whoever is working, so it must not show a window. This is
+    // the property `--quiet` exists for: without it every spec pops a window that takes the focus.
+    const visible = await app.evaluate(
+      ({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows().filter((window) => window.isVisible()).length,
+    );
+    expect(visible).toBe(0);
+
     // Four commits, and the merge is what makes the second lane exist.
     await expect(page.locator('[data-testid=graph-count]')).toContainText('4 commits');
     await expect(page.locator('[data-testid=commit-row]')).toHaveCount(4);

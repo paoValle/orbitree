@@ -1,6 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rm } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import {
   closeApp,
@@ -8,7 +6,9 @@ import {
   launchApp,
   mainWindow,
   makeRepo,
+  makeRunDir,
   readStateFile,
+  readStateFrom,
   writeIn,
 } from './support.ts';
 
@@ -18,7 +18,7 @@ import {
  * remembers or it does not, and there is no channel in between to flatter it.
  */
 test('the last repository reopens, and the recents list what came before it', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'orbitree-state-'));
+  const dir = await makeRunDir('orbitree-state-');
   const first = await makeRepo();
   const second = await makeRepo();
   await writeIn(first, 'a.txt', 'in the first repository\n');
@@ -39,14 +39,12 @@ test('the last repository reopens, and the recents list what came before it', as
       '| input:',
       await page.locator('input.path').inputValue(),
       '| state:',
-      JSON.stringify((await page.evaluate(() => window.orbitree.readState())).value),
+      JSON.stringify(await readStateFrom(page)),
     );
     await expect(page.locator('[data-testid=graph-count]')).toContainText('1 commit');
     // Remembering finishes after the window has drawn, so the test waits for it rather than
     // reading the state the instant the graph appears.
-    await expect
-      .poll(async () => (await page.evaluate(() => window.orbitree.readState())).value?.last)
-      .toBe(second);
+    await expect.poll(async () => (await readStateFrom(page)).last).toBe(second);
   } finally {
     // Kept on purpose: the second launch has to find what the first one wrote.
     await closeApp(opened, { keep: true });

@@ -7,5 +7,5 @@
     "rootDir": ".",
     "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "electron.vite.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "electron.vite.config.ts", "test/**/*.ts"]
 }

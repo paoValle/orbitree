@@ -1,10 +1,9 @@
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { expect, test } from '@playwright/test';
-import { APP_PATH, closeApp, launchApp, mainWindow } from './support.ts';
+import { APP_PATH, closeApp, launchApp, mainWindow, makeRunDir } from './support.ts';
 
 const run = promisify(execFile);
 
@@ -16,7 +15,7 @@ const run = promisify(execFile);
 test('@perf the window opens a large repository and draws a window, not the whole log', async () => {
   test.setTimeout(180_000);
   const repoRoot = resolve(APP_PATH, '..', '..');
-  const base = await mkdtemp(join(tmpdir(), 'orbitree-perf-'));
+  const base = await makeRunDir('orbitree-perf-');
   // A repository can be supplied so the same measurement runs at a size the test cannot
   // afford to build: `bash bin/make-big-repo.sh /tmp/big 1900 25` then
   // `ORBITREE_PERF_REPO=/tmp/big make perf`. The default stays small, because a test that

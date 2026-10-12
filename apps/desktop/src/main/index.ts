@@ -216,6 +216,7 @@ function registerHandlers(): void {
 }
 
 function createWindow(): BrowserWindow {
+  const quiet = isQuiet(process.argv);
   const window = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -248,7 +249,9 @@ function createWindow(): BrowserWindow {
     window.hide();
   });
 
-  window.once('ready-to-show', () => window.show());
+  // Never shown in a quiet run: the renderer still paints, so the DOM, the assertions and the
+  // screenshots are unaffected, and no window can steal focus.
+  if (!quiet) window.once('ready-to-show', () => window.show());
   // A repository can contain a link in a commit message; it opens in the real browser,
   // never inside the app.
   window.webContents.setWindowOpenHandler(({ url }) => {
@@ -286,6 +289,9 @@ function createWindow(): BrowserWindow {
  */
 async function registerHotkey(state: { hotkey: string | null }): Promise<void> {
   globalShortcut.unregisterAll();
+  // A global shortcut is registered system-wide: a test run must not take a key combination away
+  // from the person using the machine.
+  if (isQuiet(process.argv)) return;
   const accelerator = state.hotkey ?? 'CommandOrControl+Alt+G';
   try {
     globalShortcut.register(accelerator, () => {
@@ -297,6 +303,19 @@ async function registerHotkey(state: { hotkey: string | null }): Promise<void> {
         'set another one in the settings',
     );
   }
+}
+
+/**
+ * `--quiet` is for the test suite, and it exists because a test run should not take over the
+ * machine it runs on: a window that appears and steals focus from whatever the person was doing,
+ * a global hotkey that swallows their keystrokes, a Dock icon, a menu-bar icon.
+ *
+ * The window is still created and still renders — the specs assert on the real DOM and take real
+ * screenshots — it is simply never shown. `--tray` opts back into the tray, for the one spec that
+ * is about the tray.
+ */
+function isQuiet(argv: readonly string[]): boolean {
+  return argv.includes('--quiet');
 }
 
 function repoFromArgv(argv: readonly string[]): string | null {
@@ -313,7 +332,11 @@ function repoFromArgv(argv: readonly string[]): string | null {
 app.whenReady().then(async () => {
   registerHandlers();
   createWindow();
-  tryTray();
+  // The tray is a menu-bar icon, so a quiet run keeps it off unless the spec is about the tray.
+  if (!isQuiet(process.argv) || process.argv.includes('--tray')) tryTray();
+  // No Dock icon either: on macOS a running app with a window it never shows is still an icon
+  // in the Dock and a name in the app switcher.
+  if (isQuiet(process.argv)) app.dock?.hide();
   createPopupWindow();
   // The hotkey is registered from what the person last set, before anything else can ask for
   // a different one.
