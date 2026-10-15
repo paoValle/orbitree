@@ -475,8 +475,10 @@ export const OP_EXAMPLES: readonly GitCommand[] = [
   { op: 'unstage', paths: ['file.txt'] },
   { op: 'commit', message: 'a message' },
   { op: 'branch-create', name: 'feature' },
+  { op: 'branch-rename', name: 'feature', to: 'feature-2' },
   { op: 'checkout', ref: 'main' },
   { op: 'tag-create', name: 'v1.0.0', rev: 'HEAD' },
+  { op: 'tag-delete', name: 'v1.0.0' },
   { op: 'merge', ref: 'feature' },
   { op: 'stash-push' },
   { op: 'stash-pop' },
@@ -538,6 +540,12 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
             throw new InvalidArgumentError('branch-delete needs a name');
           })()
         : { op: 'branch-delete', name: args[0], ...(args[1] === 'force' ? { force: true } : {}) };
+    case 'branch-rename':
+      return args[0] === undefined || args[1] === undefined
+        ? (() => {
+            throw new InvalidArgumentError('branch-rename needs the branch and its new name');
+          })()
+        : { op: 'branch-rename', name: args[0], to: args[1] };
     case 'checkout':
       return args[0] === undefined
         ? (() => {
@@ -566,6 +574,12 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
             throw new InvalidArgumentError('tag-create needs a name');
           })()
         : { op: 'tag-create', name: args[0], rev: args[1] ?? 'HEAD' };
+    case 'tag-delete':
+      return args[0] === undefined
+        ? (() => {
+            throw new InvalidArgumentError('tag-delete needs a name');
+          })()
+        : { op: 'tag-delete', name: args[0] };
     default:
       throw new InvalidArgumentError(
         `unknown op "${op}"; run \`orbitree ops\` for the list, or use a typed command`,

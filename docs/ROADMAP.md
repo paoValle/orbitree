@@ -132,7 +132,14 @@ The working tree becomes editable, and the confirmation machinery gets its real 
       for one git has never seen, and `apply --reverse` of a patch built from the file's own diff for
       a single hunk. Each goes through the confirmation sheet and each is asserted by
       `apps/desktop/test/e2e/discard.spec.ts`. commit-and-push is not.
-- [ ] Branch create/switch/rename/delete, tag create/delete, checkout of a commit (detached).
+- [x] Branch create/switch/rename/delete, tag create/delete, checkout of a commit (detached).
+      Creating a branch, creating a tag and the detached checkout are the commit's own menu; switch,
+      rename and delete are the BRANCHES AND TAGS card. `apps/desktop/test/e2e/refs.spec.ts` asserts
+      each against git itself — `symbolic-ref` after a switch and after a rename, `tag --list` before
+      and after a deletion whose reason had not been given yet, and an unmerged branch that git
+      refuses to delete with the failing command left in the activity card. A forced `-D` has no
+      button: it is reachable through `orbitree run --op branch-delete --arg x --arg force`, and `-d`
+      is the half that needs no confirmation because git itself refuses the dangerous case.
 - [ ] A left panel of sections: Local, Remote, Tags, Stashes, Submodules, each collapsible and
       resizable, replacing the `All branches` dropdown. It is the largest structural gap against the
       conventions the category has settled on.

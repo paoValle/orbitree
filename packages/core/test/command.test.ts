@@ -34,8 +34,10 @@ const EXAMPLE: Record<GitOp, GitCommand> = {
   unstage: { op: 'unstage', paths: ['file.txt'] },
   commit: { op: 'commit', message: 'message' },
   'branch-create': { op: 'branch-create', name: 'feature' },
+  'branch-rename': { op: 'branch-rename', name: 'feature', to: 'feature-2' },
   checkout: { op: 'checkout', ref: 'main' },
   'tag-create': { op: 'tag-create', name: 'v1', rev: 'HEAD' },
+  'tag-delete': { op: 'tag-delete', name: 'v1' },
   merge: { op: 'merge', ref: 'feature' },
   'stash-push': { op: 'stash-push' },
   'stash-pop': { op: 'stash-pop' },
@@ -74,7 +76,13 @@ describe('the risk of an operation', () => {
       .map((command) => command.op);
     // `branch-delete` without `force` is a local operation: `git branch -d` refuses an
     // unmerged branch by itself. Only `-D` escalates.
-    expect(destructive.sort()).toEqual(['clean', 'discard', 'discard-hunk', 'reset-hard']);
+    expect(destructive.sort()).toEqual([
+      'clean',
+      'discard',
+      'discard-hunk',
+      'reset-hard',
+      'tag-delete',
+    ]);
     // ... and the two that escalate only when asked to.
     expect(riskOf({ op: 'push', remote: 'o', branch: 'b', force: true })).toBe('destructive');
     expect(riskOf({ op: 'push', remote: 'o', branch: 'b' })).toBe('remote');

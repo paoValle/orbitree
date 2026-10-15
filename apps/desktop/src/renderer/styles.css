@@ -1108,3 +1108,43 @@ code {
 .commit-menu-item.danger {
   color: var(--danger);
 }
+
+/* The branches and the tags: a name, whether it is the one you are on, and what can be done. */
+.ref-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ref-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0;
+  min-width: 0;
+}
+
+.ref-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.ref-current {
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid currentcolor;
+  color: var(--ok);
+  font-size: 10px;
+}
+
+.ref-row .stage {
+  margin-left: auto;
+}
+
+/* Every button after the first sits next to it rather than spreading the row out. */
+.ref-row .stage + .stage {
+  margin-left: 0;
+}

@@ -9,6 +9,7 @@ import {
 } from '../shared/api.ts';
 import { CommitPanel } from './CommitPanel.tsx';
 import { type CommitAction, GraphPane } from './GraphPane.tsx';
+import { RefsPanel } from './RefsPanel.tsx';
 import { ActivityIcon, CloseIcon, CopyIcon, quickIcon, StashIcon } from './icons.tsx';
 import { type ScreenState, StateScreen } from './StateScreen.tsx';
 import { type Pending, type RunRecord, recordRun } from './shared.ts';
@@ -63,9 +64,20 @@ const MAX_TABS = 8;
 
 /** One value the commit menu needs before it can run: a branch or a tag name. */
 interface AskState {
-  readonly kind: 'branch' | 'tag';
+  /**
+   * What the value is for. `rename` carries the branch being renamed in `hash`, which is the
+   * field the other two use for the commit their name will point at: one dialog, three questions.
+   */
+  readonly kind: 'branch' | 'tag' | 'rename';
   readonly hash: string;
   readonly value: string;
+}
+
+/** One dialog, three questions, so its title is a function of the question. */
+function askTitle(ask: AskState): string {
+  if (ask.kind === 'branch') return 'Create branch here';
+  if (ask.kind === 'tag') return 'Create tag here';
+  return `Rename ${ask.hash}`;
 }
 
 export function App(): React.ReactElement {
@@ -358,12 +370,19 @@ export function App(): React.ReactElement {
     const command: GitCommand =
       ask.kind === 'branch'
         ? { op: 'branch-create', name, start: ask.hash }
-        : { op: 'tag-create', name, rev: ask.hash };
+        : ask.kind === 'rename'
+          ? { op: 'branch-rename', name: ask.hash, to: name }
+          : { op: 'tag-create', name, rev: ask.hash };
     setAsk(null);
     void runCommand({
       id: ask.kind,
-      label: ask.kind === 'branch' ? 'Create branch here' : 'Create tag here',
-      hint: `${ask.kind === 'branch' ? 'branch' : 'tag'} ${name}`,
+      label: askTitle(ask),
+      hint:
+        ask.kind === 'branch'
+          ? `branch ${name}`
+          : ask.kind === 'rename'
+            ? `branch -m ${ask.hash} ${name}`
+            : `tag ${name}`,
       danger: false,
       command,
     });
@@ -644,6 +663,38 @@ export function App(): React.ReactElement {
               }
             />
 
+            <RefsPanel
+              refs={active?.graph?.refs ?? []}
+              busy={busy}
+              onSwitch={(ref) =>
+                runGuarded({
+                  id: 'checkout',
+                  label: `Switch to ${ref.shortName}`,
+                  hint: `switch ${ref.shortName}`,
+                  danger: false,
+                  command: { op: 'checkout', ref: ref.shortName },
+                })
+              }
+              onRename={(ref) =>
+                setAsk({ kind: 'rename', hash: ref.shortName, value: ref.shortName })
+              }
+              onDelete={(ref) =>
+                runGuarded({
+                  id: ref.kind === 'tag' ? 'tag-delete' : 'branch-delete',
+                  label: `Delete ${ref.kind} ${ref.shortName}`,
+                  hint:
+                    ref.kind === 'tag' ? `tag -d ${ref.shortName}` : `branch -d ${ref.shortName}`,
+                  // A tag deletion is destructive in the core — nothing refuses it — so the sheet
+                  // asks for a reason. `git branch -d` refuses an unmerged branch itself.
+                  danger: ref.kind === 'tag',
+                  command:
+                    ref.kind === 'tag'
+                      ? { op: 'tag-delete', name: ref.shortName }
+                      : { op: 'branch-delete', name: ref.shortName },
+                })
+              }
+            />
+
             <div className="card">
               <h2>
                 <StashIcon size={13} />
@@ -756,7 +807,7 @@ export function App(): React.ReactElement {
               }
             }}
           >
-            <h2>{ask.kind === 'branch' ? 'Create branch here' : 'Create tag here'}</h2>
+            <h2>{askTitle(ask)}</h2>
             <input
               ref={askInput}
               data-testid="ask-input"
@@ -768,7 +819,9 @@ export function App(): React.ReactElement {
                   confirmAsk();
                 }
               }}
-              placeholder={ask.kind === 'branch' ? 'branch name' : 'tag name'}
+              placeholder={
+                ask.kind === 'tag' ? 'tag name' : ask.kind === 'rename' ? 'new name' : 'branch name'
+              }
             />
             <div className="modal-actions">
               <button type="button" onClick={() => setAsk(null)}>

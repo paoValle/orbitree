@@ -40,8 +40,8 @@ whose risk is `destructive` unless a `confirmation` is present, and refuses a co
 `reason` is blank. A confirmation is `{ confirmedBy, reason, at }` — not a boolean, because a
 `true` from a UI bug is indistinguishable from a deliberate click.
 
-**Guarded operations**: `reset-hard`, `clean`, `discard`, `push` with `force`,
-`branch-delete` with `force`. Everything else is `read`, `local` or `remote`.
+**Guarded operations**: `reset-hard`, `clean`, `discard`, `discard-hunk`, `push` with `force`,
+`branch-delete` with `force`, `tag-delete`. Everything else is `read`, `local` or `remote`.
 
 **Without it**: a code path with a forgotten guard deletes a working tree, and nothing in the
 test suite notices.
