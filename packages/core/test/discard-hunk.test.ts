@@ -31,6 +31,12 @@ const writeFortyLines = (changed: boolean): Promise<void> =>
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), 'orbitree-hunk-'));
   await git(root, 'init', '-b', 'main', '--quiet');
+  // The same two settings every fixture in `support/fixtures.ts` makes, and for the same reason:
+  // a repository that rewrites line endings on the way in and out cannot be asserted about line
+  // by line, and a Windows runner with `core.autocrlf` on reads `line 2\r` where the test wrote
+  // `line 2`. Signing likewise: a machine with `commit.gpgsign` on fails the commit, not the test.
+  await git(root, 'config', 'core.autocrlf', 'false');
+  await git(root, 'config', 'commit.gpgsign', 'false');
   await writeFortyLines(false);
   await git(root, 'add', '-A');
   await git(root, 'commit', '--quiet', '-m', 'forty lines');
