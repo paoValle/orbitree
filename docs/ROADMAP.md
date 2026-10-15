@@ -79,8 +79,12 @@ The surface becomes its own thing instead of a by-product of the panes. The rule
       button. The argv already exists in the core and the log already records the result.
 - [ ] A WIP node at the top of the graph, so the working tree is a place in the picture rather than a
       card beside it, and the stash nodes among the ordinary ones.
-- [ ] A commit's own context menu: create a branch here, create a tag here, check out, reset to here,
+- [x] A commit's own context menu: create a branch here, create a tag here, check out, reset to here,
       copy the sha, copy the message. Reachable with the keyboard, not only with a mouse.
+      `apps/desktop/test/e2e/menu.spec.ts` drives the real window: seven items on a right click,
+      `Shift+F10` opening it, Escape closing it with the repository untouched, `Create branch here`
+      checked against raw `git`, `Copy SHA` read back from the machine's clipboard, and `Reset
+      --hard to here` stopping at the confirmation sheet with nothing run.
 - [ ] Density and typography: one set of metrics, one monospace face for hashes and paths, and a
       row height chosen so a branch boundary is visible without scrolling.
 - [ ] Colour that survives a colour-blind reader: ref kinds and status kinds carry a glyph as well
