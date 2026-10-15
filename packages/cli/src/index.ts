@@ -513,7 +513,7 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
     case 'reset-hard':
       return { op: 'reset-hard', rev: args[0] ?? 'HEAD' };
     case 'clean':
-      return { op: 'clean' };
+      return args.length === 0 ? { op: 'clean' } : { op: 'clean', paths: [...args] };
     case 'branch-create':
       return args[0] === undefined
         ? (() => {

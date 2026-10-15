@@ -142,6 +142,16 @@ describe('the argv a command produces', () => {
   it('[I2] clean never removes ignored files', () => {
     expect(toArgv({ op: 'clean' })).toEqual(['clean', '-fd']);
     expect(toArgv({ op: 'clean' }).join('')).not.toContain('x');
+    // And when it is given paths, they are paths and not options, exactly as `add` and
+    // `discard` pass them: an untracked file called `-x` is a filename.
+    expect(toArgv({ op: 'clean', paths: ['gone.txt', '-x'] })).toEqual([
+      'clean',
+      '-fd',
+      '--',
+      'gone.txt',
+      '-x',
+    ]);
+    expect(toArgv({ op: 'clean', paths: [] })).toEqual(['clean', '-fd']);
   });
 
   it('[I2] a diff never turns on a pager, colour or an external tool', () => {

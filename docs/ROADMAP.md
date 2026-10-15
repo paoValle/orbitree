@@ -127,8 +127,10 @@ The working tree becomes editable, and the confirmation machinery gets its real 
 
 - [ ] Stage, unstage, discard (per file and per hunk), amend, commit, commit-and-push. Stage,
       unstage, amend and commit are in, and the parity half of this phase's exit criterion is
-      asserted by `apps/desktop/test/e2e/commit.spec.ts`. Discard (per file and per hunk) and
-      commit-and-push are not.
+      asserted by `apps/desktop/test/e2e/commit.spec.ts`. Discard per file is in, for both halves
+      of the working tree: `restore --worktree` for a tracked path and `clean -fd -- <path>` for one
+      git has never seen, each behind the confirmation sheet and each asserted by
+      `apps/desktop/test/e2e/discard.spec.ts`. Discard per hunk and commit-and-push are not.
 - [ ] Branch create/switch/rename/delete, tag create/delete, checkout of a commit (detached).
 - [ ] A left panel of sections: Local, Remote, Tags, Stashes, Submodules, each collapsible and
       resizable, replacing the `All branches` dropdown. It is the largest structural gap against the
