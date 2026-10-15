@@ -145,6 +145,16 @@ describe('the window a spec is allowed to talk to', () => {
   });
 });
 
+describe('the type and the metrics', () => {
+  it('names the monospace face once, and reads it everywhere else', () => {
+    // It was written out thirteen times, which is thirteen places for a face to drift and thirteen
+    // places to edit when one is added. One declaration, and every use reads the property.
+    expect(styles.match(/ui-monospace/g)).toHaveLength(1);
+    expect(styles).toContain('--mono:');
+    expect(styles).toContain('font-family: var(--mono);');
+  });
+});
+
 describe('the motion rules', () => {
   it('removes every transition and animation under reduced motion, with no exception', () => {
     const start = styles.indexOf('@media (prefers-reduced-motion: reduce)');

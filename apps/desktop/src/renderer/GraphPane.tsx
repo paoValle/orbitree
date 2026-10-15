@@ -10,6 +10,13 @@ import {
   TagIcon,
 } from './icons.tsx';
 
+/**
+ * The row metrics, declared once and used by both the canvas and the rows: a canvas drawn at a
+ * height the DOM rows do not share is a picture that drifts from the list it labels.
+ *
+ * 26px fits a 12px subject line with its ref badges beside it, and about twenty rows — a branch
+ * boundary among them — in the graph pane of the default window.
+ */
 export const ROW_HEIGHT = 26;
 export const LANE_WIDTH = 16;
 export const TEXT_GUTTER = 12;

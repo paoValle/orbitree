@@ -22,7 +22,9 @@ product is named anywhere in this repository.
 
 Density is a feature at this size: `ROW_HEIGHT` in the graph and the row metrics in the panes are
 declared once, and everything aligns to them. A client that shows 12 commits per screen is a client
-that makes you scroll for a branch boundary you would have seen.
+that makes you scroll for a branch boundary you would have seen. The monospace face is one custom
+property, `--mono`, for the same reason: a hash and a path have to line up in a column, and a face
+written out in thirteen rules is a face that drifts.
 
 ## Icons
 
