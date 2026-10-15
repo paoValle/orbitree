@@ -1,7 +1,7 @@
 # Every target here is a thin wrapper over a `pnpm` script, so the same commands
 # work on Windows where `make` is often absent. CI runs the pnpm scripts directly.
 .DEFAULT_GOAL := help
-.PHONY: help setup build test coverage mutate lint fmt fmt-check typecheck verify prove verify-invariants check clean cli desktop e2e perf
+.PHONY: help setup build test coverage mutate lint fmt fmt-check typecheck verify prove verify-invariants check clean cli desktop e2e perf gifs
 
 help: ## show this help
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -66,6 +66,9 @@ e2e: ## run the fast UI tests on the real window (reports/e2e.log, and e2e-failu
 
 perf: ## measure the UI on a large repository
 	pnpm --filter @orbitree/desktop run e2e:perf
+
+gifs: ## rebuild the README's GIFs from the product (needs ffmpeg, writes docs/media)
+	./bin/make-gifs.sh
 
 clean: ## remove build output
 	rm -rf node_modules packages/*/node_modules apps/*/node_modules packages/*/dist apps/*/out coverage reports .tmp

@@ -19,6 +19,29 @@ everything the app does — because it *is* the app, without the window.
 - **No account, no cloud, no telemetry.** MIT. Local-first. The forge is an integration, not a
   dependency.
 
+## What it looks like
+
+The graph, the working tree as a node at the top of it, and the patch behind the selected commit.
+The node is not a row: `layoutGraph` is a pure function of the DAG, and what is not committed yet is
+not a commit — but it is still a place in the picture.
+
+![The commit graph, the working tree as a node above it, and a merge commit's patch](docs/media/graph.gif)
+
+Staging a change and committing it. The activity card keeps the exact `git` argv with its exit code
+and a copy button, because the window and the CLI run the same program rather than two that agree
+for now.
+
+![Staging a file, writing a message, and committing](docs/media/commit.gif)
+
+A commit's own menu, for what a toolbar cannot hold — and what a destructive item asks for before
+anything runs.
+
+![The commit context menu, and the confirmation sheet behind reset --hard](docs/media/menu.gif)
+
+`make gifs` makes these: it drives the real window through the three sequences in
+`apps/desktop/test/demo/` and records one frame per step. Nothing here is a screenshot somebody took
+by hand, so a change in the window makes the pictures wrong, and the next `make gifs` fixes that.
+
 ## Quick start
 
 Requires **Node ≥ 22.12** and **git ≥ 2.43** on `PATH`.
