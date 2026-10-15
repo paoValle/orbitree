@@ -90,7 +90,17 @@ export type GitCommand =
        */
       readonly paths?: readonly string[];
     }
-  | { readonly op: 'discard'; readonly paths: readonly string[] };
+  | { readonly op: 'discard'; readonly paths: readonly string[] }
+  | {
+      readonly op: 'discard-hunk';
+      /**
+       * The path whose diff is read to build the patch. It never reaches the argv: what git
+       * applies is the patch, and the path is a question asked of the working tree.
+       */
+      readonly path: string;
+      /** The hunk to reverse, counted from 0 in the order the diff prints them. */
+      readonly hunk: number;
+    };
 
 export type GitOp = GitCommand['op'];
 
@@ -140,6 +150,7 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'reset-hard':
     case 'clean':
     case 'discard':
+    case 'discard-hunk':
       return 'destructive';
   }
 }
@@ -343,6 +354,13 @@ export function toArgv(cmd: GitCommand): string[] {
 
     case 'discard':
       return ['restore', '--worktree', '--', ...assertSafePaths(cmd.paths)];
+
+    // The patch arrives on stdin, so no path is in this argv and there is nothing in it to inject
+    // into: the pathspec is only ever used to read the diff the patch comes from. `--recount`
+    // because the hunk header travels as git printed it, and `--whitespace=nowarn` so a context
+    // line whose trailing space was trimmed on the way through a channel is not a failure.
+    case 'discard-hunk':
+      return ['apply', '--reverse', '--recount', '--whitespace=nowarn', '-'];
   }
 }
 

@@ -95,6 +95,11 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
     op: literal('clean'),
     paths: z.exactOptional(z.readonly(z.array(z.string()))),
   }),
+  z.object({
+    op: literal('discard-hunk'),
+    path: z.string().min(1),
+    hunk: z.int().min(0),
+  }),
   z.object({ op: literal('discard'), paths: z.readonly(z.array(z.string())) }),
 ]);
 

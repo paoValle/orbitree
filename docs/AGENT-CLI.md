@@ -70,7 +70,10 @@ same value the executor uses to decide whether a confirmation is required. An op
 paths takes them as `--arg` values: `--op discard --arg <path>` restores a tracked path, and
 `--op clean --arg <path>` removes one git has never tracked — `restore` is a question about a
 tracked path and does nothing to an untracked one. Without arguments `clean` takes every untracked
-path in the repository. The risk names below are what decide whether a confirmation is required:
+path in the repository. `--op discard-hunk --arg <path> --arg <hunk>` reverses one hunk of that
+path's uncommitted diff: the patch is built from a read of the file inside the process that runs
+git, so a caller names a hunk rather than supplying a patch. The risk names below are what decide
+whether a confirmation is required:
 
 ```
 read        nothing changes

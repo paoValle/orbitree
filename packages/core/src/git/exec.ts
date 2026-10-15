@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { statSync } from 'node:fs';
 import { type GitCommand, InvalidArgumentError, isDestructive, riskOf, toArgv } from './command.ts';
+import { parseDiff, patchForHunk } from './diff.ts';
 import { redact } from './redact.ts';
 
 export class GitNotFoundError extends Error {
@@ -162,10 +163,12 @@ export async function execute(cmd: GitCommand, options: ExecuteOptions): Promise
   }
 
   const timeoutMs = options.timeoutMs ?? (risk === 'remote' ? REMOTE_TIMEOUT_MS : LOCAL_TIMEOUT_MS);
+  const input = await stdinFor(cmd, options);
   const { stdout, stderr, exitCode } = await spawnGit(argv, {
     cwd: options.cwd,
     env: gitEnv(options.env),
     timeoutMs,
+    ...(input === null ? {} : { input }),
     ...(options.signal === undefined ? {} : { signal: options.signal }),
   });
 
@@ -193,7 +196,42 @@ interface SpawnOptions {
   readonly cwd: string;
   readonly env: Record<string, string>;
   readonly timeoutMs: number;
+  /** What the child reads on stdin, when it reads anything at all. */
+  readonly input?: string;
   readonly signal?: AbortSignal;
+}
+
+/**
+ * What a command feeds git on stdin, or `null` when it feeds nothing.
+ *
+ * One command needs it. Reversing a single hunk is `git apply --reverse` on a patch for that
+ * hunk, and the patch is built here — from a fresh read of the file's own diff, inside the
+ * process that runs git — rather than accepted from a caller. A patch that arrived over a channel
+ * would be somebody's belief about what the working tree holds, and it is the working tree being
+ * changed.
+ *
+ * The read happens after the confirmation check, so a destructive command still cannot touch the
+ * repository before a reason exists.
+ */
+async function stdinFor(cmd: GitCommand, options: ExecuteOptions): Promise<string | null> {
+  if (cmd.op !== 'discard-hunk') return null;
+
+  const read = await executeOrThrow({ op: 'diff', path: cmd.path }, options);
+  const parsed = parseDiff(read.stdout);
+  if (!parsed.ok) {
+    throw new InvalidArgumentError(`the diff of ${cmd.path} could not be read: ${parsed.error}`);
+  }
+  const file = parsed.value.find((candidate) => candidate.path === cmd.path);
+  if (file === undefined) {
+    throw new InvalidArgumentError(`git reports no uncommitted change for ${cmd.path}`);
+  }
+  const patch = patchForHunk(file, cmd.hunk);
+  if (patch === null) {
+    throw new InvalidArgumentError(
+      `${cmd.path} has ${file.hunks.length} hunk${file.hunks.length === 1 ? '' : 's'}, so hunk ${cmd.hunk} cannot be reversed`,
+    );
+  }
+  return patch;
 }
 
 function spawnGit(
@@ -208,8 +246,15 @@ function spawnGit(
       env: options.env,
       shell: false,
       windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      // A pipe only when there is something to write: an ignored stdin is a child that cannot
+      // block on a read nobody will answer.
+      stdio: [options.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
     });
+
+    if (options.input !== undefined) {
+      // Ended rather than left open: `git apply -` reads until the stream closes.
+      child.stdin?.end(options.input);
+    }
 
     const out: Buffer[] = [];
     const err: Buffer[] = [];

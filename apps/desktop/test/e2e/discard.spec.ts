@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { closeApp, git, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
+import { closeApp, commit, git, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
 
 /**
  * Discarding a change is the one action in the working tree that destroys work, so it is the one
@@ -61,6 +61,53 @@ test('a change is discarded only after a reason, and the file goes back to HEAD'
     expect(await git(repo, ['rev-parse', 'HEAD'])).toBe(before);
 
     const screenshot = resolve(import.meta.dirname, '..', '..', 'reports', 'discard.png');
+    await mkdir(dirname(screenshot), { recursive: true });
+    await page.screenshot({ path: screenshot });
+    console.log(`screenshot: ${screenshot}`);
+  } finally {
+    await closeApp(handle);
+    await rm(repo, { recursive: true, force: true });
+  }
+});
+
+/**
+ * The same button, one level down: a discard on each hunk of the file's diff.
+ *
+ * The two changes are far enough apart for git to print them as two hunks, and the assertion that
+ * matters is the one about the hunk nobody asked to discard: a patch built from the wrong hunk, or
+ * from the whole file, reverses more than was asked for and looks identical in the sheet.
+ */
+test('one hunk of a file is discarded, and the other one stays', async () => {
+  const repo = await makeRepo();
+  const lines = Array.from({ length: 40 }, (_, index) => `line ${index + 1}`);
+  await writeIn(repo, 'f.txt', `${lines.join('\n')}\n`);
+  await commit(repo, 'forty lines');
+  lines[1] = 'CHANGED 2';
+  lines[25] = 'CHANGED 26';
+  await writeIn(repo, 'f.txt', `${lines.join('\n')}\n`);
+  // Two hunks, from git rather than from us: with one, this test would pass whatever we meant.
+  expect((await git(repo, ['diff', '--', 'f.txt'])).match(/^@@/gm)).toHaveLength(2);
+
+  const handle = await launchApp(repo);
+  try {
+    const page = await mainWindow(handle.app);
+    await page.locator('[data-testid=entry-item][data-path="f.txt"]').click();
+    const hunks = page.locator('[data-testid=discard-hunk]');
+    await expect(hunks).toHaveCount(2);
+
+    await hunks.first().click();
+    const sheet = page.locator('[role=dialog]');
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText('hunk 1');
+    await page.locator('[placeholder=reason]').fill('the first hunk was a mistake');
+    await sheet.locator('button.danger').click();
+
+    const onDisk = async (): Promise<string[]> =>
+      (await readFile(resolve(repo, 'f.txt'), 'utf8')).split('\n');
+    await expect.poll(async () => (await onDisk())[1]).toBe('line 2');
+    expect((await onDisk())[25]).toBe('CHANGED 26');
+
+    const screenshot = resolve(import.meta.dirname, '..', '..', 'reports', 'discard-hunk.png');
     await mkdir(dirname(screenshot), { recursive: true });
     await page.screenshot({ path: screenshot });
     console.log(`screenshot: ${screenshot}`);
