@@ -1,4 +1,5 @@
-import { rm } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
 import { closeApp, commit, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
 
@@ -39,6 +40,11 @@ test('a long history renders a window, not the whole log', async () => {
       .poll(async () => (await renderedHashes(page)).join('|'))
       .not.toBe(before.join('|'));
     expect(await renderedHashes(page)).not.toEqual(before);
+
+    const screenshot = resolve(import.meta.dirname, '..', '..', 'reports', 'virtualisation.png');
+    await mkdir(dirname(screenshot), { recursive: true });
+    await page.screenshot({ path: screenshot });
+    console.log(`screenshot: ${screenshot}`);
   } finally {
     await closeApp(handle);
     await rm(repo, { recursive: true, force: true });

@@ -9,7 +9,7 @@ import {
 } from '../shared/api.ts';
 import { CommitPanel } from './CommitPanel.tsx';
 import { type CommitAction, GraphPane } from './GraphPane.tsx';
-import { ActivityIcon, CloseIcon, CopyIcon, quickIcon, StashBoxIcon } from './icons.tsx';
+import { ActivityIcon, CloseIcon, CopyIcon, quickIcon, StashIcon } from './icons.tsx';
 import { type ScreenState, StateScreen } from './StateScreen.tsx';
 import { type Pending, type RunRecord, recordRun } from './shared.ts';
 import { WorkingTreePanel } from './WorkingTreePanel.tsx';
@@ -603,7 +603,7 @@ export function App(): React.ReactElement {
 
             <div className="card">
               <h2>
-                <StashBoxIcon size={13} />
+                <StashIcon size={13} />
                 Stashes
               </h2>
               {active !== null && active.stashes.length === 0 ? (

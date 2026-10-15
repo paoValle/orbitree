@@ -40,7 +40,6 @@ const REQUIRED_ICONS = [
   'head',
   'commit',
   'tree',
-  'stash-box',
   'activity',
   'close',
   'chevron-down',
@@ -130,7 +129,7 @@ describe('the icon set', () => {
 describe('the window a spec is allowed to talk to', () => {
   it('never asks for the first window, because that is the popup half the time', () => {
     const specs = readdirSync(join(ROOT, 'test', 'e2e'), { recursive: true, withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.spec.ts'))
+      .filter((entry) => entry.isFile() && /\.spec\.tsx?$/.test(entry.name))
       .map((entry) => join(entry.parentPath, entry.name));
 
     expect(specs.length).toBeGreaterThan(8);

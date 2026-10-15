@@ -299,16 +299,6 @@ export function TreeIcon({ size }: IconProps): React.ReactElement {
   );
 }
 
-export function StashBoxIcon({ size }: IconProps): React.ReactElement {
-  return (
-    <Glyph name="stash-box" size={size}>
-      <rect x="4" y="7" width="16" height="13" rx="1.5" />
-      <path d="m4 7 1.6-3h12.8L20 7" />
-      <path d="M10 12h4" />
-    </Glyph>
-  );
-}
-
 export function ActivityIcon({ size }: IconProps): React.ReactElement {
   return (
     <Glyph name="activity" size={size}>
