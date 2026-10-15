@@ -97,11 +97,21 @@ and `orbitree graph` on an unborn one exits 4 because there is no history to rea
 
 `graph` returns `commits`, `rows` (`hash`, `lane`, `through`, `incoming`, `outgoing`), `edges`
 (`childRow`, `childLane`, `parentRow`, `parentLane`, `parentIndex`), `laneCount`, `total`,
-`truncated`, `refs`, `rev` (the revision read, `HEAD` by default) and `wip`: the working tree as
-the node above the first commit, with `on` (the commit HEAD sits on, `null` when there is none),
-`staged`, `unstaged`, `conflicted`, `untracked` and `dirty`. It is not a member of `rows` — the
-layout is a pure function of the DAG and the working tree is not a commit — so `row 0` is still
-the newest commit. `total` is how many commits
+`truncated`, `refs`, `rev` (the revision read, `HEAD` by default), `wip` and `stashes`.
+
+`wip` is the working tree as the node above the first commit, with `on` (the commit HEAD sits on,
+`null` when there is none), `staged`, `unstaged`, `conflicted`, `untracked` and `dirty`. It is not
+a member of `rows` — the layout is a pure function of the DAG and the working tree is not a commit
+— so `row 0` is still the newest commit.
+
+`stashes` is the stash list, newest first, and is empty for a reading of one revision: a history
+filtered to one branch is a picture of that branch. With `--all` every entry is named as a starting
+point, because a stash older than `refs/stash` is reachable from nothing but that ref's reflog, and
+`total` counts them for the same reason — `--all` here means the repository's whole picture. A row
+whose commit is a stash carries its selector in `stash`, so a caller does not have to guess from a
+subject that reads `On main: …`.
+
+`total` is how many commits
 the read history holds (`HEAD`, the revision named by `--rev`, or every ref with `--all`),
 `truncated` is `commits.length < total`, and the human output's first line says
 which it is: `14 commits · 1 lane`, or `2000 of 2053 commits · 2 lanes` when `--limit` cut the

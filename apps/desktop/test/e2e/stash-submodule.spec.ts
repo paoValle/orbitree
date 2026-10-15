@@ -85,3 +85,48 @@ test('a repository with no stash says so instead of showing an empty card', asyn
     await rm(repo, { recursive: true, force: true });
   }
 });
+
+/**
+ * A stash is a place in the graph and not only a card in the side pane.
+ *
+ * The older entry is the one that matters: `--all` reaches `refs/stash`, which is the newest, and
+ * an older stash is reachable from nothing but the reflog of that single ref. So a graph that only
+ * followed refs would draw one of these two and call it a commit.
+ */
+test('both stashes are nodes in the graph, marked as stashes', async () => {
+  const repo = await makeRepo({ base: 'one\n' });
+  await writeIn(repo, 'base.txt', 'set aside first\n');
+  await git(repo, ['stash', 'push', '--quiet', '-m', 'the first thing set aside']);
+  await writeIn(repo, 'base.txt', 'set aside second\n');
+  await git(repo, ['stash', 'push', '--quiet', '-m', 'the second thing set aside']);
+
+  const stashOids = (await git(repo, ['stash', 'list', '--format=%H']))
+    .split('\n')
+    .filter((line) => line !== '');
+  expect(stashOids).toHaveLength(2);
+
+  const handle = await launchApp(repo);
+  try {
+    const page = await mainWindow(handle.app);
+
+    // Both are rows, and each row says which stash it is — the first one by its selector, which is
+    // the name a person would hand back to git.
+    for (const oid of stashOids) {
+      const row = page.locator(`[data-testid=commit-row][data-hash="${oid}"]`);
+      await expect(row).toBeVisible();
+      await expect(row.locator('.badge.stash')).toBeVisible();
+    }
+    await expect(page.locator('.badge.stash')).toHaveCount(stashOids.length);
+    await expect(
+      page.locator(`[data-testid=commit-row][data-hash="${stashOids[0] as string}"]`),
+    ).toContainText('stash@{0}');
+
+    const screenshot = resolve(import.meta.dirname, '..', '..', 'reports', 'stashes.png');
+    await mkdir(dirname(screenshot), { recursive: true });
+    await page.screenshot({ path: screenshot });
+    console.log(`screenshot: ${screenshot}`);
+  } finally {
+    await closeApp(handle);
+    await rm(repo, { recursive: true, force: true });
+  }
+});

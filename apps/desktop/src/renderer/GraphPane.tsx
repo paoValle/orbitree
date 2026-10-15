@@ -6,6 +6,7 @@ import {
   HeadIcon,
   type IconProps,
   RemoteIcon,
+  StashIcon,
   TagIcon,
 } from './icons.tsx';
 
@@ -72,6 +73,8 @@ const REF_ICONS: Readonly<Record<string, (props: IconProps) => React.ReactElemen
   remote: RemoteIcon,
   tag: TagIcon,
   other: BranchIcon,
+  // A stash is not a ref the product lists, but a row that is one carries a badge like any other.
+  stash: StashIcon,
 };
 
 function RefIcon({ kind, isHead }: { readonly kind: string; readonly isHead: boolean }) {
@@ -270,6 +273,12 @@ export function GraphPane({
   const lastRow = Math.min(total, firstVisible + visibleCount + OVERSCAN);
   // Both are counted in pane rows; the layout's own indices start one lower with the node drawn.
   const windowRows = rows.slice(Math.max(0, firstRow - offset), Math.max(0, lastRow - offset));
+  // A stash is a commit the graph reaches only because it was named, and its subject reads like
+  // any other commit's. The selector, and the square the canvas draws it as, are what tell it.
+  const stashOf = useMemo(
+    () => new Map(graph.stashes.map((stash) => [stash.oid, stash.selector])),
+    [graph.stashes],
+  );
   const windowEdges = useMemo(
     () =>
       edges.filter(
@@ -316,8 +325,16 @@ export function GraphPane({
 
     for (const row of windowRows) {
       const isSelected = row.commit.hash === selected;
+      const radius = isSelected ? 6 : 4.5;
       context.beginPath();
-      context.arc(x(row.lane), y(row.row + offset), isSelected ? 6 : 4.5, 0, Math.PI * 2);
+      if (stashOf.has(row.commit.hash)) {
+        // A square rather than a disc: a stash is not a commit of the history, and the shape says
+        // so without colour, which is the same rule the badges follow.
+        const side = radius * 1.6;
+        context.rect(x(row.lane) - side, y(row.row + offset) - side, side * 2, side * 2);
+      } else {
+        context.arc(x(row.lane), y(row.row + offset), radius, 0, Math.PI * 2);
+      }
       context.fillStyle = laneColor(row.lane);
       context.fill();
       context.lineWidth = isSelected ? 2 : 1;
@@ -352,6 +369,7 @@ export function GraphPane({
     headRow,
     headLane,
     wipShown,
+    stashOf,
   ]);
 
   const keepInView = useCallback((index: number) => {
@@ -451,7 +469,13 @@ export function GraphPane({
           )}
           {windowRows.map((row) => {
             const isSelected = row.commit.hash === selected;
-            const badges = graph.refsByOid.get(row.commit.hash) ?? [];
+            const stash = stashOf.get(row.commit.hash);
+            const badges = [
+              ...(stash === undefined
+                ? []
+                : [{ name: stash, shortName: stash, kind: 'stash', isHead: false }]),
+              ...(graph.refsByOid.get(row.commit.hash) ?? []),
+            ];
             return (
               <button
                 key={row.commit.hash}

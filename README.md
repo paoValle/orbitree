@@ -70,7 +70,7 @@ made.
 | Command | What it returns |
 |---|---|
 | `orbitree status [path] --json` | `HEAD` (branch / detached / unborn, ahead and behind), staged, unstaged, renamed, unmerged and untracked entries |
-| `orbitree graph [path] --json` | commits, rows with lanes, edges, the working tree as the node above them, and the refs on each commit |
+| `orbitree graph [path] --json` | commits, rows with lanes, edges, the working tree as the node above them, the stashes among the ordinary commits, and the refs on each commit |
 | `orbitree refs [path] --json` | branches, tags and remote refs |
 | `orbitree diff [path] --json [--rev <rev>] [--path <path>]` | the patch against `HEAD` (or `--rev`), as files and hunks; without `--json`, the raw patch |
 | `orbitree show [path] --json [--rev <rev>]` | one commit: its metadata and the patch it introduced, with `against` saying what the patch is measured against |
@@ -93,7 +93,7 @@ prints what it found. Nothing in this README is a number somebody remembered.
 ```
 $ make prove
 [prove] git = 2.54.0                            (whatever is installed here)
-[prove] repositories built with the real git binary = 9
+[prove] repositories built with the real git binary = 10
 [prove] of those, with changes to read = 5
 [prove] working-tree entries parsed = 15
 [prove] working-tree entry kinds covered = ordinary, renamed, unmerged, untracked

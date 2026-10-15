@@ -20,6 +20,11 @@ function fixtureRoot(name: string): string {
   return fixture.root;
 }
 
+/** One non-empty line per entry, which is how every git listing in this file arrives. */
+function lines(output: string): string[] {
+  return output.split('\n').filter((line) => line !== '');
+}
+
 describe('the window against the whole history', () => {
   it('[I5] the commit count agrees with git with and without --all', async () => {
     const root = fixtureRoot('history');
@@ -68,6 +73,37 @@ describe('the window against the whole history', () => {
     // the read history is exactly the one asked for.
     for (const commit of graph.commits) expect(reachable.has(commit.hash)).toBe(true);
     expect(graph.commits.some((commit) => commit.hash === otherTip)).toBe(false);
+  });
+
+  it('[I5] the whole repository holds every stash, and the total counts them', async () => {
+    const root = fixtureRoot('stashed');
+    const repo = await openRepo(root);
+
+    const stashOids = lines((await git(root, 'stash', 'list', '--format=%H')).stdout);
+    expect(stashOids).toHaveLength(2);
+    // The newest stash hangs off `refs/stash`; the older one hangs off nothing but the reflog,
+    // which is exactly the commit a reading that only followed refs would lose. Asserted here
+    // because it is what makes the rest of this test fail if the graph stops naming them.
+    const fromRefs = new Set(lines((await git(root, 'rev-list', '--all')).stdout));
+    expect(fromRefs.has(stashOids[0] as string)).toBe(true);
+    expect(fromRefs.has(stashOids[1] as string)).toBe(false);
+
+    const everything = await readGraph(repo, { limit: 1000, all: true });
+    const expected = Number.parseInt(
+      (await git(root, 'rev-list', '--count', '--all', ...stashOids)).stdout.trim(),
+      10,
+    );
+    expect(everything.total).toBe(expected);
+    expect(everything.stashes.map((stash) => stash.oid)).toEqual(stashOids);
+    const read = new Set(everything.commits.map((commit) => commit.hash));
+    for (const oid of stashOids) expect(read.has(oid)).toBe(true);
+
+    // The other direction: a reading of one revision is a picture of that branch, so it holds
+    // no stash — not the older one, and not the one `--all` would have reached anyway.
+    const oneHistory = await readGraph(repo, { limit: 1000 });
+    expect(oneHistory.stashes).toEqual([]);
+    const narrower = new Set(oneHistory.commits.map((commit) => commit.hash));
+    for (const oid of stashOids) expect(narrower.has(oid)).toBe(false);
   });
 
   it('[I5] truncated is true exactly when the window cut the history', async () => {

@@ -167,6 +167,9 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
           ...(opts.rev === undefined ? {} : { rev: opts.rev }),
         });
         const includeRefs = opts.json === true || opts.refs === true;
+        // A stash is not a ref this product lists, and a row that is one has to say so: its subject
+        // is `WIP on main: …` or `On main: …`, which reads as an ordinary commit.
+        const stashOf = new Map(graph.stashes.map((stash) => [stash.oid, stash.selector]));
         emit(
           io,
           opts.json === true,
@@ -184,16 +187,20 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
             // rather than having to reconstruct it from a second call.
             wip: graph.wip,
             commits: graph.commits,
-            rows: graph.layout.rows.map((row) => ({
-              hash: row.commit.hash,
-              subject: row.commit.subject,
-              author: row.commit.author.name,
-              committedAt: row.commit.committedAt,
-              lane: row.lane,
-              through: row.through,
-              incoming: row.incoming,
-              outgoing: row.outgoing,
-            })),
+            rows: graph.layout.rows.map((row) => {
+              const stash = stashOf.get(row.commit.hash);
+              return {
+                hash: row.commit.hash,
+                subject: row.commit.subject,
+                author: row.commit.author.name,
+                committedAt: row.commit.committedAt,
+                lane: row.lane,
+                through: row.through,
+                incoming: row.incoming,
+                outgoing: row.outgoing,
+                ...(stash === undefined ? {} : { stash }),
+              };
+            }),
             edges: graph.layout.edges,
             laneCount: graph.layout.laneCount,
             ...(includeRefs ? { refs: graph.refs } : {}),
@@ -610,14 +617,25 @@ function describeWindow(
 }
 
 function describeGraph(
-  rows: readonly { hash: string; subject: string; author: string; lane: number }[],
+  rows: readonly {
+    hash: string;
+    subject: string;
+    author: string;
+    lane: number;
+    stash?: string;
+  }[],
   refsByOid: ReadonlyMap<string, readonly { shortName: string }[]>,
   refs: readonly Ref[],
   wip: WorkingTreeNode,
 ): string {
   const headRefs = new Set(refs.filter((ref) => ref.isHead).map((ref) => ref.target));
   const lines = rows.map((row) => {
-    const badges = (refsByOid.get(row.hash) ?? []).map((ref) => ref.shortName);
+    // The stash selector first, because it is what tells this row from a commit that happens to
+    // be called `WIP on main: …`.
+    const badges = [
+      ...(row.stash === undefined ? [] : [row.stash]),
+      ...(refsByOid.get(row.hash) ?? []).map((ref) => ref.shortName),
+    ];
     const flags = `${badges.length === 0 ? '' : ` [${badges.join(', ')}]`}${headRefs.has(row.hash) ? ' <-HEAD' : ''}`;
     return `${row.hash.slice(0, 8)} ${String(row.lane).padStart(2)}${flags} ${row.subject} — ${row.author}`;
   });

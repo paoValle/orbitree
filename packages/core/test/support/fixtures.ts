@@ -220,7 +220,21 @@ export async function makeFixtures(): Promise<FixtureSet> {
   await git(other, 'push', '--quiet', 'origin', 'main');
   await git(upstream, 'fetch', '--quiet', 'origin');
 
-  // --- 9. a real submodule, and one stash with a message of its own ---
+  // --- 9. two stashes, so a reading of the whole repository has to reach past the newest ---
+  //
+  // A stash is reachable only from what names it. `--all` reaches `refs/stash`, which is the
+  // newest entry, and everything older lives in the reflog of that one ref and nowhere else —
+  // so two is the smallest number that tells a reading which names the stashes from one that
+  // only follows refs.
+  const stashed = await create('stashed');
+  await write(stashed, 'tracked.txt', 'one\n');
+  await commit(stashed, 'the first commit');
+  await write(stashed, 'tracked.txt', 'one, set aside first\n');
+  await git(stashed, 'stash', 'push', '--quiet', '-m', 'the first thing set aside');
+  await write(stashed, 'tracked.txt', 'one, set aside second\n');
+  await git(stashed, 'stash', 'push', '--quiet', '-m', 'the second thing set aside');
+
+  // --- 10. a real submodule, and one stash with a message of its own ---
   const nested = await create('nested');
   // The child is a repository the fixture itself creates and commits. It lives beside the
   // fixture root rather than inside it, because `git submodule add` refuses a path that

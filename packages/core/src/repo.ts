@@ -64,6 +64,14 @@ export interface GraphData {
    * `graph` read answers the whole question on its own.
    */
   readonly wip: WorkingTreeNode;
+  /**
+   * The stashes the reading holds, newest first, and empty when the reading is of one revision.
+   *
+   * A stash is not a branch and has no ref of its own beyond `refs/stash`, so without this a
+   * renderer cannot tell a stash row from an ordinary commit: the subject says `WIP on main: …`
+   * and every other field is a commit's.
+   */
+  readonly stashes: readonly StashEntry[];
 }
 
 /**
@@ -242,6 +250,12 @@ export async function readGraph(
   if (!Number.isInteger(limit) || limit < 1) {
     throw new InvalidArgumentError(`limit must be a positive integer, got ${limit}`);
   }
+  // A stash older than the newest is reachable from nothing but the reflog of `refs/stash`, so
+  // `--all` does not reach it and the only way to draw it is to name it. Read first, because the
+  // log and the count have to name the *same* revisions: a total from a narrower history would
+  // make `truncated` and the header compare two different pictures.
+  const stashes = request.all === true ? await readStash(repo, options) : [];
+  const also = stashes.length === 0 ? {} : { also: stashes.map((stash) => stash.oid) };
   const [log, refs, count, wip] = await Promise.all([
     executeOrThrow(
       {
@@ -249,6 +263,7 @@ export async function readGraph(
         limit,
         ...(request.all === true ? { all: true } : {}),
         ...(request.rev === undefined ? {} : { rev: request.rev }),
+        ...also,
       },
       { cwd: repo.root, ...options },
     ),
@@ -260,6 +275,7 @@ export async function readGraph(
         op: 'count',
         ...(request.all === true ? { all: true } : {}),
         ...(request.rev === undefined ? {} : { rev: request.rev }),
+        ...also,
       },
       { cwd: repo.root, ...options },
     ),
@@ -275,10 +291,16 @@ export async function readGraph(
     commits: parsed.value,
     layout: layoutGraph(parsed.value),
     refs,
-    refsByOid: refsByOid(refs),
+    // `refs/stash` names only the newest entry and says less than its selector does, so when the
+    // stashes are in the reading the badge comes from the entry and not from the ref. The list
+    // itself stays whole: it is what the ref filter and `orbitree refs` are made of.
+    refsByOid: refsByOid(
+      stashes.length === 0 ? refs : refs.filter((ref) => ref.name !== 'refs/stash'),
+    ),
     total: parsedCount.value,
     truncated: parsed.value.length < parsedCount.value,
     wip,
+    stashes,
   };
 }
 

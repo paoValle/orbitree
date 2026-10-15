@@ -24,8 +24,27 @@ export type GitCommand =
   | { readonly op: 'version' }
   | { readonly op: 'repo-root' }
   | { readonly op: 'status' }
-  | { readonly op: 'graph'; readonly limit: number; readonly all?: boolean; readonly rev?: string }
-  | { readonly op: 'count'; readonly all?: boolean; readonly rev?: string }
+  | {
+      readonly op: 'graph';
+      readonly limit: number;
+      readonly all?: boolean;
+      readonly rev?: string;
+      /**
+       * Revisions to read as well as the main one, and to count as well.
+       *
+       * A stash older than the newest is reachable from nothing but the reflog of `refs/stash`, so
+       * `--all` does not reach it and the only way to draw it is to name it. Kept general because
+       * the caller decides what else belongs in the picture, and because the count has to name the
+       * same revisions or `total` would stop agreeing with the window it describes.
+       */
+      readonly also?: readonly string[];
+    }
+  | {
+      readonly op: 'count';
+      readonly all?: boolean;
+      readonly rev?: string;
+      readonly also?: readonly string[];
+    }
   | { readonly op: 'refs' }
   | { readonly op: 'stash-list' }
   | {
@@ -171,6 +190,7 @@ export function toArgv(cmd: GitCommand): string[] {
         '--topo-order',
         `--max-count=${Math.max(1, Math.floor(cmd.limit))}`,
         ...(cmd.all === true ? ['--all'] : [assertSafeRef(cmd.rev ?? 'HEAD')]),
+        ...(cmd.also ?? []).map(assertSafeRef),
         `--format=${LOG_FORMAT}`,
       ];
 
@@ -179,6 +199,7 @@ export function toArgv(cmd: GitCommand): string[] {
         'rev-list',
         '--count',
         ...(cmd.all === true ? ['--all'] : [assertSafeRef(cmd.rev ?? 'HEAD')]),
+        ...(cmd.also ?? []).map(assertSafeRef),
       ];
 
     case 'refs':
