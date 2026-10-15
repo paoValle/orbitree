@@ -79,7 +79,17 @@ export type GitCommand =
     }
   // --- destructive: unrecoverable without reflog/backup ---
   | { readonly op: 'reset-hard'; readonly rev: string }
-  | { readonly op: 'clean' }
+  | {
+      readonly op: 'clean';
+      /**
+       * The paths to clean, or every untracked path when absent.
+       *
+       * A path is how the working tree discards a file it has never tracked: `restore` is a
+       * question about a tracked path and does nothing to one git has never seen, so the only
+       * operation that removes an untracked file is this one.
+       */
+      readonly paths?: readonly string[];
+    }
   | { readonly op: 'discard'; readonly paths: readonly string[] };
 
 export type GitOp = GitCommand['op'];
@@ -323,7 +333,13 @@ export function toArgv(cmd: GitCommand): string[] {
     // Never `-x`: that would delete build output and node_modules, which the user did
     // not ask to lose when clicking "clean".
     case 'clean':
-      return ['clean', '-fd'];
+      return [
+        'clean',
+        '-fd',
+        ...(cmd.paths === undefined || cmd.paths.length === 0
+          ? []
+          : ['--', ...assertSafePaths(cmd.paths)]),
+      ];
 
     case 'discard':
       return ['restore', '--worktree', '--', ...assertSafePaths(cmd.paths)];

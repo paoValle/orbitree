@@ -287,6 +287,20 @@ export function App(): React.ReactElement {
   );
 
   /**
+   * A command that changes the repository, confirmed first when its risk says so.
+   *
+   * Both callers that take one — the quick bar and a file's own discard — go through here, so
+   * "destructive means confirmed" has one implementation rather than two that agree today.
+   */
+  const runGuarded = useCallback(
+    (command: QuickCommand): void => {
+      if (command.danger) setPending({ command, reason: '' });
+      else void runCommand(command);
+    },
+    [runCommand],
+  );
+
+  /**
    * The commit menu's actions. Everything that mutates goes through `runCommand`, the path
    * the quick bar already uses, so there is still one place that reaches git.
    */
@@ -477,10 +491,7 @@ export function App(): React.ReactElement {
                 title={command.hint}
                 className={command.danger ? 'quick danger' : 'quick'}
                 disabled={busy}
-                onClick={() => {
-                  if (command.danger) setPending({ command, reason: '' });
-                  else void runCommand(command);
-                }}
+                onClick={() => runGuarded(command)}
               >
                 {Glyph === null ? null : <Glyph />}
                 <span>{command.label}</span>
@@ -590,6 +601,25 @@ export function App(): React.ReactElement {
                   command: { op: 'unstage', paths: [entryPath] },
                 })
               }
+              onDiscard={(entryPath) => {
+                // A path git has never tracked is removed by `clean`; a tracked one is restored.
+                // `restore` on an untracked path is a no-op, which would look like a broken
+                // button rather than a refusal.
+                const untracked =
+                  (active?.status?.entries ?? []).find((entry) => entry.path === entryPath)
+                    ?.kind === 'untracked';
+                runGuarded({
+                  id: 'discard',
+                  label: 'Discard',
+                  hint: untracked
+                    ? `clean -fd -- ${entryPath}`
+                    : `restore --worktree -- ${entryPath}`,
+                  danger: true,
+                  command: untracked
+                    ? { op: 'clean', paths: [entryPath] }
+                    : { op: 'discard', paths: [entryPath] },
+                });
+              }}
               onCommit={(message, amend) =>
                 runCommand({
                   id: 'commit',

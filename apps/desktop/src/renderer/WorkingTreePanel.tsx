@@ -42,6 +42,13 @@ export interface WorkingTreePanelProps {
   /** The callbacks run the real operations through the app's one `run` path. */
   readonly onStage?: (path: string) => void;
   readonly onUnstage?: (path: string) => void;
+  /**
+   * Throws away what the working tree holds for one path.
+   *
+   * It is destructive and goes through the confirmation sheet like every other destructive
+   * operation: what it removes is the only copy of that change.
+   */
+  readonly onDiscard?: (path: string) => void;
   /** `true` means the commit ran; the message is only cleared when it did. */
   readonly onCommit?: (message: string, amend: boolean) => Promise<boolean>;
 }
@@ -86,6 +93,7 @@ export function WorkingTreePanel({
   busy,
   onStage,
   onUnstage,
+  onDiscard,
   onCommit,
 }: WorkingTreePanelProps): React.ReactElement {
   const [message, setMessage] = useState('');
@@ -222,6 +230,18 @@ export function WorkingTreePanel({
                               onClick={() => onStage(entry.path)}
                             >
                               stage
+                            </button>
+                          )}
+                        {onDiscard !== undefined &&
+                          (spec.section === 'unstaged' || spec.section === 'untracked') && (
+                            <button
+                              type="button"
+                              className="stage danger"
+                              data-testid="discard-button"
+                              disabled={busy === true}
+                              onClick={() => onDiscard(entry.path)}
+                            >
+                              discard
                             </button>
                           )}
                         {onUnstage !== undefined && spec.section === 'staged' && (

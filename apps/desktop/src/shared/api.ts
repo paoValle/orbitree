@@ -91,7 +91,10 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
     force: z.exactOptional(z.boolean()),
   }),
   z.object({ op: literal('reset-hard'), rev: z.string() }),
-  z.object({ op: literal('clean') }),
+  z.object({
+    op: literal('clean'),
+    paths: z.exactOptional(z.readonly(z.array(z.string()))),
+  }),
   z.object({ op: literal('discard'), paths: z.readonly(z.array(z.string())) }),
 ]);
 
