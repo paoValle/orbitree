@@ -4,7 +4,7 @@ Each phase ends with an exit criterion that is a **command**, not a feeling. A p
 done when the code compiles; it is done when the command it names produces the output it
 promises. Phases are ordered by what unblocks the next one, not by how interesting they are.
 
-Status: **P0 in progress**, everything after it unstarted.
+Status: **P0, P1 and P1.5 are complete**; P2 is under way, and everything after it is unstarted.
 
 ---
 
