@@ -89,8 +89,13 @@ The surface becomes its own thing instead of a by-product of the panes. The rule
       thing about what is not committed yet. `apps/desktop/test/e2e/wip.spec.ts` asserts it on the
       real window, in both directions: drawn when the commit HEAD sits on is in the window, not
       drawn when the history is filtered to a branch that does not hold it.
-- [ ] The stash nodes among the ordinary ones, so a stash is a place in the graph rather than a
-      read-only card. Split out of the item above, which delivered the working tree half.
+- [x] The stash nodes among the ordinary ones, so a stash is a place in the graph rather than a
+      read-only card. Split out of the item above, which delivered the working tree half. A stash
+      older than `refs/stash` is reachable from nothing but that ref's reflog, so the read names
+      every entry — `--all` is this product's word for the repository's whole picture — and the
+      count names them too, or `truncated` would compare two pictures. A stash row carries its
+      selector as a badge and is drawn as a square, and `stash-submodule.spec.ts` asserts both
+      entries of a repository with two of them.
 - [x] A commit's own context menu: create a branch here, create a tag here, check out, reset to here,
       copy the sha, copy the message. Reachable with the keyboard, not only with a mouse.
       `apps/desktop/test/e2e/menu.spec.ts` drives the real window: seven items on a right click,

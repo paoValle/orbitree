@@ -394,6 +394,52 @@ button.danger,
   color: #f0a35e;
 }
 
+/* A stash is a place the history only reaches because it was named, and it is drawn apart. */
+.badge.stash {
+  color: #c792ea;
+}
+
+/*
+ * The stashes, one per line: the selector, git's own subject, and when it was set aside.
+ * Written because the three spans had no layout at all and a screenshot showed them run
+ * together as `stash@{0}On main: the second thing set aside2026-10-15T13:05 UTC` — a card
+ * nobody had looked at, in the one place the suite asserts with `toContainText`, which does not
+ * care how anything is spaced.
+ */
+.stash-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stash-entry {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 0;
+  min-width: 0;
+}
+
+.stash-entry .selector {
+  flex: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: #c792ea;
+}
+
+.stash-entry .subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stash-entry .stash-date {
+  flex: none;
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
 .side {
   display: flex;
   flex-direction: column;
