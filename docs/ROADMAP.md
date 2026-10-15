@@ -102,8 +102,12 @@ The surface becomes its own thing instead of a by-product of the panes. The rule
       `Shift+F10` opening it, Escape closing it with the repository untouched, `Create branch here`
       checked against raw `git`, `Copy SHA` read back from the machine's clipboard, and `Reset
       --hard to here` stopping at the confirmation sheet with nothing run.
-- [ ] Density and typography: one set of metrics, one monospace face for hashes and paths, and a
-      row height chosen so a branch boundary is visible without scrolling.
+- [x] Density and typography: one set of metrics, one monospace face for hashes and paths, and a
+      row height chosen so a branch boundary is visible without scrolling. The metrics that have to
+      agree — `ROW_HEIGHT`, `LANE_WIDTH`, `TEXT_GUTTER` — are declared once in `GraphPane.tsx` and
+      used by both the canvas and the DOM rows, and the face is one custom property, `--mono`,
+      because the literal stack had been written out thirteen times in `styles.css`.
+      `apps/desktop/test/wiring.test.ts` fails if it is written out again.
 - [ ] Colour that survives a colour-blind reader: ref kinds and status kinds carry a glyph as well
       as a colour, and every state is legible in a still screenshot.
 

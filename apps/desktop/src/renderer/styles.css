@@ -9,6 +9,9 @@
   --danger: #ef6b6b;
   --ok: #8bd5a0;
   --radius: 8px;
+  /* The one monospace face in the product, for every hash, path, ref and command. Declared here
+     because it was written out thirteen times, which is thirteen places for it to drift. */
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   color-scheme: dark;
 }
 
@@ -87,7 +90,7 @@ textarea:focus-visible {
 
 .path {
   flex: 1;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--mono);
 }
 
 button {
@@ -185,7 +188,7 @@ button.danger,
 }
 
 .state-screen code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 11.5px;
 }
 
@@ -422,7 +425,7 @@ button.danger,
 
 .stash-entry .selector {
   flex: none;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 11px;
   color: #c792ea;
 }
@@ -526,7 +529,7 @@ button.danger,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 11.5px;
 }
 
@@ -542,14 +545,14 @@ button.danger,
   padding: 4px 8px;
   background: rgb(106 169 255 / 10%);
   color: #9db2d6;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 11px;
   white-space: pre;
 }
 
 .diff-line {
   display: flex;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 11.5px;
   white-space: pre;
 }
@@ -607,7 +610,7 @@ button.danger,
 }
 
 .code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 11px;
   color: var(--text-dim);
 }
@@ -669,7 +672,7 @@ button.danger,
 .status-code {
   flex: none;
   color: var(--text-dim);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 10px;
 }
 
@@ -689,7 +692,7 @@ button.danger,
 .commit-message {
   resize: vertical;
   min-height: 54px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 11.5px;
 }
 
@@ -716,7 +719,7 @@ pre {
 }
 
 code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 11.5px;
 }
 
@@ -884,7 +887,7 @@ code {
 
 .recent-path {
   color: var(--text-dim);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 11px;
 }
 
@@ -1042,7 +1045,7 @@ code {
 
 .run-command {
   grid-area: command;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 11.5px;
   color: var(--text);
   overflow: hidden;
@@ -1052,7 +1055,7 @@ code {
 
 .run .rc {
   grid-area: code;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 11px;
   padding: 0 5px;
   border-radius: 999px;
