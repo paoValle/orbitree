@@ -77,8 +77,15 @@ The surface becomes its own thing instead of a by-product of the panes. The rule
       only way to see that something changed.
 - [x] The command behind every action: an activity entry shows the exact `git` argv, with a copy
       button. The argv already exists in the core and the log already records the result.
-- [ ] A WIP node at the top of the graph, so the working tree is a place in the picture rather than a
-      card beside it, and the stash nodes among the ordinary ones.
+- [x] A WIP node at the top of the graph, so the working tree is a place in the picture rather than a
+      card beside it. The counts are the working-tree card's own four sections, read from the same
+      status, and the node is a fact *beside* the rows: `layoutGraph` stays a pure function of the
+      DAG. `orbitree graph . --json` carries it as `wip`, so the CLI and the window say the same
+      thing about what is not committed yet. `apps/desktop/test/e2e/wip.spec.ts` asserts it on the
+      real window, in both directions: drawn when the commit HEAD sits on is in the window, not
+      drawn when the history is filtered to a branch that does not hold it.
+- [ ] The stash nodes among the ordinary ones, so a stash is a place in the graph rather than a
+      read-only card. Split out of the item above, which delivered the working tree half.
 - [x] A commit's own context menu: create a branch here, create a tag here, check out, reset to here,
       copy the sha, copy the message. Reachable with the keyboard, not only with a mouse.
       `apps/desktop/test/e2e/menu.spec.ts` drives the real window: seven items on a right click,

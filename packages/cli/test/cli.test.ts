@@ -83,14 +83,27 @@ describe('the CLI and the app are the same program', () => {
     expect(state.pending).toBeNull();
   });
 
-  it('[I3] `graph --json` carries lanes and edges', async () => {
+  it('[I3] `graph --json` carries lanes and edges, and the working tree', async () => {
     const result = await cli(['graph', root, '--json', '--limit', '10']);
     const printed = JSON.parse(result.lines[0] as string) as {
-      data: { rows: { lane: number }[]; edges: unknown[]; laneCount: number };
+      data: { rows: { lane: number }[]; edges: unknown[]; laneCount: number; wip: unknown };
     };
     expect(printed.data.laneCount).toBe(1);
     expect(printed.data.rows).toHaveLength(1);
     expect(printed.data.edges).toHaveLength(0);
+
+    // The fixture is one commit, its tracked file modified in the working tree, and one file
+    // that is untracked: the node above the first commit says exactly that, and it is read by
+    // the same call rather than by a second one the caller would have to know about.
+    const head = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: root });
+    expect(printed.data.wip).toEqual({
+      on: head.stdout.trim(),
+      staged: 0,
+      unstaged: 1,
+      conflicted: 0,
+      untracked: 1,
+      dirty: true,
+    });
   });
 
   it('a directory that does not exist is reported as not-a-repository, not as a bad argument', async () => {
