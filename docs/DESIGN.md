@@ -75,7 +75,9 @@ draws at 16px rather than 14.
 Colour is a second channel and never the only one. A file kind carries a colour so a column of
 twenty rows can be scanned, and the mark, the test id and the name still differ, so a reader who
 cannot tell two of the colours apart loses nothing. This is the same rule the status codes and the
-ref badges follow.
+ref badges follow. The check on it is a screenshot of the real window taken through a red-green
+colour matrix — `apps/desktop/test/e2e/colour-blind.spec.ts` — where the colours collapse and the
+glyphs, git's own letters and the lane geometry are what is left.
 
 The general form: **judge an icon at the size it is used, in the app, in a screenshot.** Every one of
 these was invisible in a diff and obvious in the window.
