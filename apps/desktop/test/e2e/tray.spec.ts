@@ -1,3 +1,5 @@
+import { mkdir } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
   closeApp,
@@ -53,6 +55,11 @@ test('closing the window hides it, and the quick window opens without a mouse', 
     // visibility: the quick window hides itself when it loses focus.
     await expect(popupPage.locator('.popup-head strong')).toHaveText(name, { timeout: 8000 });
     console.log('[tray] popup asserted');
+
+    const screenshot = resolve(import.meta.dirname, '..', '..', 'reports', 'tray.png');
+    await mkdir(dirname(screenshot), { recursive: true });
+    await popupPage.screenshot({ path: screenshot });
+    console.log(`screenshot: ${screenshot}`);
 
     // Closing the window is not quitting.
     //

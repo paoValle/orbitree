@@ -1,4 +1,5 @@
-import { rm } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
   closeApp,
@@ -61,6 +62,11 @@ test('the last repository reopens, and the recents list what came before it', as
   try {
     const page = await mainWindow(reopened.app);
     await expect(page.locator('[data-testid=graph-count]')).toHaveText(/1 of 1 commits/);
+
+    const screenshot = resolve(import.meta.dirname, '..', '..', 'reports', 'recents.png');
+    await mkdir(dirname(screenshot), { recursive: true });
+    await page.screenshot({ path: screenshot });
+    console.log(`screenshot: ${screenshot}`);
   } finally {
     await closeApp(reopened);
   }

@@ -53,7 +53,12 @@ dependency's licence, tree-shaking and accessibility for one icon. Revisit if th
 forty.
 
 **The test.** A screenshot with every icon visible can be read by a person who has not seen the app
-before, and the meaning survives being printed in a single colour.
+before, and the meaning survives being printed in a single colour. `apps/desktop/test/e2e/icons.spec.tsx`
+draws it: it renders whatever `icons.tsx` exports, at the two sizes the product uses, so a new glyph
+appears in the gallery without anybody remembering to put it there, and it fails on the two mistakes
+a picture cannot show — a glyph that draws nothing, and two glyphs that draw the same shape under
+different names. It found the second: the stashes card and the stash command had a glyph each, drawn
+differently and read as the same box at 14px. There is one now.
 
 **Two rules learned by getting them wrong.**
 

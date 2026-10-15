@@ -1,3 +1,5 @@
+import { mkdir } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { closeApp, commit, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
 
@@ -56,6 +58,11 @@ test('two repositories at once, each with its own selection', async () => {
       'data-hash',
       selectedInSecond ?? '',
     );
+
+    const screenshot = resolve(import.meta.dirname, '..', '..', 'reports', 'tabs.png');
+    await mkdir(dirname(screenshot), { recursive: true });
+    await page.screenshot({ path: screenshot });
+    console.log(`screenshot: ${screenshot}`);
 
     // Closing the active tab leaves the first one, and the bar goes back to one tab.
     await page.locator('.tab-close').last().click();

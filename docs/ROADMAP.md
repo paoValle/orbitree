@@ -68,13 +68,18 @@ Make the repository legible. No mutation beyond staging yet.
 The surface becomes its own thing instead of a by-product of the panes. The rules live in
 `docs/DESIGN.md`; this phase is the work of applying them.
 
-- [ ] The icon set: one component per glyph in `apps/desktop/src/renderer/icons.tsx`, on a 24px
+- [x] The icon set: one component per glyph in `apps/desktop/src/renderer/icons.tsx`, on a 24px
       grid with a 1.5px stroke, used on the quick bar, the file kinds, the ref badges, the tab bar
       and the pane headings. The text glyphs the working tree uses today (`=`, `#`, `{}`, `~`) are
-      replaced rather than joined.
-- [ ] The motion pass, behind `prefers-reduced-motion: reduce`, with the six rules in
+      replaced rather than joined. `apps/desktop/test/e2e/icons.spec.tsx` draws every glyph the
+      module exports — 27 of them, at 16px and 14px, in one colour — into `reports/icons.png`, and
+      fails when two of them share a name or draw the same shape, which is how the stashes card and
+      the stash command lost their duplicate.
+- [x] The motion pass, behind `prefers-reduced-motion: reduce`, with the six rules in
       `docs/DESIGN.md` as the specification. Nothing animates the graph, and no transition is the
-      only way to see that something changed.
+      only way to see that something changed. `apps/desktop/test/e2e/motion.spec.ts` reads the
+      computed transition and animation of the panes that animate, with the media query emulated and
+      without, and stages a file with motion off so that the change is still asserted in words.
 - [x] The command behind every action: an activity entry shows the exact `git` argv, with a copy
       button. The argv already exists in the core and the log already records the result.
 - [x] A WIP node at the top of the graph, so the working tree is a place in the picture rather than a
