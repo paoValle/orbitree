@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { GraphData } from '../shared/api.ts';
+import type { GraphData, WorkingTreeNode } from '../shared/api.ts';
 import {
   BranchIcon,
   ChevronDownIcon,
@@ -85,6 +85,17 @@ function describeWindow(graph: GraphData, laneCount: number): string {
   return `${commits} · ${laneCount} lane${laneCount === 1 ? '' : 's'}`;
 }
 
+/** What the working tree has waiting, in the working-tree card's own words. */
+function describeNode(wip: WorkingTreeNode): string {
+  const waiting = [
+    wip.staged === 0 ? null : `${wip.staged} staged`,
+    wip.unstaged === 0 ? null : `${wip.unstaged} changed`,
+    wip.conflicted === 0 ? null : `${wip.conflicted} conflicted`,
+    wip.untracked === 0 ? null : `${wip.untracked} untracked`,
+  ].filter((part) => part !== null);
+  return waiting.length === 0 ? 'clean' : waiting.join(' · ');
+}
+
 export interface GraphPaneProps {
   readonly graph: GraphData;
   readonly selected: string | null;
@@ -125,7 +136,19 @@ export function GraphPane({
   const rows = graph.layout.rows;
   const edges = graph.layout.edges;
   const laneCount = graph.layout.laneCount;
-  const total = rows.length;
+  // The working tree is the row above the first commit, in the lane of the commit HEAD sits on,
+  // and it is drawn only when that commit is in the window: a history filtered to another branch
+  // is a picture of that branch, and a node joined to nothing would misstate where it sits.
+  const headRow = useMemo(
+    () => (graph.wip.on === null ? -1 : rows.findIndex((row) => row.commit.hash === graph.wip.on)),
+    [rows, graph.wip.on],
+  );
+  const wipShown = headRow >= 0;
+  const headLane = wipShown ? (rows[headRow]?.lane ?? 0) : 0;
+  /** Every pane row below the node is the layout's own row shifted down by one. */
+  const offset = wipShown ? 1 : 0;
+  const commitCount = rows.length;
+  const total = commitCount + offset;
 
   // Branches first, then remotes, then tags: the order a reader looks for a history in.
   const refOptions = useMemo(
@@ -245,10 +268,14 @@ export function GraphPane({
   const visibleCount = Math.ceil(viewportHeight / ROW_HEIGHT);
   const firstRow = Math.max(0, firstVisible - OVERSCAN);
   const lastRow = Math.min(total, firstVisible + visibleCount + OVERSCAN);
-  const windowRows = rows.slice(firstRow, lastRow);
+  // Both are counted in pane rows; the layout's own indices start one lower with the node drawn.
+  const windowRows = rows.slice(Math.max(0, firstRow - offset), Math.max(0, lastRow - offset));
   const windowEdges = useMemo(
-    () => edges.filter((edge) => edge.childRow <= lastRow && edge.parentRow >= firstRow),
-    [edges, firstRow, lastRow],
+    () =>
+      edges.filter(
+        (edge) => edge.childRow + offset <= lastRow && edge.parentRow + offset >= firstRow,
+      ),
+    [edges, firstRow, lastRow, offset],
   );
 
   useEffect(() => {
@@ -273,9 +300,9 @@ export function GraphPane({
 
     for (const edge of windowEdges) {
       const x1 = x(edge.childLane);
-      const y1 = y(edge.childRow);
+      const y1 = y(edge.childRow + offset);
       const x2 = x(edge.parentLane);
-      const y2 = y(edge.parentRow);
+      const y2 = y(edge.parentRow + offset);
       context.strokeStyle = laneColor(edge.childLane);
       context.beginPath();
       context.moveTo(x1, y1);
@@ -290,7 +317,7 @@ export function GraphPane({
     for (const row of windowRows) {
       const isSelected = row.commit.hash === selected;
       context.beginPath();
-      context.arc(x(row.lane), y(row.row), isSelected ? 6 : 4.5, 0, Math.PI * 2);
+      context.arc(x(row.lane), y(row.row + offset), isSelected ? 6 : 4.5, 0, Math.PI * 2);
       context.fillStyle = laneColor(row.lane);
       context.fill();
       context.lineWidth = isSelected ? 2 : 1;
@@ -298,7 +325,34 @@ export function GraphPane({
       context.stroke();
       context.lineWidth = 2;
     }
-  }, [windowRows, windowEdges, selected, firstRow, lastRow, laneCount]);
+
+    // The working tree sits above the first commit and is joined to the one HEAD is on. A ring
+    // rather than a disc, because it is not a commit and must not read as one.
+    if (wipShown) {
+      context.strokeStyle = laneColor(headLane);
+      context.beginPath();
+      context.moveTo(x(headLane), y(0));
+      context.lineTo(x(headLane), y(headRow + offset));
+      context.stroke();
+      context.beginPath();
+      context.arc(x(headLane), y(0), 4.5, 0, Math.PI * 2);
+      context.fillStyle = '#0f1115';
+      context.fill();
+      context.lineWidth = 2;
+      context.stroke();
+    }
+  }, [
+    windowRows,
+    windowEdges,
+    selected,
+    firstRow,
+    lastRow,
+    laneCount,
+    offset,
+    headRow,
+    headLane,
+    wipShown,
+  ]);
 
   const keepInView = useCallback((index: number) => {
     const element = scrollRef.current;
@@ -319,16 +373,17 @@ export function GraphPane({
       if (event.key === 'ArrowDown') next = current + 1;
       else if (event.key === 'ArrowUp') next = current - 1;
       else if (event.key === 'Home') next = 0;
-      else if (event.key === 'End') next = total - 1;
+      else if (event.key === 'End') next = commitCount - 1;
       if (next === null) return;
       event.preventDefault();
-      const clamped = Math.max(0, Math.min(total - 1, next));
+      const clamped = Math.max(0, Math.min(commitCount - 1, next));
       const row = rows[clamped];
       if (row === undefined) return;
       onSelect(row.commit.hash);
-      keepInView(clamped);
+      // The pane's rows are shifted down by the node, and the scroll is in pane rows.
+      keepInView(clamped + offset);
     },
-    [keepInView, onSelect, rows, selected, total],
+    [commitCount, keepInView, offset, onSelect, rows, selected],
   );
 
   return (
@@ -379,6 +434,21 @@ export function GraphPane({
             className="commit-graph"
             style={{ top: firstRow * ROW_HEIGHT }}
           />
+          {wipShown && firstRow === 0 && (
+            <div
+              className="row wip"
+              data-testid="wip-row"
+              style={{
+                top: 0,
+                height: ROW_HEIGHT,
+                paddingLeft: laneCount * LANE_WIDTH + LANE_WIDTH + TEXT_GUTTER,
+              }}
+            >
+              <span className="wip-name">WIP</span>
+              <span className="subject">{describeNode(graph.wip)}</span>
+              <span className="meta">not committed</span>
+            </div>
+          )}
           {windowRows.map((row) => {
             const isSelected = row.commit.hash === selected;
             const badges = graph.refsByOid.get(row.commit.hash) ?? [];
@@ -390,7 +460,7 @@ export function GraphPane({
                 data-hash={row.commit.hash}
                 className={isSelected ? 'row selected' : 'row'}
                 style={{
-                  top: row.row * ROW_HEIGHT,
+                  top: (row.row + offset) * ROW_HEIGHT,
                   height: ROW_HEIGHT,
                   paddingLeft: laneCount * LANE_WIDTH + LANE_WIDTH + TEXT_GUTTER,
                 }}

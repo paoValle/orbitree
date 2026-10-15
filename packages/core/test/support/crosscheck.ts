@@ -47,6 +47,46 @@ function dot(code: string): string {
   return code === ' ' ? '.' : code;
 }
 
+/**
+ * The pairs v1 prints for a path in a conflicted merge. `DD` is the one that carries no `U`,
+ * which is exactly the kind of case a counting rule written from the common one would miss.
+ */
+const V1_UNMERGED = new Set(['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU']);
+
+export interface ChangeCounts {
+  readonly staged: number;
+  readonly unstaged: number;
+  readonly conflicted: number;
+  readonly untracked: number;
+  readonly dirty: boolean;
+}
+
+/**
+ * The four counts the working-tree node carries, read from status v1 rather than from our own
+ * parse of v2, and by the same sectioning rule: an unmerged path is a conflict and not also a
+ * staged and an unstaged change.
+ */
+export async function v1Counts(root: string): Promise<ChangeCounts> {
+  const entries = await v1Entries(root);
+  let staged = 0;
+  let unstaged = 0;
+  let conflicted = 0;
+  let untracked = 0;
+  for (const { x, y } of entries.values()) {
+    if (V1_UNMERGED.has(`${x}${y}`)) {
+      conflicted += 1;
+      continue;
+    }
+    if (x === '?' && y === '?') {
+      untracked += 1;
+      continue;
+    }
+    if (x !== '.') staged += 1;
+    if (y !== '.') unstaged += 1;
+  }
+  return { staged, unstaged, conflicted, untracked, dirty: entries.size > 0 };
+}
+
 export async function findStatusMismatches(root: string, state: RepoState): Promise<Mismatch[]> {
   const mismatches: Mismatch[] = [];
 

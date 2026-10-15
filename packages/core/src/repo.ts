@@ -20,6 +20,7 @@ import {
   type RepoState,
 } from './git/status.ts';
 import { type GraphLayout, layoutGraph, refsByOid } from './graph/layout.ts';
+import { type WorkingTreeNode, workingTreeNode } from './graph/wip.ts';
 
 export class NotARepositoryError extends Error {
   override readonly name = 'NotARepositoryError';
@@ -57,6 +58,12 @@ export interface GraphData {
   readonly total: number;
   /** `commits.length < total`: the window cut the history, and that must be visible. */
   readonly truncated: boolean;
+  /**
+   * The working tree, which is the row above the first commit rather than a row of the layout.
+   * Read here as well, and not only by the status call the window already makes, so that a
+   * `graph` read answers the whole question on its own.
+   */
+  readonly wip: WorkingTreeNode;
 }
 
 /**
@@ -113,6 +120,24 @@ export async function readStatus(
   if (!parsed.ok)
     throw new RepositoryParseError('the repository status', parsed.error, parsed.record);
   return { ...parsed.value, pending };
+}
+
+/**
+ * The working tree as a node of the graph, for a caller that has no status in hand.
+ *
+ * One spawn, and deliberately not `readStatus`: the node counts entries and asks HEAD for its
+ * oid, and the three `rev-parse --verify` probes that name a pending merge would be paid for and
+ * thrown away.
+ */
+export async function readWorkingTreeNode(
+  repo: RepoHandle,
+  options: Partial<ExecuteOptions> = {},
+): Promise<WorkingTreeNode> {
+  const { stdout } = await executeOrThrow({ op: 'status' }, { cwd: repo.root, ...options });
+  const parsed = parseStatus(stdout);
+  if (!parsed.ok)
+    throw new RepositoryParseError('the repository status', parsed.error, parsed.record);
+  return workingTreeNode(parsed.value);
 }
 
 export async function readRefs(
@@ -217,7 +242,7 @@ export async function readGraph(
   if (!Number.isInteger(limit) || limit < 1) {
     throw new InvalidArgumentError(`limit must be a positive integer, got ${limit}`);
   }
-  const [log, refs, count] = await Promise.all([
+  const [log, refs, count, wip] = await Promise.all([
     executeOrThrow(
       {
         op: 'graph',
@@ -238,6 +263,7 @@ export async function readGraph(
       },
       { cwd: repo.root, ...options },
     ),
+    readWorkingTreeNode(repo, options),
   ]);
   const parsed = parseLog(log.stdout);
   if (!parsed.ok) throw new RepositoryParseError('the commit log', parsed.error, parsed.record);
@@ -252,6 +278,7 @@ export async function readGraph(
     refsByOid: refsByOid(refs),
     total: parsedCount.value,
     truncated: parsed.value.length < parsedCount.value,
+    wip,
   };
 }
 

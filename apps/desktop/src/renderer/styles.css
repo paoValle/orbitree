@@ -356,6 +356,24 @@ button.danger,
   font-size: 11px;
 }
 
+/* The working tree at the top of the graph. It is not a commit and it must not read as one,
+   so the name is a chip rather than a hash and the row is not a thing to click. */
+.row.wip {
+  cursor: default;
+  color: var(--text-dim);
+}
+.row.wip:hover {
+  background: none;
+}
+.row.wip .wip-name {
+  padding: 1px 6px;
+  border: 1px dashed rgb(255 255 255 / 30%);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

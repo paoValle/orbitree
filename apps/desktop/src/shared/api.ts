@@ -22,6 +22,7 @@ export type {
   Ref,
   RepoState,
   StatusEntry,
+  WorkingTreeNode,
 } from '@orbitree/core';
 
 export { CHANNELS };

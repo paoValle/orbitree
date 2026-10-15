@@ -38,6 +38,7 @@ import {
   riskOf,
   SCHEMA_VERSION,
   toArgv,
+  type WorkingTreeNode,
 } from '@orbitree/core';
 import { Command } from 'commander';
 
@@ -178,6 +179,10 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
             rev: opts.all === true ? null : (opts.rev ?? 'HEAD'),
             total: graph.total,
             truncated: graph.truncated,
+            // The working tree, which belongs to the picture: the row above the first commit,
+            // joined to the commit HEAD sits on. An agent that reads the graph gets it here
+            // rather than having to reconstruct it from a second call.
+            wip: graph.wip,
             commits: graph.commits,
             rows: graph.layout.rows.map((row) => ({
               hash: row.commit.hash,
@@ -198,6 +203,7 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
               data.rows,
               graph.refsByOid,
               includeRefs ? graph.refs : [],
+              graph.wip,
             )}`,
         );
       },
@@ -607,6 +613,7 @@ function describeGraph(
   rows: readonly { hash: string; subject: string; author: string; lane: number }[],
   refsByOid: ReadonlyMap<string, readonly { shortName: string }[]>,
   refs: readonly Ref[],
+  wip: WorkingTreeNode,
 ): string {
   const headRefs = new Set(refs.filter((ref) => ref.isHead).map((ref) => ref.target));
   const lines = rows.map((row) => {
@@ -614,7 +621,28 @@ function describeGraph(
     const flags = `${badges.length === 0 ? '' : ` [${badges.join(', ')}]`}${headRefs.has(row.hash) ? ' <-HEAD' : ''}`;
     return `${row.hash.slice(0, 8)} ${String(row.lane).padStart(2)}${flags} ${row.subject} — ${row.author}`;
   });
-  return lines.join('\n');
+  return [describeWip(wip, rows), ...lines].join('\n');
+}
+
+/**
+ * The working tree as the first line of the picture, and in the lane of the commit it sits on
+ * so that the text and the window say the same thing about where it is.
+ */
+function describeWip(
+  wip: WorkingTreeNode,
+  rows: readonly { hash: string; lane: number }[],
+): string {
+  const waiting = [
+    wip.staged === 0 ? null : `${wip.staged} staged`,
+    wip.unstaged === 0 ? null : `${wip.unstaged} changed`,
+    wip.conflicted === 0 ? null : `${wip.conflicted} conflicted`,
+    wip.untracked === 0 ? null : `${wip.untracked} untracked`,
+  ].filter((part) => part !== null);
+  const lane = rows.find((row) => row.hash === wip.on)?.lane ?? 0;
+  const on = wip.on === null ? 'no commit yet' : wip.on.slice(0, 8);
+  const state = waiting.length === 0 ? 'clean' : waiting.join(', ');
+  // Padded to the width of a hash and the space after it, so the lane column lines up.
+  return `${'WIP'.padEnd(9)}${String(lane).padStart(2)} ${state} -> ${on}`;
 }
 
 function describeRefs(refs: readonly Ref[]): string {
