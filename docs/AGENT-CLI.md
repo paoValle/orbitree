@@ -72,8 +72,10 @@ paths takes them as `--arg` values: `--op discard --arg <path>` restores a track
 tracked path and does nothing to an untracked one. Without arguments `clean` takes every untracked
 path in the repository. `--op discard-hunk --arg <path> --arg <hunk>` reverses one hunk of that
 path's uncommitted diff: the patch is built from a read of the file inside the process that runs
-git, so a caller names a hunk rather than supplying a patch. The risk names below are what decide
-whether a confirmation is required:
+git, so a caller names a hunk rather than supplying a patch. `--op branch-rename --arg <from> --arg
+<to>` renames a branch without depending on which one is checked out, and `--op tag-delete --arg
+<name>` removes a tag — which is `destructive`, because git has no safe form of it. The risk names
+below are what decide whether a confirmation is required:
 
 ```
 read        nothing changes

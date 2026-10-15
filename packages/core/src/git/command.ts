@@ -62,8 +62,10 @@ export type GitCommand =
   | { readonly op: 'unstage'; readonly paths: readonly string[] }
   | { readonly op: 'commit'; readonly message: string; readonly amend?: boolean }
   | { readonly op: 'branch-create'; readonly name: string; readonly start?: string }
+  | { readonly op: 'branch-rename'; readonly name: string; readonly to: string }
   | { readonly op: 'checkout'; readonly ref: string; readonly detach?: boolean }
   | { readonly op: 'tag-create'; readonly name: string; readonly rev: string }
+  | { readonly op: 'tag-delete'; readonly name: string }
   | { readonly op: 'merge'; readonly ref: string }
   | { readonly op: 'stash-push'; readonly message?: string }
   | { readonly op: 'stash-pop' }
@@ -130,6 +132,7 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'branch-create':
     case 'checkout':
     case 'tag-create':
+    case 'branch-rename':
     case 'merge':
     case 'stash-push':
     case 'stash-pop':
@@ -138,6 +141,13 @@ export function riskOf(cmd: GitCommand): Risk {
     // `git branch -d` refuses to delete an unmerged branch; `-D` does not.
     case 'branch-delete':
       return cmd.force === true ? 'destructive' : 'local';
+
+    // A tag is a name for a commit and nothing else: `git tag -d` has no `-d`-style safety, so
+    // the name is gone the moment it runs and the reflog of a deleted ref is not a place the
+    // product can send anybody. The same kind of loss as a forced branch delete, and guarded the
+    // same way.
+    case 'tag-delete':
+      return 'destructive';
 
     case 'fetch':
     case 'pull':
@@ -302,12 +312,23 @@ export function toArgv(cmd: GitCommand): string[] {
       assertSafeName(cmd.name, 'branch name');
       return ['branch', cmd.name, ...(cmd.start === undefined ? [] : [assertSafeRef(cmd.start)])];
 
+    // The two-name form, so the operation does not depend on which branch is checked out: a
+    // rename that only worked for the current branch would be a different feature.
+    case 'branch-rename':
+      assertSafeName(cmd.name, 'branch name');
+      assertSafeName(cmd.to, 'branch name');
+      return ['branch', '-m', cmd.name, cmd.to];
+
     case 'checkout':
       return ['switch', ...(cmd.detach === true ? ['--detach'] : []), assertSafeRef(cmd.ref)];
 
     case 'tag-create':
       assertSafeName(cmd.name, 'tag name');
       return ['tag', cmd.name, assertSafeRef(cmd.rev)];
+
+    case 'tag-delete':
+      assertSafeName(cmd.name, 'tag name');
+      return ['tag', '-d', cmd.name];
 
     case 'merge':
       return ['merge', '--no-edit', assertSafeRef(cmd.ref)];
