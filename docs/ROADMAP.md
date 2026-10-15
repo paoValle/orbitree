@@ -108,8 +108,13 @@ The surface becomes its own thing instead of a by-product of the panes. The rule
       used by both the canvas and the DOM rows, and the face is one custom property, `--mono`,
       because the literal stack had been written out thirteen times in `styles.css`.
       `apps/desktop/test/wiring.test.ts` fails if it is written out again.
-- [ ] Colour that survives a colour-blind reader: ref kinds and status kinds carry a glyph as well
-      as a colour, and every state is legible in a still screenshot.
+- [x] Colour that survives a colour-blind reader: ref kinds and status kinds carry a glyph as well
+      as a colour, and every state is legible in a still screenshot. The check is the real window
+      through a red-green colour matrix — `apps/desktop/test/e2e/colour-blind.spec.ts`, and the
+      picture is `reports/colour-blind.png` — with the two things a filter cannot take away asserted
+      beside it: every badge carries exactly one glyph, and every working-tree entry is a file-kind
+      drawing next to a status letter. With the colours collapsed, the badges, the status letters
+      and the lane geometry are what is left, and the screenshot was read before this was ticked.
 
 **Exit**: `make e2e` green with a screenshot per spec, every screenshot looked at by a person, and
 the icon set visible in one of them with each glyph recognisable without its label. `grep -r
