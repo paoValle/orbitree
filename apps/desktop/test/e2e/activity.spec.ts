@@ -13,7 +13,13 @@ test('the activity list keeps the command, and it can be copied', async () => {
   const handle = await launchApp(repo);
   try {
     const page = await mainWindow(handle.app);
-    await expect(page.locator('[data-testid=graph-count]')).toContainText('1 commit');
+    // This spec is first in the run, so it pays the machine's cold start, and on a Linux runner
+    // that has taken longer than the default five seconds: one run failed right here with the
+    // pane not yet drawn, and the same commit passed on a rerun. The number is about the runner;
+    // the assertion is still about what the pane says once it is there.
+    await expect(page.locator('[data-testid=graph-count]')).toContainText('1 commit', {
+      timeout: 20_000,
+    });
 
     await page.getByRole('button', { name: 'Stash', exact: true }).click();
 
