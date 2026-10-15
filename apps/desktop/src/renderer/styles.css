@@ -542,6 +542,16 @@ button.danger,
 }
 
 .hunk-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.hunk-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
   padding: 4px 8px;
   background: rgb(106 169 255 / 10%);
   color: #9db2d6;

@@ -46,6 +46,7 @@ const EXAMPLE: Record<GitOp, GitCommand> = {
   'reset-hard': { op: 'reset-hard', rev: 'HEAD~1' },
   clean: { op: 'clean' },
   discard: { op: 'discard', paths: ['file.txt'] },
+  'discard-hunk': { op: 'discard-hunk', path: 'file.txt', hunk: 0 },
 };
 
 let set: FixtureSet;
@@ -73,7 +74,7 @@ describe('the risk of an operation', () => {
       .map((command) => command.op);
     // `branch-delete` without `force` is a local operation: `git branch -d` refuses an
     // unmerged branch by itself. Only `-D` escalates.
-    expect(destructive.sort()).toEqual(['clean', 'discard', 'reset-hard']);
+    expect(destructive.sort()).toEqual(['clean', 'discard', 'discard-hunk', 'reset-hard']);
     // ... and the two that escalate only when asked to.
     expect(riskOf({ op: 'push', remote: 'o', branch: 'b', force: true })).toBe('destructive');
     expect(riskOf({ op: 'push', remote: 'o', branch: 'b' })).toBe('remote');

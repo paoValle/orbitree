@@ -20,15 +20,39 @@ function gutter(kind: DiffLine['kind']): string {
  * because it is git's own line and re-formatting it would lose the section title git puts
  * after the second `@@`.
  */
-export function DiffView({ file }: { readonly file: DiffFile }): React.ReactElement {
+export function DiffView({
+  file,
+  onDiscardHunk,
+}: {
+  readonly file: DiffFile;
+  /**
+   * Throws away one hunk of this diff.
+   *
+   * Absent for a commit's patch, where the change is already committed and there is nothing in the
+   * working tree to reverse: one component, two situations, and only one of them has a button.
+   */
+  readonly onDiscardHunk?: (hunkIndex: number) => void;
+}): React.ReactElement {
   if (file.binary) return <p className="empty">binary file</p>;
   if (file.hunks.length === 0) return <p className="empty">no textual changes</p>;
 
   return (
     <div className="diff">
-      {file.hunks.map((hunk) => (
+      {file.hunks.map((hunk, hunkIndex) => (
         <div className="hunk" data-testid="diff-hunk" key={hunk.header}>
-          <div className="hunk-header">{hunk.header}</div>
+          <div className="hunk-header">
+            <span className="hunk-title">{hunk.header}</span>
+            {onDiscardHunk === undefined ? null : (
+              <button
+                type="button"
+                className="stage danger"
+                data-testid="discard-hunk"
+                onClick={() => onDiscardHunk(hunkIndex)}
+              >
+                discard hunk
+              </button>
+            )}
+          </div>
           {hunk.lines.map((line, lineIndex) => (
             <div
               className={`diff-line ${line.kind}`}

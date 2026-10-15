@@ -76,6 +76,8 @@ export function App(): React.ReactElement {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [runs, setRuns] = useState<readonly RunRecord[]>([]);
+  /** Bumped by every operation that ran, so a pane holding a diff knows to read it again. */
+  const [revision, setRevision] = useState(0);
   const [pending, setPending] = useState<Pending | null>(null);
   const [ask, setAsk] = useState<AskState | null>(null);
   // The confirmation sheet takes focus when it opens. Done with a ref rather than the
@@ -280,6 +282,7 @@ export function App(): React.ReactElement {
         return false;
       }
       setRuns((previous) => [recordRun(result.value), ...previous].slice(0, 8));
+      setRevision((previous) => previous + 1);
       await refresh(target, active.id, selection, requested);
       return true;
     },
@@ -583,6 +586,7 @@ export function App(): React.ReactElement {
               root={active?.root ?? null}
               state={active?.status ?? null}
               busy={busy}
+              revision={revision}
               onStage={(entryPath) =>
                 void runCommand({
                   id: 'stage',
@@ -620,6 +624,15 @@ export function App(): React.ReactElement {
                     : { op: 'discard', paths: [entryPath] },
                 });
               }}
+              onDiscardHunk={(entryPath, hunk) =>
+                runGuarded({
+                  id: 'discard-hunk',
+                  label: 'Discard hunk',
+                  hint: `apply --reverse (hunk ${hunk + 1} of ${entryPath})`,
+                  danger: true,
+                  command: { op: 'discard-hunk', path: entryPath, hunk },
+                })
+              }
               onCommit={(message, amend) =>
                 runCommand({
                   id: 'commit',

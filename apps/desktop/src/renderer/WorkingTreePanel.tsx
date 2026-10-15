@@ -49,6 +49,22 @@ export interface WorkingTreePanelProps {
    * operation: what it removes is the only copy of that change.
    */
   readonly onDiscard?: (path: string) => void;
+  /**
+   * Throws away one hunk of one path.
+   *
+   * The patch is not built here: the executor reads the file's own diff and reverses the hunk it
+   * names, so what crosses the channel is a path and an index rather than a web page's idea of
+   * what the change is.
+   */
+  readonly onDiscardHunk?: (path: string, hunk: number) => void;
+  /**
+   * Bumped by the app after every operation it ran, so the diff on screen is re-read.
+   *
+   * Without it the pane keeps the patch it loaded when the file was clicked: discarding a hunk
+   * updates the file list and leaves the diff showing the hunk that is no longer there, which is
+   * a picture of a moment that has passed and the most convincing kind of wrong.
+   */
+  readonly revision?: number;
   /** `true` means the commit ran; the message is only cleared when it did. */
   readonly onCommit?: (message: string, amend: boolean) => Promise<boolean>;
 }
@@ -94,6 +110,8 @@ export function WorkingTreePanel({
   onStage,
   onUnstage,
   onDiscard,
+  onDiscardHunk,
+  revision,
   onCommit,
 }: WorkingTreePanelProps): React.ReactElement {
   const [message, setMessage] = useState('');
@@ -117,6 +135,10 @@ export function WorkingTreePanel({
   const key = section === null || path === null ? null : `${section}:${path}`;
 
   useEffect(() => {
+    // `revision` is a trigger rather than a value: nothing here reads it, and the effect has to
+    // run again when it changes. That is what re-reads a diff an operation just changed without
+    // changing the selection, so the comment is the reference the rule is looking for.
+    void revision;
     if (root === null || section === null || path === null) return;
     // An untracked file is in neither the index nor a commit, so there is no comparison to
     // load; the pane says so in words instead of asking git a question with no answer.
@@ -148,7 +170,7 @@ export function WorkingTreePanel({
     return () => {
       cancelled = true;
     };
-  }, [root, section, path]);
+  }, [root, section, path, revision]);
 
   const current = loaded !== null && loaded.key === key ? loaded : null;
   const file = current?.files?.find((entry) => entry.path === path) ?? null;
@@ -327,7 +349,12 @@ export function WorkingTreePanel({
         ) : current.error !== null ? (
           <p className="empty">{current.error}</p>
         ) : file !== null ? (
-          <DiffView file={file} />
+          <DiffView
+            file={file}
+            {...(onDiscardHunk === undefined
+              ? {}
+              : { onDiscardHunk: (hunk: number) => onDiscardHunk(path ?? '', hunk) })}
+          />
         ) : (
           <p className="empty">no diff for {path}</p>
         )}

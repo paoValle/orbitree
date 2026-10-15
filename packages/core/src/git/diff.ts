@@ -403,3 +403,24 @@ function splitLines(stdout: string): string[] {
   if (lines[lines.length - 1] === '') lines.pop();
   return lines;
 }
+
+/**
+ * The patch for one hunk of one file: the file's own header lines followed by that hunk, both
+ * exactly as git printed them.
+ *
+ * Nothing here is re-synthesised from the parsed fields. A patch rebuilt from our own reading of a
+ * diff would be a second opinion about what git said, and `git apply` is entitled to reject it;
+ * what travels is the text the parser kept. `--recount` on the apply side covers the one thing
+ * that is ours: the line counts a caller might have adjusted.
+ *
+ * `null` when there is no such hunk, because a caller asking for the fourth hunk of a two-hunk
+ * file has an answer and the answer is not an exception.
+ */
+export function patchForHunk(file: DiffFile, hunkIndex: number): string | null {
+  const first = file.hunks[0];
+  const hunk = file.hunks[hunkIndex];
+  if (first === undefined || hunk === undefined) return null;
+  // Everything before the first hunk is the file header: `diff --git`, `index`, `---`, `+++`.
+  const header = file.raw.slice(0, file.raw.indexOf(first.raw));
+  return `${header}${hunk.raw}${hunk.raw.endsWith('\n') ? '' : '\n'}`;
+}

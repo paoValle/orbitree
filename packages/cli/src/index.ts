@@ -497,6 +497,18 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
       return { op: 'unstage', paths: [...args] };
     case 'discard':
       return { op: 'discard', paths: [...args] };
+    case 'discard-hunk': {
+      // The path and the hunk number, in that order, as `orbitree ops` lists them. The patch
+      // itself is not an argument: it is built from a read of that path, inside the executor.
+      const path = args[0];
+      const hunk = Number.parseInt(args[1] ?? '', 10);
+      if (path === undefined || path === '' || !Number.isInteger(hunk) || hunk < 0) {
+        throw new InvalidArgumentError(
+          `discard-hunk takes a path and a hunk number, got ${args.join(' ') || 'nothing'}`,
+        );
+      }
+      return { op: 'discard-hunk', path, hunk };
+    }
     case 'commit':
       return { op: 'commit', message };
     case 'fetch':
