@@ -62,6 +62,13 @@ export interface WorkingTreePanelProps {
   readonly onTakeSide?: (side: 'ours' | 'theirs', path: string) => void;
   /** Gives up on the merge that is under way and puts the branch back where it was. */
   readonly onAbortMerge?: () => void;
+  /** Resolves one conflict region of one path, replacing it with a side or with typed text. */
+  readonly onResolveRegion?: (
+    path: string,
+    region: number,
+    take: 'ours' | 'theirs' | 'both' | 'custom',
+    content?: string,
+  ) => void;
   /**
    * Bumped by the app after every operation it ran, so the diff on screen is re-read.
    *
@@ -118,6 +125,7 @@ export function WorkingTreePanel({
   onDiscardHunk,
   onTakeSide,
   onAbortMerge,
+  onResolveRegion,
   revision,
   onCommit,
 }: WorkingTreePanelProps): React.ReactElement {
@@ -375,6 +383,10 @@ export function WorkingTreePanel({
             root={root}
             path={path}
             {...(busy === undefined ? {} : { busy })}
+            {...(revision === undefined ? {} : { revision })}
+            onResolve={(region, take, content) =>
+              onResolveRegion?.(path ?? '', region, take, content)
+            }
             onAbort={onAbortMerge}
           />
         ) : null}

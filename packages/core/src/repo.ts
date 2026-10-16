@@ -1,6 +1,9 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { PendingRef } from './git/command.ts';
 import { type GitCommand, InvalidArgumentError } from './git/command.ts';
 import { parseCommitCount } from './git/count.ts';
+import { type ConflictRegion, linesOf, parseConflictRegions } from './git/conflict.ts';
 import { type DiffFile, parseDiff } from './git/diff.ts';
 import { type ExecuteOptions, execute, executeOrThrow, type GitResult } from './git/exec.ts';
 import {
@@ -172,6 +175,33 @@ export async function readStash(
   const parsed = parseStashList(stdout);
   if (!parsed.ok) throw new RepositoryParseError('the stash list', parsed.error, parsed.record);
   return parsed.value;
+}
+
+/**
+ * A file in the working tree, as text.
+ *
+ * git cannot answer this: the working tree is not an object, and a conflicted file's text — markers
+ * and all — exists nowhere else. One read, shared by the region list and the resolver, so the two
+ * cannot disagree about which file they are describing.
+ */
+export async function readWorkingFile(
+  repo: RepoHandle,
+  request: { readonly path: string },
+): Promise<string> {
+  return readFile(join(repo.root, request.path), 'utf8');
+}
+
+/**
+ * The conflict regions of one path, counted from 0 in the order the markers appear.
+ *
+ * The same parse the resolver uses, so a caller choosing region 2 is choosing the region the
+ * resolver will replace: two implementations of "which region is this" is one too many.
+ */
+export async function readConflictRegions(
+  repo: RepoHandle,
+  request: { readonly path: string },
+): Promise<readonly ConflictRegion[]> {
+  return parseConflictRegions(linesOf(await readWorkingFile(repo, request)));
 }
 
 /**

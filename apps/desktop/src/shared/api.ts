@@ -257,6 +257,22 @@ export const stashPatchRequestSchema = z.object({
   selector: z.string().min(1),
 });
 
+export const conflictRegionRequestSchema = z.object({
+  path: z.string().min(1),
+  file: z.string().min(1),
+});
+
+export interface ConflictRegionsPayload {
+  readonly root: string;
+  readonly path: string;
+  readonly regions: readonly {
+    readonly start: number;
+    readonly end: number;
+    readonly ours: readonly string[];
+    readonly theirs: readonly string[];
+  }[];
+}
+
 export const conflictSideRequestSchema = z.object({
   /** The repository. `file` is the conflicted path inside it, the way every other channel names a
    *  repository and something in it. */
@@ -400,6 +416,11 @@ export interface OrbitreeApi {
     readonly file: string;
     readonly side: 'base' | 'ours' | 'theirs';
   }) => Promise<Result<ConflictSidePayload>>;
+  /** The conflict regions of one path, counted from 0 in the order the markers appear. */
+  readonly readConflictRegions: (request: {
+    readonly path: string;
+    readonly file: string;
+  }) => Promise<Result<ConflictRegionsPayload>>;
   readonly run: (request: RunRequest) => Promise<Result<RunPayload>>;
   readonly pickDirectory: () => Promise<string | null>;
   readonly togglePopup: () => Promise<Result<boolean>>;

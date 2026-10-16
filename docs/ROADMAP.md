@@ -145,16 +145,19 @@ The working tree becomes editable, and the confirmation machinery gets its real 
       conventions the category has settled on.
 - [ ] Summary and description as two fields in the commit box, because the summary is what the graph
       shows and everything after it is for the reader of the commit.
-- [ ] Merge, and the conflict screen: ours/theirs/both at the hunk level. The first half is in:
-      the three versions of a conflicted path — the common ancestor, ours and theirs — read from
-      the index stages that hold them, side by side, with a side taken per file
-      (`git checkout --ours/--theirs`, which leaves the conflict in the index and is therefore
-      undoable), resolving a path as `git add` under git's own word for it, and giving the merge up.
-      `apps/desktop/test/e2e/conflict.spec.ts` asserts all of it against git and the file on disk.
-      Choosing per region is in the core — `orbitree run --op resolve-conflict --arg <path> --arg
-      <region> --arg ours|theirs|both|custom`, asserted by `packages/core/test/conflict.test.ts` on a
-      two-region conflict made by git — and has no button in the panel yet. Not yet: that button, and
-      an editable result.
+- [x] Merge, and the conflict screen: ours/theirs/both at the hunk level. A branch is merged into
+      the current one from its own row in the BRANCHES AND TAGS card, and a merge that conflicts
+      stops into a screen rather than into a failure: the three versions of a conflicted path — the
+      common ancestor, ours and theirs, read from the index stages that hold them — the file's own
+      markers below them, one row per conflict region with `ours` / `theirs` / `both` and an `edit`
+      box whose text becomes the resolution, a side per file (`git checkout --ours/--theirs`, which
+      leaves the conflict in the index and is therefore undoable), `resolve` for `git add` under
+      git's own word for it, and `abort the merge`. Resolving one region renumbers the rest, so the
+      panel re-reads rather than keeping a list. The patch that carries a resolution is built inside
+      the executor from a read of the file, which is what keeps a caller's text to the added lines of
+      one region. Asserted by `apps/desktop/test/e2e/conflict.spec.ts` and `refs.spec.ts` against git
+      and the file on disk, and by `packages/core/test/conflict.test.ts` on a two-region conflict
+      made by git.
 - [x] Stash push/pop/apply/drop, with a diff preview. Push is the quick bar's Stash; the card lists
       every entry with show, apply, pop and drop. `stash-show` reads the stash's own patch through
       the same parser and the same pane as any other diff, so a preview is not a second opinion

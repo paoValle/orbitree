@@ -62,6 +62,40 @@ test('a branch is switched to, renamed and deleted, and a tag is deleted', async
 });
 
 /** A branch with commits of its own is the one git refuses to delete without being told twice. */
+test('a branch is merged into the one that is checked out', async () => {
+  const repo = await makeRepo({ base: 'the first line\n' });
+  await git(repo, ['checkout', '--quiet', '-b', 'work']);
+  await writeIn(repo, 'work.txt', 'done on the branch\n');
+  await commit(repo, 'work on the branch');
+  await git(repo, ['checkout', '--quiet', 'main']);
+  // main moves on as well, so the merge is a real merge commit and not a fast-forward: a
+  // fast-forward moves a branch and proves very little about the merge path.
+  await writeIn(repo, 'main.txt', 'and on main\n');
+  await commit(repo, 'work on main');
+  expect(await git(repo, ['rev-list', '--count', 'HEAD'])).toBe('2');
+
+  const handle = await launchApp(repo);
+  try {
+    const page = await mainWindow(handle.app);
+    // Merging is offered for every branch but the one that is checked out: a merge is always into
+    // the current branch, so the current branch cannot be merged into itself.
+    await expect(
+      page.locator('[data-testid=ref-row][data-ref="main"] [data-testid=ref-merge]'),
+    ).toHaveCount(0);
+    await page.locator('[data-testid=ref-row][data-ref="work"] [data-testid=ref-merge]').click();
+
+    // Three commits then, and four with the merge commit on top: the merge is a real one, and git
+    // is the one who says so.
+    await expect.poll(() => git(repo, ['rev-list', '--count', 'HEAD'])).toBe('4');
+    await expect(page.locator('[data-testid=activity-argv]').first()).toContainText(
+      'merge --no-edit work',
+    );
+  } finally {
+    await closeApp(handle);
+    await rm(repo, { recursive: true, force: true });
+  }
+});
+
 test('an unmerged branch is refused by git rather than deleted quietly', async () => {
   const repo = await makeRepo({ base: 'the first line\n' });
   await git(repo, ['checkout', '--quiet', '-b', 'unmerged']);

@@ -14,6 +14,8 @@ export interface RefsPanelProps {
   readonly refs: readonly Ref[];
   readonly busy?: boolean;
   readonly onSwitch: (ref: Ref) => void;
+  /** Merges this branch into the one that is checked out, which is what a merge always is. */
+  readonly onMerge: (ref: Ref) => void;
   readonly onRename: (ref: Ref) => void;
   readonly onDelete: (ref: Ref) => void;
 }
@@ -22,6 +24,7 @@ export function RefsPanel({
   refs,
   busy,
   onSwitch,
+  onMerge,
   onRename,
   onDelete,
 }: RefsPanelProps): React.ReactElement {
@@ -56,6 +59,17 @@ export function RefsPanel({
               >
                 switch
               </button>
+              {ref.kind === 'branch' && !ref.isHead ? (
+                <button
+                  type="button"
+                  className="stage"
+                  data-testid="ref-merge"
+                  disabled={busy === true}
+                  onClick={() => onMerge(ref)}
+                >
+                  merge
+                </button>
+              ) : null}
               {ref.kind === 'branch' ? (
                 <button
                   type="button"

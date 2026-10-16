@@ -700,6 +700,21 @@ export function App(): React.ReactElement {
                   command: { op: 'take-side', side, paths: [entryPath] },
                 })
               }
+              onResolveRegion={(entryPath, region, take, content) =>
+                runGuarded({
+                  id: 'resolve-conflict',
+                  label: `Resolve region ${region + 1} with ${take}`,
+                  hint: `apply --recount (region ${region + 1} of ${entryPath})`,
+                  danger: false,
+                  command: {
+                    op: 'resolve-conflict',
+                    path: entryPath,
+                    region,
+                    take,
+                    ...(content === undefined ? {} : { content }),
+                  },
+                })
+              }
               onAbortMerge={() =>
                 runGuarded({
                   id: 'merge-abort',
@@ -739,6 +754,17 @@ export function App(): React.ReactElement {
                   hint: `switch ${ref.shortName}`,
                   danger: false,
                   command: { op: 'checkout', ref: ref.shortName },
+                })
+              }
+              onMerge={(ref) =>
+                runGuarded({
+                  id: 'merge',
+                  label: `Merge ${ref.shortName}`,
+                  hint: `merge --no-edit ${ref.shortName}`,
+                  // A merge that conflicts stops and leaves the repository mid-merge, which is a
+                  // state the window has a screen for rather than a failure.
+                  danger: false,
+                  command: { op: 'merge', ref: ref.shortName },
                 })
               }
               onRename={(ref) =>

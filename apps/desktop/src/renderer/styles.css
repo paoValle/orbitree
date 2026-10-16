@@ -1203,3 +1203,64 @@ code {
   font-size: 11px;
   white-space: pre-wrap;
 }
+
+/* One row per region of a conflict, with the choice in it. Resolving one renumbers the rest. */
+.region-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.region {
+  padding: 3px 0;
+  border-top: 1px solid var(--line);
+}
+
+.region-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.region-name {
+  flex: none;
+  color: var(--danger);
+  font-size: 11px;
+}
+
+.region-sides {
+  margin-right: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.region-sides em {
+  color: var(--line);
+}
+
+.region-edit textarea {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  min-height: 60px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  resize: vertical;
+}
+
+.region-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 4px;
+}

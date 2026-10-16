@@ -75,6 +75,82 @@ test('a conflicted path shows its three versions, takes a side, and the merge is
   }
 });
 
+/**
+ * A conflict with two regions: the same two lines changed on both branches, far enough apart that
+ * git prints them separately. With one region, a screen resolving the wrong one would look correct.
+ */
+async function twoRegionConflict(): Promise<string> {
+  const twenty = (at: string): string => {
+    const lines = Array.from({ length: 20 }, (_, index) => `line ${index + 1}`);
+    lines[2] = `${at} at 3`;
+    lines[17] = `${at} at 18`;
+    return `${lines.join('\n')}\n`;
+  };
+  const repo = await makeRepo();
+  await writeIn(repo, 'f.txt', twenty('line'));
+  await commit(repo, 'twenty lines');
+  await git(repo, ['checkout', '--quiet', '-b', 'other']);
+  await writeIn(repo, 'f.txt', twenty('theirs'));
+  await commit(repo, 'the other branch changes both');
+  await git(repo, ['checkout', '--quiet', 'main']);
+  await writeIn(repo, 'f.txt', twenty('ours'));
+  await commit(repo, 'this branch changes both');
+  await git(repo, ['merge', 'other']).catch(() => '');
+  expect(await git(repo, ['status', '--porcelain=v2'])).toContain('u UU');
+  return repo;
+}
+
+test('a conflict is resolved region by region, and the list renumbers as it goes', async () => {
+  const repo = await twoRegionConflict();
+  const handle = await launchApp(repo);
+  try {
+    const page = await mainWindow(handle.app);
+    await page.locator('[data-testid=entry-item][data-path="f.txt"]').click();
+    const rows = page.locator('[data-testid=conflict-region]');
+    await expect(rows).toHaveCount(2);
+
+    // Wait for what the panel is still reading before the picture: the regions and the three
+    // versions are separate reads, and a screenshot taken between them shows "loading…" where the
+    // feature is.
+    await expect(page.locator('[data-testid=conflict-theirs] pre')).toContainText('theirs at 3');
+
+    const screenshot = resolve(import.meta.dirname, '..', '..', 'reports', 'regions.png');
+    await mkdir(dirname(screenshot), { recursive: true });
+    await page.screenshot({ path: screenshot });
+    console.log(`screenshot: ${screenshot}`);
+
+    const onDisk = async (): Promise<string[]> =>
+      (await readFile(resolve(repo, 'f.txt'), 'utf8')).split('\n');
+
+    // The first region, resolved with text typed here rather than with either side.
+    await rows.nth(0).locator('[data-testid=region-edit]').click();
+    await page.locator('[data-testid=region-text]').fill('the merged line');
+    await page.locator('[data-testid=region-save]').click();
+    await expect.poll(async () => (await onDisk())[2]).toBe('the merged line');
+
+    // Resolving one renumbers the rest, so the region that is left is the first one again — which
+    // is the assertion a screen that kept its own list would fail.
+    await expect(rows).toHaveCount(1);
+    await expect(rows.nth(0).locator('[data-testid=region-sides]')).toContainText('theirs at 18');
+
+    await rows.nth(0).locator('[data-testid=region-theirs]').click();
+    await expect.poll(async () => (await onDisk())[17]).toBe('theirs at 18');
+    await expect(rows).toHaveCount(0);
+    expect((await onDisk()).join('\n')).not.toContain('<<<<<<<');
+
+    // Resolving the text is not resolving the conflict: `git add` is.
+    expect(await git(repo, ['status', '--porcelain=v2'])).toContain('u UU');
+    await page
+      .locator('li', { has: page.locator('[data-testid=entry-item][data-path="f.txt"]') })
+      .getByRole('button', { name: 'resolve' })
+      .click();
+    await expect.poll(() => git(repo, ['status', '--porcelain=v2'])).not.toContain('u UU');
+  } finally {
+    await closeApp(handle);
+    await rm(repo, { recursive: true, force: true });
+  }
+});
+
 test('resolving a conflict is `git add`, under git’s own word for it', async () => {
   const repo = await conflictedRepo();
 

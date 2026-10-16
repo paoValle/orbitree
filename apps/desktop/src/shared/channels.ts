@@ -13,6 +13,7 @@ export const CHANNELS = {
   stash: 'repo:stash',
   stashPatch: 'stash:patch',
   conflictSide: 'conflict:side',
+  conflictRegions: 'conflict:regions',
   diff: 'repo:diff',
   run: 'repo:run',
   commitRead: 'commit:read',
