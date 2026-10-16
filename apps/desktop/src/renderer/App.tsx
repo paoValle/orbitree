@@ -691,6 +691,24 @@ export function App(): React.ReactElement {
                     : { op: 'discard', paths: [entryPath] },
                 });
               }}
+              onTakeSide={(side, entryPath) =>
+                runGuarded({
+                  id: 'take-side',
+                  label: `Take ${side}`,
+                  hint: `checkout --${side} -- ${entryPath}`,
+                  danger: false,
+                  command: { op: 'take-side', side, paths: [entryPath] },
+                })
+              }
+              onAbortMerge={() =>
+                runGuarded({
+                  id: 'merge-abort',
+                  label: 'Abort the merge',
+                  hint: 'merge --abort',
+                  danger: false,
+                  command: { op: 'merge-abort' },
+                })
+              }
               onDiscardHunk={(entryPath, hunk) =>
                 runGuarded({
                   id: 'discard-hunk',

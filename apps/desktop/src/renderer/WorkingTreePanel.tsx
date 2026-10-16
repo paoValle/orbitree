@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { DiffFile, RepoState, StatusEntry } from '../shared/api.ts';
+import { ConflictPanel } from './ConflictPanel.tsx';
 import { DiffView } from './DiffView.tsx';
 import { type FileKind, fileKind } from './fileKind.ts';
 import {
@@ -57,6 +58,10 @@ export interface WorkingTreePanelProps {
    * what the change is.
    */
   readonly onDiscardHunk?: (path: string, hunk: number) => void;
+  /** Takes one side of a conflicted path into the working tree, leaving the conflict in the index. */
+  readonly onTakeSide?: (side: 'ours' | 'theirs', path: string) => void;
+  /** Gives up on the merge that is under way and puts the branch back where it was. */
+  readonly onAbortMerge?: () => void;
   /**
    * Bumped by the app after every operation it ran, so the diff on screen is re-read.
    *
@@ -111,6 +116,8 @@ export function WorkingTreePanel({
   onUnstage,
   onDiscard,
   onDiscardHunk,
+  onTakeSide,
+  onAbortMerge,
   revision,
   onCommit,
 }: WorkingTreePanelProps): React.ReactElement {
@@ -244,16 +251,42 @@ export function WorkingTreePanel({
                           <span className="status-code">{entryCode(entry)}</span>
                         </button>
                         {onStage !== undefined &&
-                          (spec.section === 'unstaged' || spec.section === 'untracked') && (
+                          (spec.section === 'unstaged' ||
+                            spec.section === 'untracked' ||
+                            // A conflicted path is resolved by `git add`, which is the same
+                            // command under a different name: git's own word for it is "resolved".
+                            spec.section === 'conflicted') && (
                             <button
                               type="button"
                               className="stage"
                               disabled={busy === true}
                               onClick={() => onStage(entry.path)}
                             >
-                              stage
+                              {spec.section === 'conflicted' ? 'resolve' : 'stage'}
                             </button>
                           )}
+                        {onTakeSide !== undefined && spec.section === 'conflicted' && (
+                          <>
+                            <button
+                              type="button"
+                              className="stage"
+                              data-testid="take-ours"
+                              disabled={busy === true}
+                              onClick={() => onTakeSide('ours', entry.path)}
+                            >
+                              ours
+                            </button>
+                            <button
+                              type="button"
+                              className="stage"
+                              data-testid="take-theirs"
+                              disabled={busy === true}
+                              onClick={() => onTakeSide('theirs', entry.path)}
+                            >
+                              theirs
+                            </button>
+                          </>
+                        )}
                         {onDiscard !== undefined &&
                           (spec.section === 'unstaged' || spec.section === 'untracked') && (
                             <button
@@ -337,6 +370,18 @@ export function WorkingTreePanel({
         </>
       )}
       <div className="wt-diff" data-testid="wt-diff">
+        {section === 'conflicted' && onAbortMerge !== undefined ? (
+          <ConflictPanel
+            root={root}
+            path={path}
+            {...(busy === undefined ? {} : { busy })}
+            onAbort={onAbortMerge}
+          />
+        ) : null}
+        {/* The file's own diff still renders below, conflict markers and all: the panel is the
+            versions git holds, and the diff is what the file itself says. P1 asked for the markers
+            to be visible, and a screen that replaced them would be a regression wearing a feature's
+            clothes. */}
         {section === 'untracked' ? (
           <p className="empty">
             {path} is untracked: it is in neither the index nor any commit, so there is no diff to

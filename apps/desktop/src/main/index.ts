@@ -4,6 +4,7 @@ import {
   execute,
   openRepo,
   readCommit,
+  readConflictSide,
   readDiff,
   readGraph,
   readRefs,
@@ -32,6 +33,7 @@ import {
   rememberRequestSchema,
   runRequestSchema,
   setHotkeyRequestSchema,
+  conflictSideRequestSchema,
   stashPatchRequestSchema,
   stashRequestSchema,
   statusPathSchema,
@@ -129,6 +131,15 @@ function registerHandlers(): void {
       // A string arrives, like on every other channel; the schema is for the value inside it.
       const repo = await openRepo(stashRequestSchema.parse({ path: String(path) }).path);
       return { root: repo.root, stashes: await readStash(repo) };
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.conflictSide, (_event, request: unknown) =>
+    attempt(async () => {
+      const parsed = conflictSideRequestSchema.parse(request);
+      const repo = await openRepo(parsed.path);
+      const content = await readConflictSide(repo, { path: parsed.file, side: parsed.side });
+      return { root: repo.root, side: parsed.side, path: parsed.file, content };
     }),
   );
 

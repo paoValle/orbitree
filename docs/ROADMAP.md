@@ -145,7 +145,14 @@ The working tree becomes editable, and the confirmation machinery gets its real 
       conventions the category has settled on.
 - [ ] Summary and description as two fields in the commit box, because the summary is what the graph
       shows and everything after it is for the reader of the commit.
-- [ ] Merge, and the conflict screen: ours/theirs/both at the hunk level.
+- [ ] Merge, and the conflict screen: ours/theirs/both at the hunk level. The first half is in:
+      the three versions of a conflicted path — the common ancestor, ours and theirs — read from
+      the index stages that hold them, side by side, with a side taken per file
+      (`git checkout --ours/--theirs`, which leaves the conflict in the index and is therefore
+      undoable), resolving a path as `git add` under git's own word for it, and giving the merge up.
+      `apps/desktop/test/e2e/conflict.spec.ts` asserts all of it against git and the file on disk.
+      Not yet: choosing per *hunk*, and an editable result — both of which need a way to write a
+      file's content through the guarded gateway, which does not exist yet.
 - [x] Stash push/pop/apply/drop, with a diff preview. Push is the quick bar's Stash; the card lists
       every entry with show, apply, pop and drop. `stash-show` reads the stash's own patch through
       the same parser and the same pane as any other diff, so a preview is not a second opinion
