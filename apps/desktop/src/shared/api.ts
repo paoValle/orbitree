@@ -429,7 +429,7 @@ export interface OrbitreeApi {
   readonly status: (path: string) => Promise<Result<StatusPayload>>;
   readonly graph: (
     path: string,
-    request: { limit: number; all?: boolean; rev?: string },
+    request: { limit: number; all?: boolean; rev?: string; hide?: readonly string[] },
   ) => Promise<Result<GraphPayload>>;
   readonly refs: (path: string) => Promise<Result<RefsPayload>>;
   readonly diff: (

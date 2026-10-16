@@ -423,6 +423,11 @@ export function GraphPane({
       <div className="graph-head">
         <span data-testid="graph-count">{describeWindow(graph, laneCount)}</span>
         {filter === '*' ? null : <span className="graph-history">on {filter}</span>}
+        {graph.hidden.length === 0 ? null : (
+          <span className="graph-history" data-testid="graph-hidden">
+            hiding {graph.hidden.length}
+          </span>
+        )}
         {graph.truncated && (
           <button type="button" data-testid="load-more" onClick={onLoadMore}>
             Load {pageSize} more

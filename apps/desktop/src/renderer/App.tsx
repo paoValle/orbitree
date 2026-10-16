@@ -38,6 +38,8 @@ interface Tab {
   readonly filter: string;
   /** The window, in commits. `Load more` raises it by `GRAPH_LIMIT` and reads again. */
   readonly limit: number;
+  /** The names this tab is not drawing. Per tab, because two readings are two pictures. */
+  readonly hidden: readonly string[];
   /** Set when the directory could not be read at all: a state screen, not a banner. */
   readonly gone: string | null;
 }
@@ -52,6 +54,7 @@ const EMPTY_TAB = (id: number): Tab => ({
   selected: null,
   filter: '*',
   limit: GRAPH_LIMIT,
+  hidden: [],
   gone: null,
 });
 
@@ -202,6 +205,7 @@ export function App(): React.ReactElement {
       id: number,
       selection: string,
       requested: number,
+      hidden: readonly string[] = [],
     ): Promise<GraphData | null> => {
       setBusy(true);
       setError(null);
@@ -237,10 +241,11 @@ export function App(): React.ReactElement {
         return null;
       }
 
-      const graphResult = await window.orbitree.graph(
-        target,
-        selection === '*' ? { limit: requested, all: true } : { limit: requested, rev: selection },
-      );
+      const graphResult = await window.orbitree.graph(target, {
+        limit: requested,
+        ...(selection === '*' ? { all: true } : { rev: selection }),
+        ...(hidden.length === 0 ? {} : { hide: hidden }),
+      });
       if (!graphResult.ok) {
         setError(graphResult.error);
         patchTab(id, { graph: null });
@@ -668,7 +673,18 @@ export function App(): React.ReactElement {
               refs={active?.graph?.refs ?? []}
               submodules={submodulesOf(active ?? undefined)}
               filter={active?.filter ?? '*'}
+              hidden={active?.hidden ?? []}
               busy={busy}
+              onToggleHide={(ref) => {
+                if (active === null) return;
+                // The list, not the repository: nothing is written, and the same button brings the
+                // name back — which is why the row stays where it is.
+                const hidden = active.hidden.includes(ref.shortName)
+                  ? active.hidden.filter((name) => name !== ref.shortName)
+                  : [...active.hidden, ref.shortName];
+                patchTab(active.id, { hidden });
+                void refresh(active.root ?? '', active.id, active.filter, active.limit, hidden);
+              }}
               onFilter={(revision) => void changeFilter(revision)}
               onSwitch={(ref) =>
                 runGuarded({
