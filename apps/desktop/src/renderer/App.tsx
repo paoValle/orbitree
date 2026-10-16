@@ -76,6 +76,31 @@ interface AskState {
 }
 
 /** One dialog, three questions, so its title is a function of the question. */
+/**
+ * What the repository looked like before an operation, as far as the window knows it.
+ *
+ * The window is not reading anything for this: the last status read carries HEAD, and the last refs
+ * read carries what every branch and tag points at. That is also why the snapshot is taken from the
+ * tab that owns the operation rather than from a fresh look at the repository: the state that
+ * matters is the one the person was looking at.
+ */
+function beforeStateOf(tab: Tab): {
+  readonly head: string | null;
+  readonly branch: string | null;
+  readonly targets: Readonly<Record<string, string>>;
+} {
+  const head = tab.status?.head;
+  const targets: Record<string, string> = {};
+  for (const ref of tab.graph?.refs ?? []) {
+    if (ref.kind === 'branch' || ref.kind === 'tag') targets[ref.shortName] = ref.target;
+  }
+  return {
+    head: head === undefined || head.kind === 'unborn' ? null : head.oid,
+    branch: head?.kind === 'branch' ? head.name : null,
+    targets,
+  };
+}
+
 function askTitle(ask: AskState): string {
   if (ask.kind === 'branch') return 'Create branch here';
   if (ask.kind === 'tag') return 'Create tag here';
@@ -293,6 +318,10 @@ export function App(): React.ReactElement {
       const result = await window.orbitree.run({
         path: target,
         command: command.command,
+        // What the repository looked like before, from what the window already has in memory: the
+        // last status read for HEAD, the last refs read for what a branch or a tag pointed at. A
+        // second read here would be a state that could have moved in between.
+        before: beforeStateOf(active),
         ...(reason === undefined ? {} : { confirm: reason }),
       });
       setBusy(false);
@@ -896,6 +925,23 @@ export function App(): React.ReactElement {
                       >
                         <CopyIcon size={12} />
                       </button>
+                      {run.reverse === null ? null : (
+                        <span className="run-reverse" data-testid="activity-reverse">
+                          <span className="run-reverse-label">undo with</span>
+                          <code>{run.reverse}</code>
+                          <button
+                            type="button"
+                            className="run-copy"
+                            data-testid="activity-copy-reverse"
+                            title="Copy the command that reverses this"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(run.reverse ?? '');
+                            }}
+                          >
+                            <CopyIcon size={12} />
+                          </button>
+                        </span>
+                      )}
                       {run.detail === '' ? null : <span className="run-detail">{run.detail}</span>}
                     </li>
                   ))}

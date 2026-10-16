@@ -141,10 +141,24 @@ type SchemaCoversCore = z.infer<typeof gitCommandSchema> extends GitCommand ? tr
 const _schemaCoversCore: SchemaCoversCore = true;
 void _schemaCoversCore;
 
+/**
+ * What the repository looked like before an operation, which is what makes an undo possible at all.
+ *
+ * The window sends it rather than the main process reading it, because the window already holds it —
+ * the last status read and the last refs read are in memory — and because a second read would be a
+ * state that could have moved between the two.
+ */
+export const beforeStateSchema = z.object({
+  head: z.string().nullable(),
+  branch: z.string().nullable(),
+  targets: z.record(z.string(), z.string()),
+});
+
 export const runRequestSchema = z.object({
   path: z.string().min(1),
   command: gitCommandSchema,
   confirm: z.exactOptional(z.string().min(1)),
+  before: z.exactOptional(beforeStateSchema),
 });
 
 export type RunRequest = z.infer<typeof runRequestSchema>;
@@ -377,6 +391,8 @@ export interface RunPayload {
   readonly op: string;
   readonly risk: string;
   readonly argv: readonly string[];
+  /** The command that puts the repository back, or `null` when there is nothing to undo with. */
+  readonly reverse: readonly string[] | null;
   readonly exitCode: number;
   readonly stdout: string;
   readonly stderr: string;

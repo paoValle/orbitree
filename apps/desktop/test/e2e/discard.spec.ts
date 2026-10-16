@@ -60,6 +60,11 @@ test('a change is discarded only after a reason, and the file goes back to HEAD'
     // The repository itself did not move: discarding a working-tree change is not a commit.
     expect(await git(repo, ['rev-parse', 'HEAD'])).toBe(before);
 
+    // And nothing is offered as an undo, because there is none: what a discard removes was never
+    // committed, so a line here would be a line that fails.
+    await expect(page.locator('[data-testid=activity-reverse]')).toHaveCount(0);
+    await expect(page.locator('[data-testid=activity-argv]')).toHaveCount(2);
+
     const screenshot = resolve(import.meta.dirname, '..', '..', 'reports', 'discard.png');
     await mkdir(dirname(screenshot), { recursive: true });
     await page.screenshot({ path: screenshot });

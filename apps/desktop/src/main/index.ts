@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import {
+  BEFORE_NOTHING,
   ConfirmationRequiredError,
   execute,
   openRepo,
@@ -12,6 +13,7 @@ import {
   readStash,
   readStashPatch,
   readStatus,
+  reverseOf,
   riskOf,
 } from '@orbitree/core';
 import {
@@ -184,6 +186,9 @@ function registerHandlers(): void {
         op: parsed.command.op,
         risk: riskOf(parsed.command),
         argv: result.argv,
+        // Built here rather than in the window, because the core is what knows what reverses what:
+        // the window sends the state, the process that can run git names the command.
+        reverse: reverseOf(parsed.command, parsed.before ?? BEFORE_NOTHING),
         exitCode: result.exitCode,
         stdout: result.stdout,
         stderr: result.stderr,

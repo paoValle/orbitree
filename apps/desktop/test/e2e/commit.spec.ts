@@ -131,6 +131,9 @@ test('amend rewrites the message without adding a commit', async () => {
 test('a summary and a description are two fields, and git joins them', async () => {
   const repo = await makeRepo({ base: 'the first line\n' });
   await writeIn(repo, 'base.txt', 'changed in the working tree\n');
+  // The commit HEAD is on now is what an undo has to come back to, and the only place it can come
+  // from: nothing in the repository afterwards says where HEAD was before.
+  const before = await git(repo, ['rev-parse', 'HEAD']);
 
   const handle = await launchApp(repo);
   try {
@@ -151,6 +154,17 @@ test('a summary and a description are two fields, and git joins them', async () 
     await expect(page.locator('[data-testid=commit-row]').first()).toContainText(
       'say what changed',
     );
+
+    // And the activity card names the command that puts the repository back, built from the state
+    // before the commit: `--soft`, because the work is only in that commit.
+    const reverse = page.locator('[data-testid=activity-reverse]').first();
+    await expect(reverse).toContainText('git reset --soft');
+    await expect(reverse).toContainText(before);
+
+    const screenshot = resolve(import.meta.dirname, '..', '..', 'reports', 'undo.png');
+    await mkdir(dirname(screenshot), { recursive: true });
+    await page.screenshot({ path: screenshot });
+    console.log(`screenshot: ${screenshot}`);
   } finally {
     await closeApp(handle);
     await rm(repo, { recursive: true, force: true });

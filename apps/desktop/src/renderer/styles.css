@@ -1270,3 +1270,25 @@ code {
   gap: 6px;
   margin-top: 4px;
 }
+
+/* The line that puts the repository back, under the command that changed it. */
+.run-reverse {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  grid-column: 1 / -1;
+  padding-top: 2px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.run-reverse code {
+  font-family: var(--mono);
+  color: var(--ok);
+}
+
+.run-reverse-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 9.5px;
+}
