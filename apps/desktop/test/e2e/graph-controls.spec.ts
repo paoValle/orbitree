@@ -44,13 +44,15 @@ test('the ref filter reads the history it names', async () => {
       `${allCount} of ${allCount} commits`,
     );
 
-    await page.selectOption('[data-testid=ref-filter]', { label: feature });
+    await page
+      .locator(`[data-testid=ref-row][data-ref="${feature}"] [data-testid=ref-read]`)
+      .click();
     await expect(page.locator('[data-testid=graph-count]')).toContainText(
       `${featureCount} of ${featureCount} commits`,
     );
 
-    // The first row of the new history is selected, and the select released focus so the
-    // pane is keyboard-usable again instead of the arrow keys changing the filter.
+    // The first row of the new history is selected, and the pane has the focus: the history was
+    // asked for in the left panel, and the arrow keys walk the history rather than the names.
     const selected = page.locator('[data-testid=commit-row-selected]');
     await expect(selected).toHaveAttribute('data-hash', tip);
     expect(

@@ -11,7 +11,7 @@ import {
 import { CommitPanel } from './CommitPanel.tsx';
 import { DiffView } from './DiffView.tsx';
 import { type CommitAction, GraphPane } from './GraphPane.tsx';
-import { RefsPanel } from './RefsPanel.tsx';
+import { LeftPanel } from './LeftPanel.tsx';
 import { ActivityIcon, CloseIcon, CopyIcon, quickIcon, StashIcon } from './icons.tsx';
 import { type ScreenState, StateScreen } from './StateScreen.tsx';
 import { type Pending, type RunRecord, recordRun } from './shared.ts';
@@ -84,6 +84,16 @@ interface AskState {
  * tab that owns the operation rather than from a fresh look at the repository: the state that
  * matters is the one the person was looking at.
  */
+/** The submodules the working tree knows about, from the state it already read. */
+function submodulesOf(tab: Tab | undefined): readonly {
+  readonly path: string;
+  readonly state: string;
+}[] {
+  return (tab?.status?.entries ?? [])
+    .filter((entry) => entry.submodule !== null)
+    .map((entry) => ({ path: entry.path, state: entry.submodule ?? '' }));
+}
+
 function beforeStateOf(tab: Tab): {
   readonly head: string | null;
   readonly branch: string | null;
@@ -117,6 +127,8 @@ export function App(): React.ReactElement {
   const [runs, setRuns] = useState<readonly RunRecord[]>([]);
   /** Bumped by every operation that ran, so a pane holding a diff knows to read it again. */
   const [revision, setRevision] = useState(0);
+  /** The left panel's width. Resized by dragging, remembered for the session. */
+  const [panelWidth, setPanelWidth] = useState(220);
   /** The one stash whose patch is on screen, or null. Read on demand: the list is cheap, the
    *  patches are not. */
   const [patch, setPatch] = useState<{
@@ -350,6 +362,30 @@ export function App(): React.ReactElement {
       else void runCommand(command);
     },
     [runCommand],
+  );
+
+  /**
+   * Dragging the divider between the panel and the graph.
+   *
+   * Clamped on both sides: narrower than its own buttons is a panel nobody can use, and wider than
+   * a third of the window is a panel that has quietly become the window.
+   */
+  const startResize = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>): void => {
+      event.preventDefault();
+      const from = event.clientX;
+      const starting = panelWidth;
+      const move = (moved: PointerEvent): void => {
+        setPanelWidth(Math.max(170, Math.min(420, starting + moved.clientX - from)));
+      };
+      const stop = (): void => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', stop);
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', stop);
+    },
+    [panelWidth],
   );
 
   /** Looking at a stash before doing anything to it. Clicking it again puts the patch away. */
@@ -620,7 +656,65 @@ export function App(): React.ReactElement {
 
       {/* Without a side pane there is nothing to put in the second column: a repository that is
           not there has one pane, and it takes the window. */}
-      <main className={active?.gone != null ? 'panes single' : 'panes'}>
+      <main
+        className={active?.gone != null ? 'panes single' : 'panes'}
+        style={{ '--panel-width': `${panelWidth}px` } as React.CSSProperties}
+      >
+        {active?.gone != null ? null : (
+          <>
+            <LeftPanel
+              refs={active?.graph?.refs ?? []}
+              submodules={submodulesOf(active ?? undefined)}
+              filter={active?.filter ?? '*'}
+              busy={busy}
+              onFilter={(revision) => void changeFilter(revision)}
+              onSwitch={(ref) =>
+                runGuarded({
+                  id: 'checkout',
+                  label: `Switch to ${ref.shortName}`,
+                  hint: `switch ${ref.shortName}`,
+                  danger: false,
+                  command: { op: 'checkout', ref: ref.shortName },
+                })
+              }
+              onMerge={(ref) =>
+                runGuarded({
+                  id: 'merge',
+                  label: `Merge ${ref.shortName}`,
+                  hint: `merge --no-edit ${ref.shortName}`,
+                  // A merge that conflicts stops and leaves the repository mid-merge, which is a
+                  // state the window has a screen for rather than a failure.
+                  danger: false,
+                  command: { op: 'merge', ref: ref.shortName },
+                })
+              }
+              onRename={(ref) =>
+                setAsk({ kind: 'rename', hash: ref.shortName, value: ref.shortName })
+              }
+              onDelete={(ref) =>
+                runGuarded({
+                  id: ref.kind === 'tag' ? 'tag-delete' : 'branch-delete',
+                  label: `Delete ${ref.kind} ${ref.shortName}`,
+                  hint:
+                    ref.kind === 'tag' ? `tag -d ${ref.shortName}` : `branch -d ${ref.shortName}`,
+                  // A tag deletion is destructive in the core — nothing refuses it — so the sheet
+                  // asks for a reason. `git branch -d` refuses an unmerged branch itself.
+                  danger: ref.kind === 'tag',
+                  command:
+                    ref.kind === 'tag'
+                      ? { op: 'tag-delete', name: ref.shortName }
+                      : { op: 'branch-delete', name: ref.shortName },
+                })
+              }
+            />
+            <div
+              className="panel-resizer"
+              data-testid="panel-resizer"
+              title="Drag to resize"
+              onPointerDown={startResize}
+            />
+          </>
+        )}
         <section className="graph-pane">
           {active === null ? (
             <div className="empty" data-testid="no-tab">
@@ -664,7 +758,6 @@ export function App(): React.ReactElement {
                   selected={active.selected}
                   onSelect={(hash) => patchTab(active.id, { selected: hash })}
                   filter={active.filter}
-                  onFilterChange={(value) => void changeFilter(value)}
                   pageSize={GRAPH_LIMIT}
                   onLoadMore={loadMore}
                   onCommitAction={onCommitAction}
@@ -774,49 +867,6 @@ export function App(): React.ReactElement {
                     ...(body.trim() === '' ? {} : { body }),
                     ...(amend ? { amend: true } : {}),
                   },
-                })
-              }
-            />
-
-            <RefsPanel
-              refs={active?.graph?.refs ?? []}
-              busy={busy}
-              onSwitch={(ref) =>
-                runGuarded({
-                  id: 'checkout',
-                  label: `Switch to ${ref.shortName}`,
-                  hint: `switch ${ref.shortName}`,
-                  danger: false,
-                  command: { op: 'checkout', ref: ref.shortName },
-                })
-              }
-              onMerge={(ref) =>
-                runGuarded({
-                  id: 'merge',
-                  label: `Merge ${ref.shortName}`,
-                  hint: `merge --no-edit ${ref.shortName}`,
-                  // A merge that conflicts stops and leaves the repository mid-merge, which is a
-                  // state the window has a screen for rather than a failure.
-                  danger: false,
-                  command: { op: 'merge', ref: ref.shortName },
-                })
-              }
-              onRename={(ref) =>
-                setAsk({ kind: 'rename', hash: ref.shortName, value: ref.shortName })
-              }
-              onDelete={(ref) =>
-                runGuarded({
-                  id: ref.kind === 'tag' ? 'tag-delete' : 'branch-delete',
-                  label: `Delete ${ref.kind} ${ref.shortName}`,
-                  hint:
-                    ref.kind === 'tag' ? `tag -d ${ref.shortName}` : `branch -d ${ref.shortName}`,
-                  // A tag deletion is destructive in the core — nothing refuses it — so the sheet
-                  // asks for a reason. `git branch -d` refuses an unmerged branch itself.
-                  danger: ref.kind === 'tag',
-                  command:
-                    ref.kind === 'tag'
-                      ? { op: 'tag-delete', name: ref.shortName }
-                      : { op: 'branch-delete', name: ref.shortName },
                 })
               }
             />

@@ -140,9 +140,17 @@ The working tree becomes editable, and the confirmation machinery gets its real 
       refuses to delete with the failing command left in the activity card. A forced `-D` has no
       button: it is reachable through `orbitree run --op branch-delete --arg x --arg force`, and `-d`
       is the half that needs no confirmation because git itself refuses the dangerous case.
-- [ ] A left panel of sections: Local, Remote, Tags, Stashes, Submodules, each collapsible and
-      resizable, replacing the `All branches` dropdown. It is the largest structural gap against the
-      conventions the category has settled on.
+- [x] A left panel of sections: Local, Remote, Tags and Submodules, each collapsible — with
+      `<details>`, so the collapsing, the keyboard and what a screen reader announces are the
+      platform's rather than a second implementation — and the whole panel resizable by dragging its
+      divider (clamped, and kept for the session). Clicking a name reads the graph from that
+      revision, which is what the `All branches` dropdown did; the per-row actions moved with the
+      rows, and the refs card in the side column is gone because the panel is that surface now.
+      **Stashes are deliberately not a section**: a stash is a commit with a patch, and a patch
+      belongs in the wide column that can show it rather than in a 220px panel of names. They keep
+      their card, which reads, previews and applies them.
+      `apps/desktop/test/e2e/refs.spec.ts`, `graph-controls.spec.ts` and `wip.spec.ts` assert the
+      panel's rows against git and the graph; `reports/refs.png` was looked at.
 - [x] Summary and description as two fields in the commit box, because the summary is what the graph
       shows and everything after it is for the reader of the commit. The command passes them as two
       `-m`, so git is what decides a commit body's shape; `apps/desktop/test/e2e/commit.spec.ts`

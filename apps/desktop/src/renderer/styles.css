@@ -226,9 +226,160 @@ button.danger,
 
 .panes {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 46%);
+  /* The panel, its divider, the graph, the side column. `--panel-width` is set by the window and
+     dragged by the divider, and the graph keeps every pixel the other two do not take. */
+  grid-template-columns: var(--panel-width, 220px) auto minmax(0, 1fr) minmax(360px, 46%);
   min-height: 0;
   flex: 1;
+}
+
+.panes.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 6px;
+  overflow: auto;
+  min-width: 0;
+  border-right: 0;
+  background: var(--bg-raised);
+}
+
+.panel-resizer {
+  width: 5px;
+  cursor: col-resize;
+  background: var(--bg-raised);
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+
+.panel-resizer:hover {
+  background: var(--accent);
+}
+
+.panel-section summary {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 4px;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  list-style: none;
+}
+
+.panel-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.panel-section[open] > summary svg {
+  transform: rotate(0deg);
+}
+
+.panel-section:not([open]) > summary svg {
+  transform: rotate(-90deg);
+}
+
+.panel-title {
+  flex: 1;
+}
+
+.panel-count {
+  color: var(--text-dim);
+  font-family: var(--mono);
+}
+
+.panel-list {
+  margin: 0 0 4px;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * A row wraps: the name takes a line of its own and the actions sit under it. The first version put
+ * them side by side in a 220px panel, which left the names — the whole point of a panel of names —
+ * invisible behind four buttons.
+ */
+.panel-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  padding: 2px 0 4px;
+  min-width: 0;
+}
+
+.panel-row .panel-name {
+  flex: 1 1 100%;
+}
+
+.panel-row .stage {
+  margin-left: 0;
+}
+
+.panel-name {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.panel-name.static {
+  cursor: default;
+}
+
+.panel-name:hover {
+  background: rgb(255 255 255 / 5%);
+}
+
+.panel-name.selected {
+  background: rgb(106 169 255 / 20%);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.panel-current {
+  flex: none;
+  padding: 0 5px;
+  border: 1px solid currentcolor;
+  border-radius: 999px;
+  color: var(--ok);
+  font-size: 9.5px;
+}
+
+.panel-note {
+  flex: none;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.panel-row .stage {
+  flex: none;
+  padding: 1px 5px;
+  font-size: 9.5px;
+}
+
+.graph-history {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
 }
 
 .graph-pane {
@@ -1112,44 +1263,12 @@ code {
 }
 
 /* The branches and the tags: a name, whether it is the one you are on, and what can be done. */
-.ref-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
 
-.ref-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 2px 0;
-  min-width: 0;
-}
 
-.ref-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--mono);
-  font-size: 11.5px;
-}
 
-.ref-current {
-  padding: 0 6px;
-  border-radius: 999px;
-  border: 1px solid currentcolor;
-  color: var(--ok);
-  font-size: 10px;
-}
 
-.ref-row .stage {
-  margin-left: auto;
-}
 
 /* Every button after the first sits next to it rather than spreading the row out. */
-.ref-row .stage + .stage {
-  margin-left: 0;
-}
 
 /* A stash, its four buttons, and — when asked for — the patch it holds. */
 .stash-line {
