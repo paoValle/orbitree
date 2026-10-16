@@ -1,6 +1,8 @@
 import { type ChildProcess, spawn } from 'node:child_process';
-import { statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { type GitCommand, InvalidArgumentError, isDestructive, riskOf, toArgv } from './command.ts';
+import { countConflictStarts, parseConflictRegions, resolutionPatch } from './conflict.ts';
 import { parseDiff, patchForHunk } from './diff.ts';
 import { redact } from './redact.ts';
 
@@ -192,6 +194,56 @@ export async function executeOrThrow(cmd: GitCommand, options: ExecuteOptions): 
   return result;
 }
 
+/**
+ * The patch that resolves one conflict region, built from the file as it is on disk.
+ *
+ * The read is what makes the rest safe: the region's own lines are what the patch removes, so a
+ * caller's `custom` text can only ever become the *added* lines of that one region — it cannot name
+ * another file, and it cannot become a header, because every added line is prefixed.
+ */
+/** A caller's text as lines. Empty text is *no* lines, which is how a region is deleted. */
+function contentLines(text: string): string[] {
+  return text === '' ? [] : text.replace(/\n$/, '').split('\n');
+}
+
+function resolutionPatchFor(
+  cmd: Extract<GitCommand, { op: 'resolve-conflict' }>,
+  cwd: string,
+): string {
+  const file = join(cwd, cmd.path);
+  if (!statSync(file, { throwIfNoEntry: false })?.isFile()) {
+    throw new InvalidArgumentError(`${cmd.path} is not a file`);
+  }
+  const text = readFileSync(file, 'utf8');
+  if (!text.endsWith('\n')) {
+    throw new InvalidArgumentError(
+      `${cmd.path} does not end with a newline, which a patch cannot express`,
+    );
+  }
+  const lines = text.split('\n').slice(0, -1);
+  const regions = parseConflictRegions(lines);
+  // A file with a marker the parser could not pair up is a file whose regions are not the ones a
+  // caller counted, and resolving region 2 of a half-read list would be resolving a different one.
+  if (regions.length !== countConflictStarts(lines)) {
+    throw new InvalidArgumentError(`${cmd.path} has conflict markers that do not pair up`);
+  }
+  const region = regions[cmd.region];
+  if (region === undefined) {
+    throw new InvalidArgumentError(
+      `${cmd.path} has ${regions.length} conflict region${regions.length === 1 ? '' : 's'}, so region ${cmd.region} cannot be resolved`,
+    );
+  }
+  const replacement =
+    cmd.take === 'ours'
+      ? region.ours
+      : cmd.take === 'theirs'
+        ? region.theirs
+        : cmd.take === 'both'
+          ? [...region.ours, ...region.theirs]
+          : contentLines(cmd.content ?? '');
+  return resolutionPatch(cmd.path, lines, region, replacement);
+}
+
 interface SpawnOptions {
   readonly cwd: string;
   readonly env: Record<string, string>;
@@ -214,6 +266,7 @@ interface SpawnOptions {
  * repository before a reason exists.
  */
 async function stdinFor(cmd: GitCommand, options: ExecuteOptions): Promise<string | null> {
+  if (cmd.op === 'resolve-conflict') return resolutionPatchFor(cmd, options.cwd);
   if (cmd.op !== 'discard-hunk') return null;
 
   const read = await executeOrThrow({ op: 'diff', path: cmd.path }, options);

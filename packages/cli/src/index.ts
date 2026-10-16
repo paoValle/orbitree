@@ -564,6 +564,28 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
       return { op: 'stash-push' };
     case 'stash-pop':
       return args[0] === undefined ? { op: 'stash-pop' } : { op: 'stash-pop', selector: args[0] };
+    case 'resolve-conflict': {
+      const path = args[0];
+      const region = Number.parseInt(args[1] ?? '', 10);
+      const take = args[2];
+      if (path === undefined || path === '' || !Number.isInteger(region) || region < 0) {
+        throw new InvalidArgumentError('resolve-conflict takes a path and a region number');
+      }
+      if (take !== 'ours' && take !== 'theirs' && take !== 'both' && take !== 'custom') {
+        throw new InvalidArgumentError(
+          'resolve-conflict takes ours, theirs, both or custom as the third argument',
+        );
+      }
+      return {
+        op: 'resolve-conflict',
+        path,
+        region,
+        take,
+        // Only for `custom`, and only the lines of that one region: what a caller supplies here
+        // becomes the *added* lines of a patch whose removals come from the file itself.
+        ...(take === 'custom' ? { content: args.slice(3).join('\n') } : {}),
+      };
+    }
     case 'stash-apply':
     case 'stash-drop':
     case 'stash-show': {
