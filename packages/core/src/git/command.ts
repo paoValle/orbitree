@@ -122,6 +122,10 @@ export type GitCommand =
     }
   // --- destructive: unrecoverable without reflog/backup ---
   | { readonly op: 'reset-hard'; readonly rev: string }
+  /** Moves HEAD without touching the index or the working tree: the work stays, staged. */
+  | { readonly op: 'reset-soft'; readonly rev: string }
+  /** Puts a conflict's markers back from the index stages, undoing a resolution. */
+  | { readonly op: 'regenerate-conflict'; readonly paths: readonly string[] }
   | {
       readonly op: 'clean';
       /**
@@ -183,6 +187,11 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'merge-abort':
     case 'take-side':
     case 'resolve-conflict':
+    // A soft reset moves a pointer and leaves every file alone, and the eight stages of a
+    // conflict are still in the index until it is added: both are undoable by the same command
+    // in the other direction.
+    case 'reset-soft':
+    case 'regenerate-conflict':
       return 'local';
 
     // Dropping a stash is the one stash operation that loses something by itself: `pop` and
@@ -390,6 +399,14 @@ export function toArgv(cmd: GitCommand): string[] {
 
     case 'merge-abort':
       return ['merge', '--abort'];
+
+    case 'reset-soft':
+      return ['reset', '--soft', assertSafeRef(cmd.rev)];
+
+    // `-m` regenerates the conflict from the stages the index still holds, which is what undoing a
+    // resolution is: no operation of ours writes markers, and git already knows how.
+    case 'regenerate-conflict':
+      return ['checkout', '-m', '--', ...assertSafePaths(cmd.paths)];
 
     // `--ours`/`--theirs` write one side of the file and leave the three stages in the index, so
     // nothing is lost: `git checkout -m -- <path>` puts the conflict markers back. That is why

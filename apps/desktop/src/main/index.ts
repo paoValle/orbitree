@@ -14,6 +14,7 @@ import {
   readStashPatch,
   readStatus,
   reverseOf,
+  toArgv,
   riskOf,
 } from '@orbitree/core';
 import {
@@ -182,13 +183,18 @@ function registerHandlers(): void {
               },
             }),
       });
+      // Built here rather than in the window, because the core is what knows what reverses what:
+      // the window sends the state, the process that can run git names the command — and knows
+      // whether running it would need a reason.
+      const reverse = reverseOf(parsed.command, parsed.before ?? BEFORE_NOTHING);
       return {
         op: parsed.command.op,
         risk: riskOf(parsed.command),
         argv: result.argv,
-        // Built here rather than in the window, because the core is what knows what reverses what:
-        // the window sends the state, the process that can run git names the command.
-        reverse: reverseOf(parsed.command, parsed.before ?? BEFORE_NOTHING),
+        reverse:
+          reverse === null
+            ? null
+            : { command: reverse, argv: toArgv(reverse), risk: riskOf(reverse) },
         exitCode: result.exitCode,
         stdout: result.stdout,
         stderr: result.stderr,

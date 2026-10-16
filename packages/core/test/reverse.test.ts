@@ -20,25 +20,69 @@ const BEFORE: BeforeState = {
   targets: { feature: FEATURE, v1: V1 },
 };
 
-const cases: readonly (readonly [GitCommand, readonly string[] | null])[] = [
-  [{ op: 'add', paths: ['a.txt', 'b.txt'] }, ['restore', '--staged', '--', 'a.txt', 'b.txt']],
-  [{ op: 'unstage', paths: ['a.txt'] }, ['add', '--', 'a.txt']],
-  [{ op: 'commit', message: 'x' }, ['reset', '--soft', HEAD]],
-  [{ op: 'merge', ref: 'feature' }, ['reset', '--hard', HEAD]],
-  [{ op: 'pull' }, ['reset', '--hard', HEAD]],
-  [{ op: 'reset-hard', rev: 'HEAD~1' }, ['reset', '--hard', HEAD]],
-  [{ op: 'branch-create', name: 'new' }, ['branch', '-d', 'new']],
-  [{ op: 'branch-rename', name: 'feature', to: 'renamed' }, ['branch', '-m', 'renamed', 'feature']],
-  [{ op: 'branch-delete', name: 'feature' }, ['branch', 'feature', FEATURE]],
-  [{ op: 'tag-create', name: 'v2', rev: 'HEAD' }, ['tag', '-d', 'v2']],
-  [{ op: 'tag-delete', name: 'v1' }, ['tag', 'v1', V1]],
-  [{ op: 'checkout', ref: 'feature' }, ['switch', 'main']],
-  [{ op: 'stash-push' }, ['stash', 'pop']],
-  [{ op: 'stash-pop' }, ['stash', 'push']],
-  [{ op: 'take-side', side: 'ours', paths: ['f.txt'] }, ['checkout', '-m', '--', 'f.txt']],
+const cases: readonly (readonly [GitCommand, GitCommand | null])[] = [
+  [
+    { op: 'add', paths: ['a.txt', 'b.txt'] },
+    { op: 'unstage', paths: ['a.txt', 'b.txt'] },
+  ],
+  [
+    { op: 'unstage', paths: ['a.txt'] },
+    { op: 'add', paths: ['a.txt'] },
+  ],
+  [
+    { op: 'commit', message: 'x' },
+    { op: 'reset-soft', rev: HEAD },
+  ],
+  [
+    { op: 'merge', ref: 'feature' },
+    { op: 'reset-hard', rev: HEAD },
+  ],
+  [{ op: 'pull' }, { op: 'reset-hard', rev: HEAD }],
+  [
+    { op: 'reset-hard', rev: 'HEAD~1' },
+    { op: 'reset-hard', rev: HEAD },
+  ],
+  // The reverses that are operations of their own, added for this: a commit is undone by moving the
+  // pointer softly, and a resolution by asking git for the conflict back.
+  [
+    { op: 'commit', message: 'x', body: 'y' },
+    { op: 'reset-soft', rev: HEAD },
+  ],
+  [{ op: 'reset-soft', rev: 'HEAD~1' }, null],
+  [{ op: 'regenerate-conflict', paths: ['f.txt'] }, null],
+  [
+    { op: 'branch-create', name: 'new' },
+    { op: 'branch-delete', name: 'new' },
+  ],
+  [
+    { op: 'branch-rename', name: 'feature', to: 'renamed' },
+    { op: 'branch-rename', name: 'renamed', to: 'feature' },
+  ],
+  [
+    { op: 'branch-delete', name: 'feature' },
+    { op: 'branch-create', name: 'feature', start: FEATURE },
+  ],
+  [
+    { op: 'tag-create', name: 'v2', rev: 'HEAD' },
+    { op: 'tag-delete', name: 'v2' },
+  ],
+  [
+    { op: 'tag-delete', name: 'v1' },
+    { op: 'tag-create', name: 'v1', rev: V1 },
+  ],
+  [
+    { op: 'checkout', ref: 'feature' },
+    { op: 'checkout', ref: 'main' },
+  ],
+  [{ op: 'stash-push' }, { op: 'stash-pop' }],
+  [{ op: 'stash-pop' }, { op: 'stash-push' }],
+  [
+    { op: 'take-side', side: 'ours', paths: ['f.txt'] },
+    { op: 'regenerate-conflict', paths: ['f.txt'] },
+  ],
   [
     { op: 'resolve-conflict', path: 'f.txt', region: 0, take: 'ours' },
-    ['checkout', '-m', '--', 'f.txt'],
+    { op: 'regenerate-conflict', paths: ['f.txt'] },
   ],
   // The ones whose reverse is not a command: work that was never committed, a decision rather than
   // a line, and a read.
@@ -64,11 +108,11 @@ describe('the command that reverses an operation', () => {
   });
 
   it('a detached head is put back by sha, and a branch by its name', () => {
-    expect(reverseOf({ op: 'checkout', ref: 'feature' }, { ...BEFORE, branch: null })).toEqual([
-      'switch',
-      '--detach',
-      HEAD,
-    ]);
+    expect(reverseOf({ op: 'checkout', ref: 'feature' }, { ...BEFORE, branch: null })).toEqual({
+      op: 'checkout',
+      ref: HEAD,
+      detach: true,
+    });
     expect(reverseOf({ op: 'checkout', ref: 'feature' }, BEFORE_NOTHING)).toBeNull();
   });
 
@@ -87,17 +131,14 @@ describe('the command that reverses an operation', () => {
       });
     }
     // ...and the ones that do not need it still work, because their reverse is about the command.
-    expect(reverseOf({ op: 'add', paths: ['a.txt'] }, BEFORE_NOTHING)).toEqual([
-      'restore',
-      '--staged',
-      '--',
-      'a.txt',
-    ]);
-    expect(reverseOf({ op: 'branch-rename', name: 'a', to: 'b' }, BEFORE_NOTHING)).toEqual([
-      'branch',
-      '-m',
-      'b',
-      'a',
-    ]);
+    expect(reverseOf({ op: 'add', paths: ['a.txt'] }, BEFORE_NOTHING)).toEqual({
+      op: 'unstage',
+      paths: ['a.txt'],
+    });
+    expect(reverseOf({ op: 'branch-rename', name: 'a', to: 'b' }, BEFORE_NOTHING)).toEqual({
+      op: 'branch-rename',
+      name: 'b',
+      to: 'a',
+    });
   });
 });

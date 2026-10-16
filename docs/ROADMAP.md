@@ -189,6 +189,12 @@ The working tree becomes editable, and the confirmation machinery gets its real 
       committed (`clean`, `discard`), a dropped stash, or a decision rather than a command (a force
       push). The activity card shows it under the command with its own copy button, and the command
       reaches an agent too: `run` accepts `before` and answers with `reverse`.
+      **The undo runs**: `reverseOf` answers with a command rather than a line of text, so the card
+      has an `undo` button that goes through the same guarded path as everything else — and the
+      reverse of a destructive operation is one too, so it opens the confirmation sheet. Two
+      operations exist for it: `reset-soft`, which is what undoing a commit means (the work stays
+      staged rather than being thrown away), and `regenerate-conflict`, which asks git for a
+      conflict's markers back from the index stages. Both are reachable through `orbitree run`.
       `packages/core/test/reverse.test.ts` pins the reverse of every operation in the union, and both
       directions of the state question — what a line looks like with it, and that without it the
       operations that need it get nothing.

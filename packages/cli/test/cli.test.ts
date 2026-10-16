@@ -137,6 +137,8 @@ describe('the CLI and the app are the same program', () => {
       'tag-delete': ['v9.9.9'],
       'take-side': ['ours', 'file.txt'],
       'merge-abort': [],
+      'reset-soft': ['HEAD~1'],
+      'regenerate-conflict': ['file.txt'],
       'conflict-side': ['ours', 'file.txt'],
       'discard-hunk': ['file.txt', '0'],
       'resolve-conflict': ['file.txt', '0', 'ours'],

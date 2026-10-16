@@ -1001,15 +1001,37 @@ export function App(): React.ReactElement {
                       </button>
                       {run.reverse === null ? null : (
                         <span className="run-reverse" data-testid="activity-reverse">
-                          <span className="run-reverse-label">undo with</span>
-                          <code>{run.reverse}</code>
+                          <code>{`git ${run.reverse.argv.join(' ')}`}</code>
+                          <button
+                            type="button"
+                            className={
+                              run.reverse.risk === 'destructive' ? 'stage danger' : 'stage'
+                            }
+                            data-testid="activity-undo"
+                            disabled={busy}
+                            // The reverse of a destructive operation is one too, so it goes through
+                            // the same sheet as anything else that changes something for good.
+                            onClick={() =>
+                              runGuarded({
+                                id: 'undo',
+                                label: `Undo \`${run.command}\``,
+                                hint: `git ${run.reverse?.argv.join(' ') ?? ''}`,
+                                danger: run.reverse?.risk === 'destructive',
+                                command: run.reverse?.command ?? { op: 'status' },
+                              })
+                            }
+                          >
+                            undo
+                          </button>
                           <button
                             type="button"
                             className="run-copy"
                             data-testid="activity-copy-reverse"
                             title="Copy the command that reverses this"
                             onClick={() => {
-                              void navigator.clipboard.writeText(run.reverse ?? '');
+                              void navigator.clipboard.writeText(
+                                `git ${run.reverse?.argv.join(' ') ?? ''}`,
+                              );
                             }}
                           >
                             <CopyIcon size={12} />

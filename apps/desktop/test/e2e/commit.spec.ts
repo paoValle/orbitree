@@ -170,6 +170,18 @@ test('a summary and a description are two fields, and git joins them', async () 
     await expect(reverse).toContainText('git reset --soft');
     await expect(reverse).toContainText(before);
 
+    // Pressing it runs that command through the same guarded path as everything else. `--soft` is
+    // the whole point: the commit is gone and the work it carried is staged, not lost.
+    // The first entry is the one for the commit: the card lists the newest run at the top, and the
+    // `add` before it has an undo of its own.
+    await page.locator('[data-testid=activity-undo]').first().click();
+    await expect.poll(() => git(repo, ['rev-parse', 'HEAD'])).toBe(before);
+    // Staged, not lost: the change is in the index and nothing is left unstaged, which is what
+    // `--soft` means and the reason it is the reverse of a commit rather than a hard reset.
+    expect(await git(repo, ['diff', '--cached', '--name-only'])).toBe('base.txt');
+    expect(await git(repo, ['diff', '--name-only'])).toBe('');
+    expect(await git(repo, ['log', '-1', '--format=%s'])).toBe('base');
+
     const screenshot = resolve(import.meta.dirname, '..', '..', 'reports', 'undo.png');
     await mkdir(dirname(screenshot), { recursive: true });
     await page.screenshot({ path: screenshot });
