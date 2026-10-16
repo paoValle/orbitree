@@ -125,13 +125,17 @@ nothing that a test asserts.
 
 The working tree becomes editable, and the confirmation machinery gets its real workout.
 
-- [ ] Stage, unstage, discard (per file and per hunk), amend, commit, commit-and-push. Stage,
+- [x] Stage, unstage, discard (per file and per hunk), amend, commit, commit-and-push. Stage,
       unstage, amend and commit are in, and the parity half of this phase's exit criterion is
       asserted by `apps/desktop/test/e2e/commit.spec.ts`. Discard is in, per file and per hunk, for
       both halves of the working tree: `restore --worktree` for a tracked path, `clean -fd -- <path>`
       for one git has never seen, and `apply --reverse` of a patch built from the file's own diff for
       a single hunk. Each goes through the confirmation sheet and each is asserted by
-      `apps/desktop/test/e2e/discard.spec.ts`. commit-and-push is not.
+      `apps/desktop/test/e2e/discard.spec.ts`. Commit and push is **two commands in the order a
+      person would run them**, not one the core invented — the activity card shows both with their
+      own reverses, and a commit that failed is not followed by a push of whatever was there before.
+      `commit.spec.ts` pushes to a real bare repository beside the fixture and asserts the remote
+      holds the commit, and that both commands are in the card.
 - [x] Branch create/switch/rename/delete, tag create/delete, checkout of a commit (detached).
       Creating a branch, creating a tag and the detached checkout are the commit's own menu; switch,
       rename and delete are the BRANCHES AND TAGS card. `apps/desktop/test/e2e/refs.spec.ts` asserts

@@ -84,6 +84,14 @@ export interface WorkingTreePanelProps {
    * blank line between them: joining them here would be a second opinion about a commit's shape.
    */
   readonly onCommit?: (message: string, body: string, amend: boolean) => Promise<boolean>;
+  /**
+   * The commit and then the push, which is what a person does with a change they are finished with.
+   *
+   * Two commands rather than one the core invented: the activity card shows both, each with its own
+   * reverse, and a commit that failed is not followed by a push — which would be pushing whatever
+   * was there before.
+   */
+  readonly onCommitAndPush?: (message: string, body: string, amend: boolean) => Promise<boolean>;
 }
 
 interface SectionSpec {
@@ -133,6 +141,7 @@ export function WorkingTreePanel({
   onResolveRegion,
   revision,
   onCommit,
+  onCommitAndPush,
 }: WorkingTreePanelProps): React.ReactElement {
   const [message, setMessage] = useState('');
   const [body, setBody] = useState('');
@@ -387,6 +396,28 @@ export function WorkingTreePanel({
               >
                 Commit
               </button>
+              {onCommitAndPush === undefined ? null : (
+                <button
+                  type="button"
+                  className="primary"
+                  data-testid="commit-and-push-button"
+                  disabled={disabledReason !== null || committing}
+                  onClick={() => {
+                    setCommitting(true);
+                    void onCommitAndPush(message, body, amend)
+                      .then((committed) => {
+                        if (committed) {
+                          setMessage('');
+                          setBody('');
+                          setAmend(false);
+                        }
+                      })
+                      .finally(() => setCommitting(false));
+                  }}
+                >
+                  Commit and push
+                </button>
+              )}
             </div>
           )}
         </>

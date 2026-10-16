@@ -1,7 +1,16 @@
 import { mkdir, rm } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { closeApp, git, launchApp, mainWindow, makeRepo, orbitree, writeIn } from './support.ts';
+import {
+  closeApp,
+  git,
+  launchApp,
+  mainWindow,
+  makeRepo,
+  makeRunDir,
+  orbitree,
+  writeIn,
+} from './support.ts';
 
 const MESSAGE = 'the same commit from both keys';
 
@@ -165,6 +174,51 @@ test('a summary and a description are two fields, and git joins them', async () 
     await mkdir(dirname(screenshot), { recursive: true });
     await page.screenshot({ path: screenshot });
     console.log(`screenshot: ${screenshot}`);
+  } finally {
+    await closeApp(handle);
+    await rm(repo, { recursive: true, force: true });
+  }
+});
+
+/**
+ * Commit and push is two commands, in the order a person would run them.
+ *
+ * The remote is a bare repository beside the fixture, so the push is real and `git` is what says it
+ * arrived; and the activity card has to show both commands, because that card is the product's
+ * argument that every button is a `git` invocation somebody could type.
+ */
+test('commit and push commits, then pushes, and records both', async () => {
+  const repo = await makeRepo({ base: 'the first line\n' });
+  // `git` runs with a directory as its working directory, so the bare repository is created from
+  // the directory beside it rather than from itself, which does not exist yet.
+  const beside = await makeRunDir('remote-');
+  const remote = join(beside, 'origin.git');
+  await git(beside, ['init', '--bare', '--quiet', remote]);
+  await git(repo, ['remote', 'add', 'origin', remote]);
+  await writeIn(repo, 'base.txt', 'changed in the working tree\n');
+
+  const handle = await launchApp(repo);
+  try {
+    const page = await mainWindow(handle.app);
+    await page
+      .locator('li', { has: page.locator('[data-testid=entry-item][data-path="base.txt"]') })
+      .getByRole('button', { name: 'stage' })
+      .click();
+    await page.locator('[data-testid=commit-message]').fill('and push it somewhere');
+    await page.locator('[data-testid=commit-and-push-button]').click();
+
+    // The commit exists and the remote has it: two commands, and git is the one who says so.
+    await expect.poll(() => git(repo, ['log', '-1', '--format=%s'])).toBe('and push it somewhere');
+    const head = await git(repo, ['rev-parse', 'HEAD']);
+    // Polled with a catch, because `git` on a ref that is not there yet *rejects*: without it the
+    // first read fails the test instead of being retried, which is how this test failed first.
+    await expect
+      .poll(() => git(remote, ['rev-parse', 'refs/heads/main']).catch(() => ''))
+      .toBe(head);
+
+    const commands = page.locator('[data-testid=activity-argv]');
+    await expect(commands.first()).toContainText('git push origin HEAD');
+    await expect(commands.nth(1)).toContainText('git commit');
   } finally {
     await closeApp(handle);
     await rm(repo, { recursive: true, force: true });
