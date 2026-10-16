@@ -37,6 +37,8 @@ const KIND_ICON: Readonly<Record<FileKind, (props: IconProps) => React.ReactElem
 export type WorkingTreeSection = 'staged' | 'unstaged' | 'conflicted' | 'untracked';
 
 export interface WorkingTreePanelProps {
+  /** The card itself, so somebody else can bring it into view and put the keyboard on it. */
+  readonly cardRef?: React.RefObject<HTMLDivElement | null>;
   readonly root: string | null;
   readonly state: RepoState | null;
   readonly busy?: boolean;
@@ -129,6 +131,7 @@ function entriesFor(state: RepoState, section: WorkingTreeSection): readonly Sta
 }
 
 export function WorkingTreePanel({
+  cardRef,
   root,
   state,
   busy,
@@ -217,7 +220,14 @@ export function WorkingTreePanel({
         : null;
 
   return (
-    <div className="card working-tree" data-testid="working-tree">
+    <div
+      className="card working-tree"
+      data-testid="working-tree"
+      // Focusable by script, not by tab: it is a destination the WIP node points at, and a card in
+      // the tab order would be one more stop between the reader and the controls inside it.
+      tabIndex={-1}
+      {...(cardRef === undefined ? {} : { ref: cardRef })}
+    >
       <h2>
         <TreeIcon size={13} />
         Working tree

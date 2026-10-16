@@ -20,6 +20,12 @@ product is named anywhere in this repository.
 | Graph pane | the commit list, lanes, ref badges, controls | the widest region, because it is the product |
 | Side pane | commit detail, working tree, stashes, activity | a scrolling column of cards, in that order |
 
+A row's own actions appear when the row is pointed at or reached from the keyboard, and not before.
+The list of files, or the list of names, is what a person reads; the buttons are what they do to one
+of them, and with eight of each the buttons were half of every row and the names were fighting them
+for the width. They are hidden by opacity rather than `display`, so a row keeps its height and nothing
+jumps under the cursor, and `:focus-within` reveals them where hovering cannot.
+
 Density is a feature at this size: `ROW_HEIGHT` in the graph and the row metrics in the panes are
 declared once, and everything aligns to them. A client that shows 12 commits per screen is a client
 that makes you scroll for a branch boundary you would have seen. The monospace face is one custom

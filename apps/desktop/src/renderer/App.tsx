@@ -127,6 +127,8 @@ export function App(): React.ReactElement {
   const [runs, setRuns] = useState<readonly RunRecord[]>([]);
   /** Bumped by every operation that ran, so a pane holding a diff knows to read it again. */
   const [revision, setRevision] = useState(0);
+  /** The working tree's own card, so the WIP node can point at it without searching the document. */
+  const workingTreeCard = useRef<HTMLDivElement | null>(null);
   /** The left panel's width. Resized by dragging, remembered for the session. */
   const [panelWidth, setPanelWidth] = useState(220);
   /** The one stash whose patch is on screen, or null. Read on demand: the list is cheap, the
@@ -760,6 +762,12 @@ export function App(): React.ReactElement {
                   filter={active.filter}
                   pageSize={GRAPH_LIMIT}
                   onLoadMore={loadMore}
+                  onWipClick={() => {
+                    // The card is already on screen, so this is the whole of it: bring it into view
+                    // and put the keyboard there, because the node was clicked to get to it.
+                    workingTreeCard.current?.scrollIntoView({ block: 'nearest' });
+                    workingTreeCard.current?.focus();
+                  }}
                   onCommitAction={onCommitAction}
                 />
               )}
@@ -772,6 +780,7 @@ export function App(): React.ReactElement {
             <CommitPanel root={active?.root ?? null} hash={active?.selected ?? null} />
 
             <WorkingTreePanel
+              cardRef={workingTreeCard}
               root={active?.root ?? null}
               state={active?.status ?? null}
               busy={busy}

@@ -33,6 +33,14 @@ test('the working tree is a node above the first commit', async () => {
     if (wipBox === null || firstBox === null) throw new Error('the pane did not lay out');
     expect(wipBox.y + wipBox.height).toBeLessThanOrEqual(firstBox.y);
 
+    // The node points at the working tree: it is a button, and pressing it puts the keyboard on the
+    // card that holds the changes it is counting. In a layout where staging is a contextual panel
+    // this would switch that panel; here the card is always on screen, so pointing is the whole of it.
+    await wip.click();
+    expect(
+      await page.evaluate(() => document.activeElement?.getAttribute('data-testid') ?? ''),
+    ).toBe('working-tree');
+
     // A fact beside the rows, not a row of its own: the commit below it is still the only
     // commit, still the one HEAD points at, and still what the header counts.
     const head = (await git(repo, ['rev-parse', 'HEAD'])).trim();
