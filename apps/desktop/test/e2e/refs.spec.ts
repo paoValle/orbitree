@@ -62,6 +62,43 @@ test('a branch is switched to, renamed and deleted, and a tag is deleted', async
 });
 
 /** A branch with commits of its own is the one git refuses to delete without being told twice. */
+test('the panel filters the names it holds without reading anything', async () => {
+  const repo = await makeRepo({ base: 'the first line\n' });
+  await git(repo, ['branch', 'feature-one']);
+  await git(repo, ['branch', 'other-thing']);
+  await git(repo, ['tag', 'v0.1']);
+
+  const handle = await launchApp(repo);
+  try {
+    const page = await mainWindow(handle.app);
+    const rows = page.locator('[data-testid=ref-row]');
+    await expect(rows).toHaveCount(4);
+
+    // Filtering is a question about what is shown, so it is not a git call and the graph does not
+    // move: the count of commits read stays exactly where it was while the names come and go.
+    const before = await page.locator('[data-testid=graph-count]').innerText();
+    await page.locator('[data-testid=panel-search]').fill('feature');
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toHaveAttribute('data-ref', 'feature-one');
+    expect(await page.locator('[data-testid=graph-count]').innerText()).toBe(before);
+
+    // A tag and a submodule are filtered by the same box, because the question asked of each row is
+    // the same one.
+    await page.locator('[data-testid=panel-search]').fill('v0');
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toHaveAttribute('data-ref', 'v0.1');
+
+    await page.locator('[data-testid=panel-search]').fill('nothing matches this');
+    await expect(rows).toHaveCount(0);
+
+    await page.locator('[data-testid=panel-search]').fill('');
+    await expect(rows).toHaveCount(4);
+  } finally {
+    await closeApp(handle);
+    await rm(repo, { recursive: true, force: true });
+  }
+});
+
 test('a branch is merged into the one that is checked out', async () => {
   const repo = await makeRepo({ base: 'the first line\n' });
   await git(repo, ['checkout', '--quiet', '-b', 'work']);

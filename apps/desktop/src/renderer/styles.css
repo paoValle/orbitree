@@ -1434,3 +1434,15 @@ code {
 .working-tree:focus {
   outline: none;
 }
+
+.panel-search {
+  margin: 0 0 4px;
+  padding: 3px 6px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
