@@ -40,6 +40,8 @@ const EXAMPLE: Record<GitOp, GitCommand> = {
   'tag-delete': { op: 'tag-delete', name: 'v1' },
   merge: { op: 'merge', ref: 'feature' },
   'merge-abort': { op: 'merge-abort' },
+  'reset-soft': { op: 'reset-soft', rev: 'HEAD~1' },
+  'regenerate-conflict': { op: 'regenerate-conflict', paths: ['file.txt'] },
   'conflict-side': { op: 'conflict-side', side: 'ours', path: 'file.txt' },
   'take-side': { op: 'take-side', side: 'theirs', paths: ['file.txt'] },
   'resolve-conflict': { op: 'resolve-conflict', path: 'file.txt', region: 0, take: 'ours' },

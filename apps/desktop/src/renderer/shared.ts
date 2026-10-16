@@ -1,4 +1,4 @@
-import type { QuickCommand, RunPayload } from '../shared/api.ts';
+import type { GitCommand, QuickCommand, RunPayload } from '../shared/api.ts';
 
 /** A destructive command waiting for the reason that will let it run. */
 export interface Pending {
@@ -27,14 +27,18 @@ export interface RunRecord {
    * `null` when there is nothing to undo with: work that was never committed, or a decision such as
    * a force push. A record that offered a line anyway would be offering a command that fails.
    */
-  readonly reverse: string | null;
+  readonly reverse: {
+    readonly command: GitCommand;
+    readonly argv: readonly string[];
+    readonly risk: string;
+  } | null;
 }
 
 export function recordRun(result: RunPayload): RunRecord {
   return {
     id: crypto.randomUUID(),
     command: `git ${result.argv.join(' ')}`,
-    reverse: result.reverse === null ? null : `git ${result.reverse.join(' ')}`,
+    reverse: result.reverse,
     exitCode: result.exitCode,
     detail: (result.stderr || result.stdout).trim().split('\n').slice(0, 2).join(' · '),
   };

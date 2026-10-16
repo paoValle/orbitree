@@ -481,6 +481,8 @@ export const OP_EXAMPLES: readonly GitCommand[] = [
   { op: 'tag-delete', name: 'v1.0.0' },
   { op: 'take-side', side: 'ours', paths: ['file.txt'] },
   { op: 'merge-abort' },
+  { op: 'reset-soft', rev: 'HEAD~1' },
+  { op: 'regenerate-conflict', paths: ['file.txt'] },
   { op: 'conflict-side', side: 'ours', path: 'file.txt' },
   { op: 'discard-hunk', path: 'file.txt', hunk: 0 },
   { op: 'resolve-conflict', path: 'file.txt', region: 0, take: 'ours' },
@@ -599,6 +601,13 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
       return { op: 'take-side', side: args[0], paths: args.slice(1) };
     case 'merge-abort':
       return { op: 'merge-abort' };
+    case 'reset-soft':
+      return { op: 'reset-soft', rev: args[0] ?? 'HEAD' };
+    case 'regenerate-conflict':
+      if (args.length === 0) {
+        throw new InvalidArgumentError('regenerate-conflict needs at least one path');
+      }
+      return { op: 'regenerate-conflict', paths: [...args] };
     case 'conflict-side':
       // A read, but a caller may still ask for it through `run`: it is one of the index stages.
       if (

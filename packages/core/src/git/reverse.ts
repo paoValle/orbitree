@@ -8,11 +8,11 @@ import type { GitCommand } from './command.ts';
  * undoable if somebody wrote down where HEAD was; a deleted branch is only recoverable if somebody
  * wrote down what it pointed at. So this takes that state as an argument rather than guessing it.
  *
- * The answer is an argv to *read*, not one this codebase runs: `reset --soft` and `branch <name>
- * <sha>` are not operations the product has, and a person who wants them can copy the line into a
- * terminal, which is what the activity card is for. `null` means there is nothing to undo with —
- * either the operation destroyed work nothing git knows can bring back, or its reverse is a decision
- * (a force push) rather than a command.
+ * The answer is a **command**, not a line to read: every reverse it names is an operation this
+ * product has, so the window can run it through the same guarded path as anything else and the CLI
+ * can be handed it. `null` means there is nothing to undo with — either the operation destroyed work
+ * nothing git knows can bring back, or its reverse is a decision (a force push) rather than a
+ * command.
  */
 export interface BeforeState {
   /** The commit HEAD pointed at, or `null` in a repository with no commits yet. */
@@ -29,17 +29,17 @@ export interface BeforeState {
  */
 export const BEFORE_NOTHING: BeforeState = { head: null, branch: null, targets: {} };
 
-const backTo = (rev: string | null, mode: 'soft' | 'hard'): readonly string[] | null =>
-  rev === null ? null : ['reset', `--${mode}`, rev];
+const backTo = (rev: string | null, mode: 'soft' | 'hard'): GitCommand | null =>
+  rev === null ? null : mode === 'soft' ? { op: 'reset-soft', rev } : { op: 'reset-hard', rev };
 
-export function reverseOf(cmd: GitCommand, before: BeforeState): readonly string[] | null {
+export function reverseOf(cmd: GitCommand, before: BeforeState): GitCommand | null {
   switch (cmd.op) {
     // The index and the working tree, which are two questions rather than one: staging is undone by
     // restoring the index, and unstaging by adding again.
     case 'add':
-      return ['restore', '--staged', '--', ...cmd.paths];
+      return { op: 'unstage', paths: cmd.paths };
     case 'unstage':
-      return ['add', '--', ...cmd.paths];
+      return { op: 'add', paths: cmd.paths };
 
     // `--soft`, because the work is only in that commit: a hard reset here would throw away
     // everything the commit was made of, which is not what "undo the commit" means.
@@ -56,39 +56,40 @@ export function reverseOf(cmd: GitCommand, before: BeforeState): readonly string
       return backTo(before.head, 'hard');
 
     case 'branch-create':
-      return ['branch', '-d', cmd.name];
+      return { op: 'branch-delete', name: cmd.name };
     case 'branch-rename':
-      return ['branch', '-m', cmd.to, cmd.name];
+      return { op: 'branch-rename', name: cmd.to, to: cmd.name };
     case 'branch-delete': {
       const at = before.targets[cmd.name];
-      // Without the sha the branch pointed at there is nothing to recreate it from, and a `-d` here
-      // would be a command about a branch that does not exist — worse than saying so.
-      return at === undefined ? null : ['branch', cmd.name, at];
+      // Without the sha the branch pointed at there is nothing to recreate it from, and deleting a
+      // branch that is not there is worse than saying nothing: the answer is null.
+      return at === undefined ? null : { op: 'branch-create', name: cmd.name, start: at };
     }
 
     case 'tag-create':
-      return ['tag', '-d', cmd.name];
+      return { op: 'tag-delete', name: cmd.name };
     case 'tag-delete': {
       const at = before.targets[cmd.name];
-      return at === undefined ? null : ['tag', cmd.name, at];
+      return at === undefined ? null : { op: 'tag-create', name: cmd.name, rev: at };
     }
 
     case 'checkout':
-      if (before.branch !== null) return ['switch', before.branch];
-      return before.head === null ? null : ['switch', '--detach', before.head];
+      if (before.branch !== null) return { op: 'checkout', ref: before.branch };
+      return before.head === null ? null : { op: 'checkout', ref: before.head, detach: true };
 
     // A stash that was pushed can be popped; one that was popped can be pushed again, though that
     // is a new entry with a new sha, which is why the line is worth reading before it is copied.
     case 'stash-push':
-      return ['stash', 'pop'];
+      return { op: 'stash-pop' };
     case 'stash-pop':
-      return ['stash', 'push'];
+      return { op: 'stash-push' };
 
     // A conflict is resolvable backwards: the index stages are still there until the path is added,
     // so `checkout -m` regenerates the markers from them.
     case 'take-side':
+      return { op: 'regenerate-conflict', paths: cmd.paths };
     case 'resolve-conflict':
-      return ['checkout', '-m', '--', ...(cmd.op === 'take-side' ? cmd.paths : [cmd.path])];
+      return { op: 'regenerate-conflict', paths: [cmd.path] };
 
     // Nothing brings these back: `clean`, `discard` and `discard-hunk` remove work that was never
     // committed, and a dropped stash is gone unless somebody wrote down its sha — which the record
@@ -120,6 +121,11 @@ export function reverseOf(cmd: GitCommand, before: BeforeState): readonly string
     case 'pending-operation':
     case 'stash-show':
     case 'conflict-side':
+    // A soft reset moves a pointer that is still in the reflog, and putting the markers back is the
+    // one thing `regenerate-conflict` does; neither has a reverse of its own here because the record
+    // of the run that made it does.
+    case 'reset-soft':
+    case 'regenerate-conflict':
       return null;
   }
 }

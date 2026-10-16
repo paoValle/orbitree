@@ -82,6 +82,11 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
   z.object({ op: literal('tag-delete'), name: z.string() }),
   z.object({ op: literal('merge'), ref: z.string() }),
   z.object({ op: literal('merge-abort') }),
+  z.object({ op: literal('reset-soft'), rev: z.string().min(1) }),
+  z.object({
+    op: literal('regenerate-conflict'),
+    paths: z.readonly(z.array(z.string())),
+  }),
   z.object({
     op: literal('conflict-side'),
     side: z.enum(['base', 'ours', 'theirs']),
@@ -391,8 +396,18 @@ export interface RunPayload {
   readonly op: string;
   readonly risk: string;
   readonly argv: readonly string[];
-  /** The command that puts the repository back, or `null` when there is nothing to undo with. */
-  readonly reverse: readonly string[] | null;
+  /**
+   * The command that puts the repository back, or `null` when there is nothing to undo with.
+   *
+   * A command rather than a line of text, because the window runs it: `argv` is for showing and
+   * copying, `risk` is what decides whether running it goes through the confirmation sheet — the
+   * reverse of a `reset --hard` is another one.
+   */
+  readonly reverse: {
+    readonly command: GitCommand;
+    readonly argv: readonly string[];
+    readonly risk: string;
+  } | null;
   readonly exitCode: number;
   readonly stdout: string;
   readonly stderr: string;
