@@ -77,8 +77,13 @@ export interface WorkingTreePanelProps {
    * a picture of a moment that has passed and the most convincing kind of wrong.
    */
   readonly revision?: number;
-  /** `true` means the commit ran; the message is only cleared when it did. */
-  readonly onCommit?: (message: string, amend: boolean) => Promise<boolean>;
+  /**
+   * `true` means the commit ran; the fields are only cleared when it did.
+   *
+   * Two arguments rather than one string, because a commit has two fields and git is what puts the
+   * blank line between them: joining them here would be a second opinion about a commit's shape.
+   */
+  readonly onCommit?: (message: string, body: string, amend: boolean) => Promise<boolean>;
 }
 
 interface SectionSpec {
@@ -130,6 +135,7 @@ export function WorkingTreePanel({
   onCommit,
 }: WorkingTreePanelProps): React.ReactElement {
   const [message, setMessage] = useState('');
+  const [body, setBody] = useState('');
   const [amend, setAmend] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [selected, setSelected] = useState<{
@@ -332,13 +338,20 @@ export function WorkingTreePanel({
           {state.entries.length === 0 && <p className="empty">clean</p>}
           {onCommit !== undefined && (
             <div className="commit-box" data-testid="commit-box">
-              <textarea
-                className="commit-message"
+              <input
+                className="commit-summary"
                 data-testid="commit-message"
-                placeholder="Commit message"
-                rows={3}
+                placeholder="Summary"
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
+              />
+              <textarea
+                className="commit-body"
+                data-testid="commit-body"
+                placeholder="Description (optional)"
+                rows={3}
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
               />
               <label className="commit-amend">
                 <input
@@ -361,10 +374,11 @@ export function WorkingTreePanel({
                 disabled={disabledReason !== null || committing}
                 onClick={() => {
                   setCommitting(true);
-                  void onCommit(message, amend)
+                  void onCommit(message, body, amend)
                     .then((committed) => {
                       if (committed) {
                         setMessage('');
+                        setBody('');
                         setAmend(false);
                       }
                     })

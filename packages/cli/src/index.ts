@@ -514,7 +514,9 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
       return { op: 'discard-hunk', path, hunk };
     }
     case 'commit':
-      return { op: 'commit', message };
+      // The body arrives as an argument because `--message` is the summary: the CLI's own flags
+      // name the two fields the way the window's box does.
+      return { op: 'commit', message, ...(args[0] === undefined ? {} : { body: args[0] }) };
     case 'fetch':
       return args[0] === undefined ? { op: 'fetch' } : { op: 'fetch', remote: args[0] };
     case 'pull':

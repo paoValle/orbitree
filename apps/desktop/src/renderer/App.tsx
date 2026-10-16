@@ -733,13 +733,18 @@ export function App(): React.ReactElement {
                   command: { op: 'discard-hunk', path: entryPath, hunk },
                 })
               }
-              onCommit={(message, amend) =>
+              onCommit={(message, body, amend) =>
                 runCommand({
                   id: 'commit',
                   label: 'Commit',
                   hint: '',
                   danger: false,
-                  command: { op: 'commit', message, ...(amend ? { amend: true } : {}) },
+                  command: {
+                    op: 'commit',
+                    message,
+                    ...(body.trim() === '' ? {} : { body }),
+                    ...(amend ? { amend: true } : {}),
+                  },
                 })
               }
             />

@@ -143,8 +143,11 @@ The working tree becomes editable, and the confirmation machinery gets its real 
 - [ ] A left panel of sections: Local, Remote, Tags, Stashes, Submodules, each collapsible and
       resizable, replacing the `All branches` dropdown. It is the largest structural gap against the
       conventions the category has settled on.
-- [ ] Summary and description as two fields in the commit box, because the summary is what the graph
-      shows and everything after it is for the reader of the commit.
+- [x] Summary and description as two fields in the commit box, because the summary is what the graph
+      shows and everything after it is for the reader of the commit. The command passes them as two
+      `-m`, so git is what decides a commit body's shape; `apps/desktop/test/e2e/commit.spec.ts`
+      asserts `%B` is the summary, a blank line and the description, and that the graph shows the
+      summary.
 - [x] Merge, and the conflict screen: ours/theirs/both at the hunk level. A branch is merged into
       the current one from its own row in the BRANCHES AND TAGS card, and a merge that conflicts
       stops into a screen rather than into a failure: the three versions of a conflicted path — the

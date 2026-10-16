@@ -695,7 +695,13 @@ button.danger,
   border-top: 1px solid var(--line);
 }
 
-.commit-message {
+/* The summary is one line and the description is a box: two fields, because a commit has two. */
+.commit-summary {
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.commit-body {
   resize: vertical;
   min-height: 54px;
   font-family: var(--mono);
