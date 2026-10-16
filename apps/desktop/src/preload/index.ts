@@ -12,6 +12,7 @@ const api: OrbitreeApi = {
   graph: (path, request) => ipcRenderer.invoke(CHANNELS.graph, { path, ...request }),
   refs: (path) => ipcRenderer.invoke(CHANNELS.refs, path),
   readStash: (path) => ipcRenderer.invoke(CHANNELS.stash, path),
+  readStashPatch: (request) => ipcRenderer.invoke(CHANNELS.stashPatch, request),
   diff: (path, request) => ipcRenderer.invoke(CHANNELS.diff, { path, ...request }),
   readCommit: (path, rev) => ipcRenderer.invoke(CHANNELS.commitRead, { path, rev }),
   run: (request: RunRequest) => ipcRenderer.invoke(CHANNELS.run, request),

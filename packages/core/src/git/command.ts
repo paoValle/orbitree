@@ -68,7 +68,11 @@ export type GitCommand =
   | { readonly op: 'tag-delete'; readonly name: string }
   | { readonly op: 'merge'; readonly ref: string }
   | { readonly op: 'stash-push'; readonly message?: string }
-  | { readonly op: 'stash-pop' }
+  | { readonly op: 'stash-pop'; readonly selector?: string }
+  | { readonly op: 'stash-apply'; readonly selector: string }
+  | { readonly op: 'stash-drop'; readonly selector: string }
+  /** One stash's own patch, for looking at before deciding what to do with it. */
+  | { readonly op: 'stash-show'; readonly selector: string }
   | { readonly op: 'branch-delete'; readonly name: string; readonly force?: boolean }
   // --- remote: talks to another machine (through git, never from here) ---
   | { readonly op: 'fetch'; readonly remote?: string }
@@ -124,6 +128,7 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'commit-detail':
     case 'commit-patch':
     case 'pending-operation':
+    case 'stash-show':
       return 'read';
 
     case 'add':
@@ -136,7 +141,14 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'merge':
     case 'stash-push':
     case 'stash-pop':
+    case 'stash-apply':
       return 'local';
+
+    // Dropping a stash is the one stash operation that loses something by itself: `pop` and
+    // `apply` put the work back in the working tree first, and `drop` throws it away without
+    // putting it anywhere. Nothing refuses it, so the guard is ours.
+    case 'stash-drop':
+      return 'destructive';
 
     // `git branch -d` refuses to delete an unmerged branch; `-D` does not.
     case 'branch-delete':
@@ -337,7 +349,27 @@ export function toArgv(cmd: GitCommand): string[] {
       return ['stash', 'push', ...(cmd.message === undefined ? [] : ['-m', cmd.message])];
 
     case 'stash-pop':
-      return ['stash', 'pop'];
+      // With a selector it is `pop stash@{1}`, which is apply-then-drop for that entry: the
+      // operation is the same one git defines, on the entry the caller named.
+      return ['stash', 'pop', ...(cmd.selector === undefined ? [] : [assertSafeRef(cmd.selector)])];
+
+    case 'stash-apply':
+      return ['stash', 'apply', assertSafeRef(cmd.selector)];
+
+    case 'stash-drop':
+      return ['stash', 'drop', assertSafeRef(cmd.selector)];
+
+    // The patch a stash holds: the stash against the commit it was taken from, so the same shape
+    // as any other diff, read by the same parser and drawn by the same pane.
+    case 'stash-show':
+      return [
+        'stash',
+        'show',
+        '--patch',
+        '--no-color',
+        '--no-ext-diff',
+        assertSafeRef(cmd.selector),
+      ];
 
     case 'branch-delete':
       assertSafeName(cmd.name, 'branch name');

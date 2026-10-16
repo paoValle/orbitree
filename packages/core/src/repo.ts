@@ -174,6 +174,27 @@ export async function readStash(
   return parsed.value;
 }
 
+/**
+ * One stash's own patch: the stash against the commit it was taken from.
+ *
+ * The same shape as any other diff, which is the point — the pane that draws a commit's patch and
+ * the pane that draws a working-tree change draw this one too, and a preview that was its own
+ * rendering would be a second opinion about what a stash holds.
+ */
+export async function readStashPatch(
+  repo: RepoHandle,
+  request: { readonly selector: string },
+  options: Partial<ExecuteOptions> = {},
+): Promise<readonly DiffFile[]> {
+  const { stdout } = await executeOrThrow(
+    { op: 'stash-show', selector: request.selector },
+    { cwd: repo.root, ...options },
+  );
+  const parsed = parseDiff(stdout);
+  if (!parsed.ok) throw new RepositoryParseError('the stash patch', parsed.error, parsed.record);
+  return parsed.value;
+}
+
 export async function readDiff(
   repo: RepoHandle,
   request: { rev?: string; cached?: boolean; path?: string } = { rev: 'HEAD' },

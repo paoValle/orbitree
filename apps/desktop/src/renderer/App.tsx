@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   DEFAULT_QUICK_COMMANDS,
+  type DiffFile,
   type GitCommand,
   type GraphData,
   type QuickCommand,
@@ -8,6 +9,7 @@ import {
   type StashPayload,
 } from '../shared/api.ts';
 import { CommitPanel } from './CommitPanel.tsx';
+import { DiffView } from './DiffView.tsx';
 import { type CommitAction, GraphPane } from './GraphPane.tsx';
 import { RefsPanel } from './RefsPanel.tsx';
 import { ActivityIcon, CloseIcon, CopyIcon, quickIcon, StashIcon } from './icons.tsx';
@@ -90,6 +92,12 @@ export function App(): React.ReactElement {
   const [runs, setRuns] = useState<readonly RunRecord[]>([]);
   /** Bumped by every operation that ran, so a pane holding a diff knows to read it again. */
   const [revision, setRevision] = useState(0);
+  /** The one stash whose patch is on screen, or null. Read on demand: the list is cheap, the
+   *  patches are not. */
+  const [patch, setPatch] = useState<{
+    readonly selector: string;
+    readonly files: readonly DiffFile[];
+  } | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [ask, setAsk] = useState<AskState | null>(null);
   // The confirmation sheet takes focus when it opens. Done with a ref rather than the
@@ -313,6 +321,46 @@ export function App(): React.ReactElement {
       else void runCommand(command);
     },
     [runCommand],
+  );
+
+  /** Looking at a stash before doing anything to it. Clicking it again puts the patch away. */
+  const showStash = useCallback(
+    async (selector: string): Promise<void> => {
+      const root = active?.root ?? null;
+      if (root === null) return;
+      if (patch?.selector === selector) {
+        setPatch(null);
+        return;
+      }
+      const result = await window.orbitree.readStashPatch({ path: root, selector });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setPatch({ selector, files: result.value.files });
+    },
+    [active, patch],
+  );
+
+  const onStash = useCallback(
+    (kind: 'apply' | 'pop' | 'drop', selector: string): void => {
+      setPatch(null);
+      runGuarded({
+        id: `stash-${kind}`,
+        label: kind === 'apply' ? 'Apply stash' : kind === 'pop' ? 'Pop stash' : 'Drop stash',
+        hint: `stash ${kind} ${selector}`,
+        // Applying and popping put the work back in the working tree; dropping is the one that
+        // throws it away without putting it anywhere.
+        danger: kind === 'drop',
+        command:
+          kind === 'apply'
+            ? { op: 'stash-apply', selector }
+            : kind === 'pop'
+              ? { op: 'stash-pop', selector }
+              : { op: 'stash-drop', selector },
+      });
+    },
+    [runGuarded],
   );
 
   /**
@@ -711,16 +759,63 @@ export function App(): React.ReactElement {
                       data-testid="stash-entry"
                       data-selector={entry.selector}
                     >
-                      <span className="selector">{entry.selector}</span>
-                      <span className="subject">{entry.subject}</span>
-                      <span className="stash-date">
-                        {new Date(entry.committedAt * 1000).toISOString().slice(0, 16)} UTC
-                      </span>
+                      <div className="stash-line">
+                        <span className="selector">{entry.selector}</span>
+                        <span className="subject">{entry.subject}</span>
+                        <span className="stash-date">
+                          {new Date(entry.committedAt * 1000).toISOString().slice(0, 16)} UTC
+                        </span>
+                        <button
+                          type="button"
+                          className="stage"
+                          data-testid="stash-show"
+                          disabled={busy}
+                          onClick={() => void showStash(entry.selector)}
+                        >
+                          show
+                        </button>
+                        <button
+                          type="button"
+                          className="stage"
+                          data-testid="stash-apply"
+                          disabled={busy}
+                          onClick={() => onStash('apply', entry.selector)}
+                        >
+                          apply
+                        </button>
+                        <button
+                          type="button"
+                          className="stage"
+                          data-testid="stash-pop"
+                          disabled={busy}
+                          onClick={() => onStash('pop', entry.selector)}
+                        >
+                          pop
+                        </button>
+                        <button
+                          type="button"
+                          className="stage danger"
+                          data-testid="stash-drop"
+                          disabled={busy}
+                          onClick={() => onStash('drop', entry.selector)}
+                        >
+                          drop
+                        </button>
+                      </div>
+                      {patch?.selector === entry.selector ? (
+                        <div className="stash-patch" data-testid="stash-patch">
+                          {patch.files.map((file) => (
+                            <DiffView key={file.path} file={file} />
+                          ))}
+                        </div>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
               )}
-              <p className="empty">read-only: applying or dropping a stash is a P2 action</p>
+              <p className="empty">
+                apply and pop put the work back; drop destroys it, so it asks for a reason first
+              </p>
             </div>
 
             <div className="card">

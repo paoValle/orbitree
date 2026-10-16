@@ -81,8 +81,17 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
   z.object({ op: literal('tag-delete'), name: z.string() }),
   z.object({ op: literal('merge'), ref: z.string() }),
   z.object({ op: literal('stash-list') }),
+  z.object({ op: literal('stash-apply'), selector: z.string().min(1) }),
+  z.object({
+    op: literal('stash-pop'),
+    selector: z.exactOptional(z.string().min(1)),
+  }),
+  z.object({ op: literal('stash-drop'), selector: z.string().min(1) }),
+  // The renderer reads a stash's patch through its own channel, and this is here because the
+  // schema has to cover the command union: the app types a quick command as `GitCommand` and
+  // hands it to this shape, so a member missing here is a compile error there.
+  z.object({ op: literal('stash-show'), selector: z.string().min(1) }),
   z.object({ op: literal('stash-push'), message: z.exactOptional(z.string()) }),
-  z.object({ op: literal('stash-pop') }),
   z.object({ op: literal('branch-delete'), name: z.string(), force: z.exactOptional(z.boolean()) }),
   z.object({ op: literal('fetch'), remote: z.exactOptional(z.string()) }),
   z.object({ op: literal('pull') }),
@@ -225,6 +234,11 @@ export const statusPayloadSchema = z.object({
 
 export const stashRequestSchema = z.object({ path: z.string().min(1) });
 
+export const stashPatchRequestSchema = z.object({
+  path: z.string().min(1),
+  selector: z.string().min(1),
+});
+
 export const stashPayloadSchema = z.object({
   root: z.string().min(1),
   stashes: z.array(
@@ -237,6 +251,11 @@ export const stashPayloadSchema = z.object({
     }),
   ),
 });
+
+export interface StashPatchPayload {
+  readonly root: string;
+  readonly files: readonly DiffFile[];
+}
 
 export interface StashPayload {
   readonly root: string;
@@ -337,6 +356,11 @@ export interface OrbitreeApi {
   ) => Promise<Result<DiffPayload>>;
   readonly readCommit: (path: string, rev: string) => Promise<Result<CommitData>>;
   readonly readStash: (path: string) => Promise<Result<StashPayload>>;
+  /** One stash's patch, read on demand: a list of stashes is cheap, their patches are not. */
+  readonly readStashPatch: (request: {
+    readonly path: string;
+    readonly selector: string;
+  }) => Promise<Result<StashPatchPayload>>;
   readonly run: (request: RunRequest) => Promise<Result<RunPayload>>;
   readonly pickDirectory: () => Promise<string | null>;
   readonly togglePopup: () => Promise<Result<boolean>>;
