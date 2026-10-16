@@ -117,6 +117,13 @@ export interface GraphPaneProps {
    * owns the clipboard writes too, in the same place that reaches git.
    */
   readonly onCommitAction: (action: CommitAction, commit: CommitTarget) => void;
+  /**
+   * What the working-tree node does when it is clicked.
+   *
+   * In a layout where the staging area is a contextual panel, the node switches that panel to it; in
+   * this one the working tree is always on screen, so the only thing left to do is point at it.
+   */
+  readonly onWipClick?: () => void;
 }
 
 /**
@@ -137,6 +144,7 @@ export function GraphPane({
   pageSize,
   onLoadMore,
   onCommitAction,
+  onWipClick,
 }: GraphPaneProps): React.ReactElement {
   const rows = graph.layout.rows;
   const edges = graph.layout.edges;
@@ -439,19 +447,24 @@ export function GraphPane({
             style={{ top: firstRow * ROW_HEIGHT }}
           />
           {wipShown && firstRow === 0 && (
-            <div
+            <button
+              type="button"
               className="row wip"
               data-testid="wip-row"
+              disabled={onWipClick === undefined}
               style={{
                 top: 0,
                 height: ROW_HEIGHT,
                 paddingLeft: laneCount * LANE_WIDTH + LANE_WIDTH + TEXT_GUTTER,
               }}
+              onClick={() => onWipClick?.()}
             >
               <span className="wip-name">WIP</span>
               <span className="subject">{describeNode(graph.wip)}</span>
-              <span className="meta">not committed</span>
-            </div>
+              <span className="meta">
+                {onWipClick === undefined ? 'not committed' : 'not committed — go to it'}
+              </span>
+            </button>
           )}
           {windowRows.map((row) => {
             const isSelected = row.commit.hash === selected;

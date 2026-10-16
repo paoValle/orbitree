@@ -1411,3 +1411,26 @@ code {
   letter-spacing: 0.04em;
   font-size: 9.5px;
 }
+
+/*
+ * A working-tree row's actions appear when the row is pointed at or reached from the keyboard.
+ *
+ * The list of files is what a person reads, and the buttons are what they do to one of them: with
+ * eight of each, the buttons were half of every row and the names were fighting them for the width.
+ * Hidden by opacity rather than `display`, so the row keeps its height and nothing jumps under the
+ * cursor, and `:focus-within` so tabbing reveals them where hovering cannot.
+ */
+.working-tree .stage {
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.working-tree li:hover .stage,
+.working-tree li:focus-within .stage {
+  opacity: 1;
+}
+
+/* The destination the working-tree node points at, while it is being pointed at. */
+.working-tree:focus {
+  outline: none;
+}
