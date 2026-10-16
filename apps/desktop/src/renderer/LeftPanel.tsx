@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Ref } from '../shared/api.ts';
 import { BranchIcon, ChevronDownIcon, FileConfigIcon, RemoteIcon, TagIcon } from './icons.tsx';
 
@@ -31,6 +32,10 @@ export interface LeftPanelProps {
   readonly onDelete: (ref: Ref) => void;
 }
 
+/**
+ * A section of names: a header that collapses it, and the count of what is *shown* — a header that
+ * said `Local 12` over a list of two would be counting something the reader cannot see.
+ */
 function Section({
   title,
   refs,
@@ -67,6 +72,25 @@ export function LeftPanel({
   onRename,
   onDelete,
 }: LeftPanelProps): React.ReactElement {
+  /**
+   * The filter is here because a panel of names is worth less than the names it holds — which, on a
+   * repository with forty branches, is the difference between a list and a place to look.
+   *
+   * It filters what is *shown*: nothing is read again, so typing is not a git call and the graph does
+   * not move under the reader's hands. One filter for both kinds of row: a ref has a `shortName` and
+   * a submodule has a `path`, and the question asked of each is the same one.
+   */
+  const [query, setQuery] = useState('');
+  const needle = query.trim().toLowerCase();
+  const matching = <T extends { readonly shortName: string } | { readonly path: string }>(
+    list: readonly T[],
+  ): readonly T[] =>
+    needle === ''
+      ? list
+      : list.filter((entry) =>
+          ('shortName' in entry ? entry.shortName : entry.path).toLowerCase().includes(needle),
+        );
+
   const glyph = (kind: Ref['kind']): React.ReactElement =>
     kind === 'tag' ? (
       <TagIcon size={14} />
@@ -149,9 +173,31 @@ export function LeftPanel({
         </button>
       </div>
 
-      <Section title="Local" refs={refs.filter((ref) => ref.kind === 'branch')} render={row} />
-      <Section title="Remote" refs={refs.filter((ref) => ref.kind === 'remote')} render={row} />
-      <Section title="Tags" refs={refs.filter((ref) => ref.kind === 'tag')} render={row} />
+      <input
+        type="search"
+        className="panel-search"
+        data-testid="panel-search"
+        placeholder="Filter names"
+        aria-label="Filter branches, remotes, tags and submodules"
+        value={query}
+        onChange={(event) => setQuery(event.currentTarget.value)}
+      />
+
+      <Section
+        title="Local"
+        refs={matching(refs.filter((ref) => ref.kind === 'branch'))}
+        render={row}
+      />
+      <Section
+        title="Remote"
+        refs={matching(refs.filter((ref) => ref.kind === 'remote'))}
+        render={row}
+      />
+      <Section
+        title="Tags"
+        refs={matching(refs.filter((ref) => ref.kind === 'tag'))}
+        render={row}
+      />
 
       <details className="panel-section" data-testid="panel-section" data-section="Submodules" open>
         <summary>
@@ -159,11 +205,11 @@ export function LeftPanel({
           <span className="panel-title">Submodules</span>
           <span className="panel-count">{submodules.length}</span>
         </summary>
-        {submodules.length === 0 ? (
+        {matching(submodules).length === 0 ? (
           <p className="empty">none</p>
         ) : (
           <ul className="panel-list">
-            {submodules.map((entry) => (
+            {matching(submodules).map((entry) => (
               <li
                 key={entry.path}
                 className="panel-row"
