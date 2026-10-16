@@ -4,6 +4,7 @@ import type { PendingRef } from './git/command.ts';
 import { type GitCommand, InvalidArgumentError } from './git/command.ts';
 import { parseCommitCount } from './git/count.ts';
 import { type ConflictRegion, linesOf, parseConflictRegions } from './git/conflict.ts';
+import { visibleCommits } from './graph/visible.ts';
 import { type DiffFile, parseDiff } from './git/diff.ts';
 import { type ExecuteOptions, execute, executeOrThrow, type GitResult } from './git/exec.ts';
 import {
@@ -75,6 +76,14 @@ export interface GraphData {
    * and every other field is a commit's.
    */
   readonly stashes: readonly StashEntry[];
+  /**
+   * The names the picture is not drawing, in the order they were hidden.
+   *
+   * The commits, the layout and the count are all about the history that was read; this is the one
+   * field that says the picture is a *subset* of it, so a header can say so rather than showing a
+   * count that quietly disagrees with the rows.
+   */
+  readonly hidden: readonly string[];
 }
 
 /**
@@ -309,6 +318,8 @@ export interface GraphRequest {
   readonly limit?: number;
   readonly all?: boolean;
   readonly rev?: string;
+  /** Names whose exclusive commits are left out of the picture. Nothing is written. */
+  readonly hide?: readonly string[];
 }
 
 export async function readGraph(
@@ -357,9 +368,20 @@ export async function readGraph(
   if (!parsedCount.ok) {
     throw new RepositoryParseError('the commit count', parsedCount.error, parsedCount.record);
   }
+  // Reachability from the names that are not hidden, which is the whole of hiding: the commits kept
+  // are the ones some visible name can still reach, and the layout is laid over those, so the shape
+  // of what is drawn is the shape of what is there.
+  const hidden = request.hide ?? [];
+  const kept =
+    hidden.length === 0
+      ? parsed.value
+      : visibleCommits(parsed.value, [
+          ...refs.filter((ref) => !hidden.includes(ref.shortName)).map((ref) => ref.target),
+          ...(wip.on === null ? [] : [wip.on]),
+        ]);
   return {
-    commits: parsed.value,
-    layout: layoutGraph(parsed.value),
+    commits: kept,
+    layout: layoutGraph(kept),
     refs,
     // `refs/stash` names only the newest entry and says less than its selector does, so when the
     // stashes are in the reading the badge comes from the entry and not from the ref. The list
@@ -371,6 +393,7 @@ export async function readGraph(
     truncated: parsed.value.length < parsedCount.value,
     wip,
     stashes,
+    hidden,
   };
 }
 

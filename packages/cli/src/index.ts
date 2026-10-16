@@ -154,10 +154,23 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
     .option('--all', 'include every ref, not only the current branch')
     .option('--rev <rev>', 'the revision whose history to read, instead of HEAD')
     .option('--refs', 'include the ref list in the output (implied by --json)')
+    .option(
+      '--hide <ref>',
+      'leave the exclusive commits of this name out of the picture (repeatable)',
+      (value: string, previous: string[]) => [...previous, value],
+      [] as string[],
+    )
     .action(
       async (
         path: string,
-        opts: { json?: boolean; limit: string; all?: boolean; rev?: string; refs?: boolean },
+        opts: {
+          json?: boolean;
+          limit: string;
+          all?: boolean;
+          rev?: string;
+          refs?: boolean;
+          hide?: string[];
+        },
       ) => {
         const limit = Number.parseInt(opts.limit, 10);
         const repo = await openRepo(path);
@@ -165,6 +178,7 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
           limit,
           ...(opts.all === true ? { all: true } : {}),
           ...(opts.rev === undefined ? {} : { rev: opts.rev }),
+          ...(opts.hide === undefined || opts.hide.length === 0 ? {} : { hide: opts.hide }),
         });
         const includeRefs = opts.json === true || opts.refs === true;
         // A stash is not a ref this product lists, and a row that is one has to say so: its subject
@@ -186,6 +200,7 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
             // joined to the commit HEAD sits on. An agent that reads the graph gets it here
             // rather than having to reconstruct it from a second call.
             wip: graph.wip,
+            hidden: graph.hidden,
             commits: graph.commits,
             rows: graph.layout.rows.map((row) => {
               const stash = stashOf.get(row.commit.hash);

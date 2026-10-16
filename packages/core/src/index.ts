@@ -18,6 +18,7 @@ export * from './git/reverse.ts';
 export * from './git/stash.ts';
 export * from './git/status.ts';
 export * from './graph/layout.ts';
+export * from './graph/visible.ts';
 export * from './graph/wip.ts';
 export * from './repo.ts';
 export const SCHEMA_VERSION = 2;
