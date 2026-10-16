@@ -21,12 +21,20 @@ export interface RunRecord {
   readonly exitCode: number;
   /** The first thing the command said, or an empty string. */
   readonly detail: string;
+  /**
+   * `git` and its arguments, as the command that puts the repository back.
+   *
+   * `null` when there is nothing to undo with: work that was never committed, or a decision such as
+   * a force push. A record that offered a line anyway would be offering a command that fails.
+   */
+  readonly reverse: string | null;
 }
 
 export function recordRun(result: RunPayload): RunRecord {
   return {
     id: crypto.randomUUID(),
     command: `git ${result.argv.join(' ')}`,
+    reverse: result.reverse === null ? null : `git ${result.reverse.join(' ')}`,
     exitCode: result.exitCode,
     detail: (result.stderr || result.stdout).trim().split('\n').slice(0, 2).join(' · '),
   };

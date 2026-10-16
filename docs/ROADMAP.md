@@ -169,7 +169,17 @@ The working tree becomes editable, and the confirmation machinery gets its real 
       it anywhere. `apps/desktop/test/e2e/stash.spec.ts` asserts against git and the file on disk
       rather than against the card: showing changes nothing, applying puts the work back and keeps
       the stash, and dropping refuses without a reason and then removes it.
-- [ ] Undo: every change in the session is listed with the `git` command that reverses it.
+- [x] Undo: every change in the session is listed with the `git` command that reverses it. The
+      reverse is a pure function of the command and of the state *before* it — the commit HEAD was
+      on, the branch that was checked out, and what every branch and tag pointed at — which the
+      window already holds in memory from its last status and refs reads. `reverseOf` returns `null`
+      rather than a line that would fail when there is nothing to undo with: work that was never
+      committed (`clean`, `discard`), a dropped stash, or a decision rather than a command (a force
+      push). The activity card shows it under the command with its own copy button, and the command
+      reaches an agent too: `run` accepts `before` and answers with `reverse`.
+      `packages/core/test/reverse.test.ts` pins the reverse of every operation in the union, and both
+      directions of the state question — what a line looks like with it, and that without it the
+      operations that need it get nothing.
 - [ ] Every one of those is reachable through `orbitree run --op <op>`, with `--dry-run` first.
 
 **Exit**: `orbitree run --op commit --message x --json` and the app's Commit button produce the

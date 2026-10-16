@@ -87,6 +87,13 @@ call. The patch is built inside the executor from a read of the file, so `custom
 become the added lines of that one region. It is `local`: the three index stages survive, and
 `git checkout -m -- <path>` puts the conflict back.
 
+`run` also answers with `reverse`: the argv that puts the repository back, or `null` when there is
+nothing to undo with. It is built from the `before` the caller supplies — the commit HEAD was on, the
+branch that was checked out, and the sha of every branch and tag — because nothing in the repository
+afterwards says where it was, and a reverse computed from a guess is worse than none. `null` means
+one of three things: the operation destroyed work that was never committed, its reverse is a decision
+rather than a command (a force push), or the state before was not sent.
+
 The risk names below are what decide whether a confirmation is required:
 
 ```
