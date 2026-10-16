@@ -794,6 +794,30 @@ export function App(): React.ReactElement {
                   command: { op: 'unstage', paths: [entryPath] },
                 })
               }
+              onCommitAndPush={async (message, body, amend) => {
+                const committed = await runCommand({
+                  id: 'commit',
+                  label: 'Commit',
+                  hint: '',
+                  danger: false,
+                  command: {
+                    op: 'commit',
+                    message,
+                    ...(body.trim() === '' ? {} : { body }),
+                    ...(amend ? { amend: true } : {}),
+                  },
+                });
+                // A commit that did not happen is not followed by a push: the second command would
+                // then be pushing whatever was there before.
+                if (!committed) return false;
+                return runCommand({
+                  id: 'push',
+                  label: 'Push',
+                  hint: 'push the current branch',
+                  danger: false,
+                  command: { op: 'push', remote: 'origin', branch: 'HEAD' },
+                });
+              }}
               onDiscard={(entryPath) => {
                 // A path git has never tracked is removed by `clean`; a tracked one is restored.
                 // `restore` on an untracked path is a no-op, which would look like a broken
