@@ -479,10 +479,16 @@ export const OP_EXAMPLES: readonly GitCommand[] = [
   { op: 'checkout', ref: 'main' },
   { op: 'tag-create', name: 'v1.0.0', rev: 'HEAD' },
   { op: 'tag-delete', name: 'v1.0.0' },
+  { op: 'take-side', side: 'ours', paths: ['file.txt'] },
+  { op: 'merge-abort' },
+  { op: 'conflict-side', side: 'ours', path: 'file.txt' },
+  { op: 'discard-hunk', path: 'file.txt', hunk: 0 },
+  { op: 'resolve-conflict', path: 'file.txt', region: 0, take: 'ours' },
   { op: 'merge', ref: 'feature' },
   { op: 'stash-push' },
   { op: 'stash-pop' },
   { op: 'stash-apply', selector: 'stash@{0}' },
+  { op: 'stash-show', selector: 'stash@{0}' },
   { op: 'stash-drop', selector: 'stash@{0}' },
   { op: 'branch-delete', name: 'feature' },
   { op: 'fetch' },
@@ -566,6 +572,42 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
       return { op: 'stash-push' };
     case 'stash-pop':
       return args[0] === undefined ? { op: 'stash-pop' } : { op: 'stash-pop', selector: args[0] };
+    // The reads are operations too: `ops` publishes them, so `run` accepts them, which is what
+    // makes the list authoritative rather than a description of the mutations.
+    case 'status':
+      return { op: 'status' };
+    case 'refs':
+      return { op: 'refs' };
+    case 'graph':
+      return { op: 'graph', limit: args[0] === undefined ? 200 : Number.parseInt(args[0], 10) };
+    case 'pending-operation': {
+      const ref = args[0];
+      if (ref !== 'MERGE_HEAD' && ref !== 'CHERRY_PICK_HEAD' && ref !== 'REBASE_HEAD') {
+        throw new InvalidArgumentError(
+          'pending-operation takes MERGE_HEAD, CHERRY_PICK_HEAD or REBASE_HEAD',
+        );
+      }
+      return { op: 'pending-operation', ref };
+    }
+
+    case 'take-side':
+      // The side and then the paths, and at least one path: a side without a path is a question
+      // about nothing.
+      if ((args[0] !== 'ours' && args[0] !== 'theirs') || args[1] === undefined) {
+        throw new InvalidArgumentError('take-side takes ours or theirs, then a path');
+      }
+      return { op: 'take-side', side: args[0], paths: args.slice(1) };
+    case 'merge-abort':
+      return { op: 'merge-abort' };
+    case 'conflict-side':
+      // A read, but a caller may still ask for it through `run`: it is one of the index stages.
+      if (
+        (args[0] !== 'base' && args[0] !== 'ours' && args[0] !== 'theirs') ||
+        args[1] === undefined
+      ) {
+        throw new InvalidArgumentError('conflict-side takes base, ours or theirs, then a path');
+      }
+      return { op: 'conflict-side', side: args[0], path: args[1] };
     case 'resolve-conflict': {
       const path = args[0];
       const region = Number.parseInt(args[1] ?? '', 10);

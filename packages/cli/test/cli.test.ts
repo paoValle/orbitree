@@ -106,6 +106,80 @@ describe('the CLI and the app are the same program', () => {
     });
   });
 
+  it('[I3] every operation the CLI publishes is reachable through `run --op`', async () => {
+    // The claim of the doc and of the roadmap item: `ops` lists what `run` accepts. Two lists that
+    // can drift, so one of them — the published one — is what the test walks, and an operation that
+    // grew a name in the core and not an argv here fails as unreachable rather than as a surprise
+    // for whoever read the list and tried it.
+    const listed = await cli(['ops', '--json']);
+    const published = (
+      JSON.parse(listed.lines[0] as string) as { readonly data: readonly { op: string }[] }
+    ).data.map((entry) => entry.op);
+
+    // What each operation needs, in the order `ops` shows its argv.
+    const args: Readonly<Record<string, readonly string[]>> = {
+      'repo-root': [],
+      status: [],
+      graph: ['10'],
+      refs: [],
+      'stash-list': [],
+      diff: [],
+      'commit-detail': [],
+      'commit-patch': [],
+      'pending-operation': ['MERGE_HEAD'],
+      add: ['file.txt'],
+      unstage: ['file.txt'],
+      commit: [],
+      'branch-create': ['a-branch'],
+      'branch-rename': ['a-branch', 'another-branch'],
+      checkout: ['main'],
+      'tag-create': ['v9.9.9'],
+      'tag-delete': ['v9.9.9'],
+      'take-side': ['ours', 'file.txt'],
+      'merge-abort': [],
+      'conflict-side': ['ours', 'file.txt'],
+      'discard-hunk': ['file.txt', '0'],
+      'resolve-conflict': ['file.txt', '0', 'ours'],
+      merge: ['main'],
+      'stash-push': [],
+      'stash-pop': [],
+      'stash-apply': ['stash@{0}'],
+      'stash-show': ['stash@{0}'],
+      'stash-drop': ['stash@{0}'],
+      'branch-delete': ['a-branch'],
+      fetch: [],
+      pull: [],
+      push: ['origin', 'main'],
+      'reset-hard': ['HEAD'],
+      clean: ['file.txt'],
+      discard: ['file.txt'],
+    };
+
+    const unreachable: string[] = [];
+    for (const op of published) {
+      const needed = args[op];
+      if (needed === undefined) {
+        unreachable.push(op);
+        continue;
+      }
+      // The message is a flag rather than an argument, because a commit's other field is: the
+      // CLI's own surface names the two the way the window's box does.
+      const message = op === 'commit' ? ['--message', 'a message'] : [];
+      const flat = [...needed.flatMap((value) => ['--arg', value]), ...message];
+      // `--dry-run` is what makes this possible for the destructive ones: it resolves the argv
+      // before the confirmation check, which is the whole point of it.
+      const result = await cli(['run', root, '--op', op, ...flat, '--dry-run', '--json']);
+      const printed = JSON.parse((result.lines[0] ?? '{}') as string) as {
+        ok?: boolean;
+        data?: { argv?: readonly string[] };
+      };
+      if (result.code !== 0 || printed.ok !== true || (printed.data?.argv?.length ?? 0) === 0) {
+        unreachable.push(op);
+      }
+    }
+    expect(unreachable).toEqual([]);
+  });
+
   it('a directory that does not exist is reported as not-a-repository, not as a bad argument', async () => {
     const result = await cli(['status', join(root, 'gone'), '--json']);
     expect(result.code).toBe(EXIT.notARepository);

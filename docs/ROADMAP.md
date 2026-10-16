@@ -188,7 +188,14 @@ The working tree becomes editable, and the confirmation machinery gets its real 
       `packages/core/test/reverse.test.ts` pins the reverse of every operation in the union, and both
       directions of the state question — what a line looks like with it, and that without it the
       operations that need it get nothing.
-- [ ] Every one of those is reachable through `orbitree run --op <op>`, with `--dry-run` first.
+- [x] Every one of those is reachable through `orbitree run --op <op>`, with `--dry-run` first.
+      `packages/cli/test/cli.test.ts` walks the list `orbitree ops` publishes — 33 operations now,
+      the reads among them — and runs each one with `--dry-run`, which is what the flag is for: it
+      resolves the argv before the confirmation check. Seven operations the panel had grown were
+      missing from `commandFrom` (`take-side`, `merge-abort`, `conflict-side`, and the four reads
+      `status`, `graph`, `refs` and `pending-operation`), which is exactly the drift the test exists
+      to catch: a published list is a promise, and a caller who reads it and tries one gets the
+      promise kept or a bug.
 
 **Exit**: `orbitree run --op commit --message x --json` and the app's Commit button produce the
 same commit object on the same input — asserted by a test, not by inspection.
