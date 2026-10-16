@@ -24,12 +24,21 @@ export interface LeftPanelProps {
   readonly submodules: readonly { readonly path: string; readonly state: string }[];
   /** `*` is every ref; anything else is the revision the graph is read from. */
   readonly filter: string;
+  /**
+   * The names the picture is not drawing.
+   *
+   * A question about the *picture* and never about the repository: nothing is written, and the rows
+   * are still here — a hidden name that vanished from the list would be a name nobody could bring
+   * back.
+   */
+  readonly hidden: readonly string[];
   readonly busy?: boolean;
   readonly onFilter: (revision: string) => void;
   readonly onSwitch: (ref: Ref) => void;
   readonly onMerge: (ref: Ref) => void;
   readonly onRename: (ref: Ref) => void;
   readonly onDelete: (ref: Ref) => void;
+  readonly onToggleHide: (ref: Ref) => void;
 }
 
 /**
@@ -65,12 +74,14 @@ export function LeftPanel({
   refs,
   submodules,
   filter,
+  hidden,
   busy,
   onFilter,
   onSwitch,
   onMerge,
   onRename,
   onDelete,
+  onToggleHide,
 }: LeftPanelProps): React.ReactElement {
   /**
    * The filter is here because a panel of names is worth less than the names it holds — which, on a
@@ -114,6 +125,11 @@ export function LeftPanel({
         </span>
         {ref.shortName}
       </button>
+      {hidden.includes(ref.shortName) ? (
+        <span className="panel-note" data-testid="ref-hidden">
+          hidden
+        </span>
+      ) : null}
       {ref.isHead ? <span className="panel-current">current</span> : null}
       {ref.kind === 'branch' && !ref.isHead ? (
         <button
@@ -148,6 +164,15 @@ export function LeftPanel({
           rename
         </button>
       ) : null}
+      <button
+        type="button"
+        className="stage"
+        data-testid="ref-hide"
+        disabled={busy === true}
+        onClick={() => onToggleHide(ref)}
+      >
+        {hidden.includes(ref.shortName) ? 'show' : 'hide'}
+      </button>
       <button
         type="button"
         className="stage danger"

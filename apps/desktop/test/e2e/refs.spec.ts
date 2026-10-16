@@ -99,6 +99,57 @@ test('the panel filters the names it holds without reading anything', async () =
   }
 });
 
+test('hiding a name changes the picture and nothing else', async () => {
+  const repo = await makeRepo({ base: 'the first line\n' });
+  // A branch with a commit of its own, and a shared history: hiding the branch must drop that
+  // commit and keep everything the two names have in common.
+  await git(repo, ['checkout', '--quiet', '-b', 'lonely']);
+  await writeIn(repo, 'lonely.txt', 'only on this branch\n');
+  await commit(repo, 'a commit only lonely has');
+  await git(repo, ['checkout', '--quiet', 'main']);
+  const lonely = await git(repo, ['rev-parse', 'lonely']);
+  const shared = await git(repo, ['rev-parse', 'HEAD']);
+  expect(await git(repo, ['rev-parse', 'HEAD'])).toBe(shared);
+
+  const handle = await launchApp(repo);
+  try {
+    const page = await mainWindow(handle.app);
+    const rows = page.locator('[data-testid=commit-row]');
+    await expect(rows).toHaveCount(2);
+    await expect(page.locator('[data-testid=graph-hidden]')).toHaveCount(0);
+
+    await page.locator('[data-testid=ref-row][data-ref="lonely"] [data-testid=ref-hide]').click();
+
+    // The commit only that branch could reach is not drawn, the shared one still is, and the header
+    // says the picture is missing something — a count that disagreed with the rows would be worse
+    // than no count.
+    await expect(page.locator('[data-testid=graph-hidden]')).toContainText('hiding 1');
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toHaveAttribute('data-hash', shared);
+    await expect(page.locator(`[data-testid=commit-row][data-hash="${lonely}"]`)).toHaveCount(0);
+    // The row says it is hidden and offers the way back, because a name that vanished from the list
+    // would be a name nobody could bring back.
+    await expect(
+      page.locator('[data-testid=ref-row][data-ref="lonely"] [data-testid=ref-hidden]'),
+    ).toBeVisible();
+
+    // Nothing was written: the branch is where it was.
+    expect(await git(repo, ['rev-parse', 'lonely'])).toBe(lonely);
+
+    await page.locator('[data-testid=ref-row][data-ref="lonely"] [data-testid=ref-hide]').click();
+    await expect(rows).toHaveCount(2);
+    await expect(page.locator('[data-testid=graph-hidden]')).toHaveCount(0);
+
+    const screenshot = resolve(import.meta.dirname, '..', '..', 'reports', 'hide.png');
+    await mkdir(dirname(screenshot), { recursive: true });
+    await page.screenshot({ path: screenshot });
+    console.log(`screenshot: ${screenshot}`);
+  } finally {
+    await closeApp(handle);
+    await rm(repo, { recursive: true, force: true });
+  }
+});
+
 test('a branch is merged into the one that is checked out', async () => {
   const repo = await makeRepo({ base: 'the first line\n' });
   await git(repo, ['checkout', '--quiet', '-b', 'work']);

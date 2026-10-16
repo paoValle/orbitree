@@ -92,13 +92,24 @@ function registerHandlers(): void {
 
   ipcMain.handle(CHANNELS.graph, (_event, request: unknown) =>
     attempt(async () => {
-      const parsed = request as { path?: unknown; limit?: unknown; all?: unknown; rev?: unknown };
+      const parsed = request as {
+        path?: unknown;
+        limit?: unknown;
+        all?: unknown;
+        rev?: unknown;
+        hide?: unknown;
+      };
       const repo = await openRepo(String(parsed.path));
       const limit = Number.isInteger(parsed.limit) ? Number(parsed.limit) : 200;
       const data = await readGraph(repo, {
         limit,
         all: parsed.all === true,
         ...(typeof parsed.rev === 'string' && parsed.rev !== '' ? { rev: parsed.rev } : {}),
+        // Names, checked one by one: the renderer is a web page, and this is the list the picture
+        // will be missing.
+        ...(Array.isArray(parsed.hide) && parsed.hide.length > 0
+          ? { hide: parsed.hide.filter((name): name is string => typeof name === 'string') }
+          : {}),
       });
       return { root: repo.root, data };
     }),
