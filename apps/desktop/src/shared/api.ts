@@ -49,6 +49,7 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
     limit: z.int().min(1).max(5000),
     all: z.exactOptional(z.boolean()),
     rev: z.exactOptional(z.string().min(1)),
+    hide: z.exactOptional(z.readonly(z.array(z.string()))),
   }),
   z.object({
     op: literal('count'),

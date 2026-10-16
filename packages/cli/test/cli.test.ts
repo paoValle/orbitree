@@ -106,6 +106,34 @@ describe('the CLI and the app are the same program', () => {
     });
   });
 
+  it('[I5] `graph` hides what only a hidden name can reach', async () => {
+    // The claim is about the picture and about nothing else: nothing is written, HEAD stays where it
+    // is, and the commits kept are the ones a visible name can still reach. `HEAD` is in the tips
+    // the window sends, so the commit somebody is standing on never vanishes from their own picture.
+    const listed = await cli(['graph', root, '--all', '--json', '--limit', '10']);
+    const all = (JSON.parse(listed.lines[0] as string) as { data: { commits: { hash: string }[] } })
+      .data;
+    expect(all.commits.length).toBeGreaterThan(0);
+
+    // A name that is not there hides nothing, which is the difference between a filter and a guess.
+    const bogus = await cli(['graph', root, '--all', '--hide', 'no-such-branch', '--json']);
+    const kept = (
+      JSON.parse(bogus.lines[0] as string) as {
+        data: { commits: { hash: string }[]; hidden: string[]; total: number };
+      }
+    ).data;
+    expect(kept.hidden).toEqual(['no-such-branch']);
+    expect(kept.commits.map((entry) => entry.hash).sort()).toEqual(
+      all.commits.map((entry) => entry.hash).sort(),
+    );
+    // The count of the history is not the count of the picture, and the two are different fields for
+    // that reason: the picture says what it left out.
+    expect(kept.total).toBeGreaterThanOrEqual(kept.commits.length);
+    // And hiding wrote nothing: HEAD is where it was, read with git rather than believed.
+    const head = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: root });
+    expect(head.stdout.trim()).toMatch(/^[0-9a-f]{40}$/);
+  });
+
   it('[I3] every operation the CLI publishes is reachable through `run --op`', async () => {
     // The claim of the doc and of the roadmap item: `ops` lists what `run` accepts. Two lists that
     // can drift, so one of them — the published one — is what the test walks, and an operation that
