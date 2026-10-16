@@ -32,7 +32,7 @@ const EXAMPLE: Record<GitOp, GitCommand> = {
   'pending-operation': { op: 'pending-operation', ref: 'MERGE_HEAD' },
   add: { op: 'add', paths: ['file.txt'] },
   unstage: { op: 'unstage', paths: ['file.txt'] },
-  commit: { op: 'commit', message: 'message' },
+  commit: { op: 'commit', message: 'message', body: 'a longer description' },
   'branch-create': { op: 'branch-create', name: 'feature' },
   'branch-rename': { op: 'branch-rename', name: 'feature', to: 'feature-2' },
   checkout: { op: 'checkout', ref: 'main' },

@@ -60,7 +60,19 @@ export type GitCommand =
   // --- local: changes the repository on this disk ---
   | { readonly op: 'add'; readonly paths: readonly string[] }
   | { readonly op: 'unstage'; readonly paths: readonly string[] }
-  | { readonly op: 'commit'; readonly message: string; readonly amend?: boolean }
+  | {
+      readonly op: 'commit';
+      /** The summary: the line the graph shows. */
+      readonly message: string;
+      /**
+       * Everything after it, for the reader of the commit rather than for the graph.
+       *
+       * Passed as a second `-m` rather than joined here, because git is what puts the blank line
+       * between them: one place decides what a commit body looks like, and it is git.
+       */
+      readonly body?: string;
+      readonly amend?: boolean;
+    }
   | { readonly op: 'branch-create'; readonly name: string; readonly start?: string }
   | { readonly op: 'branch-rename'; readonly name: string; readonly to: string }
   | { readonly op: 'checkout'; readonly ref: string; readonly detach?: boolean }
@@ -336,18 +348,20 @@ export function toArgv(cmd: GitCommand): string[] {
 
     // An amend with no message keeps the existing one. `--no-edit` is what makes that true
     // for a process with no terminal: plain `--amend` would open an editor and wait for it.
-    case 'commit':
+    case 'commit': {
+      const body = cmd.body === undefined || cmd.body.trim() === '' ? [] : ['-m', cmd.body];
       if (cmd.amend === true) {
         return [
           'commit',
           '--amend',
-          ...(cmd.message.trim() === '' ? ['--no-edit'] : ['-m', cmd.message]),
+          ...(cmd.message.trim() === '' ? ['--no-edit'] : ['-m', cmd.message, ...body]),
         ];
       }
       if (cmd.message.trim() === '') {
         throw new InvalidArgumentError('a commit needs a message');
       }
-      return ['commit', '-m', cmd.message];
+      return ['commit', '-m', cmd.message, ...body];
+    }
 
     case 'branch-create':
       assertSafeName(cmd.name, 'branch name');

@@ -1,7 +1,7 @@
 import { mkdir, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { closeApp, git, launchApp, mainWindow, makeRepo, orbitree } from './support.ts';
+import { closeApp, git, launchApp, mainWindow, makeRepo, orbitree, writeIn } from './support.ts';
 
 const MESSAGE = 'the same commit from both keys';
 
@@ -117,6 +117,42 @@ test('amend rewrites the message without adding a commit', async () => {
     expect(await git(repo, ['rev-list', '--count', 'HEAD'])).toBe(before);
     expect(await git(repo, ['log', '-1', '--format=%s'])).toBe('the amended message');
   } finally {
+    await rm(repo, { recursive: true, force: true });
+  }
+});
+
+/**
+ * A commit has two fields, and git is what puts the blank line between them.
+ *
+ * The box has a summary line and a description box; the command passes them as two `-m`, not as one
+ * string this codebase joined. So the assertion is about what git made of them: `%B` is the summary,
+ * a blank line, then the description.
+ */
+test('a summary and a description are two fields, and git joins them', async () => {
+  const repo = await makeRepo({ base: 'the first line\n' });
+  await writeIn(repo, 'base.txt', 'changed in the working tree\n');
+
+  const handle = await launchApp(repo);
+  try {
+    const page = await mainWindow(handle.app);
+    await page
+      .locator('li', { has: page.locator('[data-testid=entry-item][data-path="base.txt"]') })
+      .getByRole('button', { name: 'stage' })
+      .click();
+    await page.locator('[data-testid=commit-message]').fill('say what changed');
+    await page.locator('[data-testid=commit-body]').fill('and why, for whoever reads it later');
+    await page.locator('[data-testid=commit-button]').click();
+
+    await expect.poll(() => git(repo, ['log', '-1', '--format=%B'])).toContain('and why');
+    const message = await git(repo, ['log', '-1', '--format=%B']);
+    expect(message.split('\n\n')[0]).toBe('say what changed');
+    expect(message.split('\n\n')[1]).toBe('and why, for whoever reads it later');
+    // The window shows the summary in the graph, which is what the summary is for.
+    await expect(page.locator('[data-testid=commit-row]').first()).toContainText(
+      'say what changed',
+    );
+  } finally {
+    await closeApp(handle);
     await rm(repo, { recursive: true, force: true });
   }
 });

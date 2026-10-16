@@ -72,6 +72,7 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
   z.object({
     op: literal('commit'),
     message: z.string(),
+    body: z.exactOptional(z.string()),
     amend: z.exactOptional(z.boolean()),
   }),
   z.object({ op: literal('branch-create'), name: z.string(), start: z.exactOptional(z.string()) }),
