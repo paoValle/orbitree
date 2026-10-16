@@ -77,12 +77,12 @@ test('a history that does not hold HEAD draws no node', async () => {
     const page = await mainWindow(handle.app);
     await expect(page.locator('[data-testid=wip-row]')).toBeVisible();
 
-    await page.selectOption('[data-testid=ref-filter]', { label: 'other' });
+    await page.locator('[data-testid=ref-row][data-ref="other"] [data-testid=ref-read]').click();
     await expect(page.locator('[data-testid=graph-count]')).toContainText('2 of 2 commits');
     await expect(page.locator('[data-testid=wip-row]')).toHaveCount(0);
 
     // Back to every ref, where the commit HEAD sits on is in the window again.
-    await page.selectOption('[data-testid=ref-filter]', { label: 'All branches' });
+    await page.locator('[data-testid=ref-all]').click();
     await expect(page.locator('[data-testid=wip-row]')).toBeVisible();
   } finally {
     await closeApp(handle);

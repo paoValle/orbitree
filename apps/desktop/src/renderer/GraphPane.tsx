@@ -1,14 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { GraphData, WorkingTreeNode } from '../shared/api.ts';
-import {
-  BranchIcon,
-  ChevronDownIcon,
-  HeadIcon,
-  type IconProps,
-  RemoteIcon,
-  StashIcon,
-  TagIcon,
-} from './icons.tsx';
+import { BranchIcon, HeadIcon, type IconProps, RemoteIcon, StashIcon, TagIcon } from './icons.tsx';
 
 /**
  * The row metrics, declared once and used by both the canvas and the rows: a canvas drawn at a
@@ -110,9 +102,13 @@ export interface GraphPaneProps {
   readonly graph: GraphData;
   readonly selected: string | null;
   readonly onSelect: (hash: string) => void;
-  /** `*` reads every ref; anything else is the revision to read instead. */
+  /**
+   * `*` reads every ref; anything else is the revision the graph is read from.
+   *
+   * The choice is made in the left panel now, so this is what the header says rather than
+   * something the pane edits.
+   */
   readonly filter: string;
-  readonly onFilterChange: (value: string) => void;
   /** One page of history; the load-more button asks for one more. */
   readonly pageSize: number;
   readonly onLoadMore: () => void;
@@ -138,7 +134,6 @@ export function GraphPane({
   selected,
   onSelect,
   filter,
-  onFilterChange,
   pageSize,
   onLoadMore,
   onCommitAction,
@@ -160,19 +155,10 @@ export function GraphPane({
   const commitCount = rows.length;
   const total = commitCount + offset;
 
-  // Branches first, then remotes, then tags: the order a reader looks for a history in.
-  const refOptions = useMemo(
-    () => [
-      ...graph.refs.filter((ref) => ref.kind === 'branch'),
-      ...graph.refs.filter((ref) => ref.kind === 'remote'),
-      ...graph.refs.filter((ref) => ref.kind === 'tag'),
-    ],
-    [graph.refs],
-  );
-
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
+  const previousFilter = useRef(filter);
   const [viewportHeight, setViewportHeight] = useState(0);
 
   // One menu at a time, anchored where it was opened. The pointer position is kept unclamped
@@ -264,6 +250,19 @@ export function GraphPane({
     closeMenu(true);
     onCommitAction(action, { hash: menu.hash, subject: menu.subject });
   };
+
+  /**
+   * When the history being read changes, the reader's place is the graph.
+   *
+   * The choice is made in the left panel now, so the focus has to be moved here on purpose: the
+   * arrow keys should walk the history that was just asked for, not the list of names it was asked
+   * from. Only on a change, so the first render does not take focus from whatever else wants it.
+   */
+  useEffect(() => {
+    if (previousFilter.current === filter) return;
+    previousFilter.current = filter;
+    scrollRef.current?.focus();
+  }, [filter]);
 
   useLayoutEffect(() => {
     const element = scrollRef.current;
@@ -415,27 +414,7 @@ export function GraphPane({
     <div className="graph">
       <div className="graph-head">
         <span data-testid="graph-count">{describeWindow(graph, laneCount)}</span>
-        <span className="select-wrap">
-          <select
-            data-testid="ref-filter"
-            aria-label="History"
-            value={filter}
-            onChange={(event) => {
-              onFilterChange(event.target.value);
-              // Release the select so the arrow keys stay on the graph rows, which is where
-              // the reader is looking after asking for a different history.
-              scrollRef.current?.focus();
-            }}
-          >
-            <option value="*">All branches</option>
-            {refOptions.map((ref) => (
-              <option key={ref.name} value={ref.shortName}>
-                {ref.shortName}
-              </option>
-            ))}
-          </select>
-          <ChevronDownIcon size={12} />
-        </span>
+        {filter === '*' ? null : <span className="graph-history">on {filter}</span>}
         {graph.truncated && (
           <button type="button" data-testid="load-more" onClick={onLoadMore}>
             Load {pageSize} more
