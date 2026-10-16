@@ -175,6 +175,25 @@ export async function readStash(
 }
 
 /**
+ * One of the three versions of a conflicted path: what the two branches had in common, what this
+ * branch has, and what the other one has.
+ *
+ * The three live in the index as stages 1, 2 and 3 for as long as the conflict is unresolved, which
+ * is why the screen can show all of them without touching a merge in progress.
+ */
+export async function readConflictSide(
+  repo: RepoHandle,
+  request: { readonly path: string; readonly side: 'base' | 'ours' | 'theirs' },
+  options: Partial<ExecuteOptions> = {},
+): Promise<string> {
+  const { stdout } = await executeOrThrow(
+    { op: 'conflict-side', side: request.side, path: request.path },
+    { cwd: repo.root, ...options },
+  );
+  return stdout;
+}
+
+/**
  * One stash's own patch: the stash against the commit it was taken from.
  *
  * The same shape as any other diff, which is the point — the pane that draws a commit's patch and

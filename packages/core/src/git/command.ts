@@ -67,6 +67,19 @@ export type GitCommand =
   | { readonly op: 'tag-create'; readonly name: string; readonly rev: string }
   | { readonly op: 'tag-delete'; readonly name: string }
   | { readonly op: 'merge'; readonly ref: string }
+  | { readonly op: 'merge-abort' }
+  /** One of the three versions of a conflicted path: the common ancestor, ours, or theirs. */
+  | {
+      readonly op: 'conflict-side';
+      readonly side: 'base' | 'ours' | 'theirs';
+      readonly path: string;
+    }
+  /** Take one side of a conflicted path into the working tree, leaving the conflict in the index. */
+  | {
+      readonly op: 'take-side';
+      readonly side: 'ours' | 'theirs';
+      readonly paths: readonly string[];
+    }
   | { readonly op: 'stash-push'; readonly message?: string }
   | { readonly op: 'stash-pop'; readonly selector?: string }
   | { readonly op: 'stash-apply'; readonly selector: string }
@@ -129,6 +142,7 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'commit-patch':
     case 'pending-operation':
     case 'stash-show':
+    case 'conflict-side':
       return 'read';
 
     case 'add':
@@ -142,6 +156,8 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'stash-push':
     case 'stash-pop':
     case 'stash-apply':
+    case 'merge-abort':
+    case 'take-side':
       return 'local';
 
     // Dropping a stash is the one stash operation that loses something by itself: `pop` and
@@ -344,6 +360,27 @@ export function toArgv(cmd: GitCommand): string[] {
 
     case 'merge':
       return ['merge', '--no-edit', assertSafeRef(cmd.ref)];
+
+    case 'merge-abort':
+      return ['merge', '--abort'];
+
+    // `--ours`/`--theirs` write one side of the file and leave the three stages in the index, so
+    // nothing is lost: `git checkout -m -- <path>` puts the conflict markers back. That is why
+    // this is not destructive, and why marking the path resolved is a separate step (`add`).
+    case 'take-side':
+      return ['checkout', `--${cmd.side}`, '--', ...assertSafePaths(cmd.paths)];
+
+    // `:2:path` is the index stage, and the leading colon is what makes this safe to build from a
+    // path: the argument can never be read as a flag, whatever the path starts with. `assertSafeRef`
+    // is deliberately not used here — its rule about a leading dash is about paths git would read as
+    // options, and a conflicted file may legitimately be called `-leading-dash`.
+    case 'conflict-side': {
+      if (cmd.path === '' || cmd.path.includes('\u0000')) {
+        throw new InvalidArgumentError('empty path');
+      }
+      const stage = cmd.side === 'base' ? 1 : cmd.side === 'ours' ? 2 : 3;
+      return ['show', `:${stage}:${cmd.path}`];
+    }
 
     case 'stash-push':
       return ['stash', 'push', ...(cmd.message === undefined ? [] : ['-m', cmd.message])];

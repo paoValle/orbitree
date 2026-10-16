@@ -80,6 +80,17 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
   z.object({ op: literal('tag-create'), name: z.string(), rev: z.string() }),
   z.object({ op: literal('tag-delete'), name: z.string() }),
   z.object({ op: literal('merge'), ref: z.string() }),
+  z.object({ op: literal('merge-abort') }),
+  z.object({
+    op: literal('conflict-side'),
+    side: z.enum(['base', 'ours', 'theirs']),
+    path: z.string().min(1),
+  }),
+  z.object({
+    op: literal('take-side'),
+    side: z.enum(['ours', 'theirs']),
+    paths: z.readonly(z.array(z.string())),
+  }),
   z.object({ op: literal('stash-list') }),
   z.object({ op: literal('stash-apply'), selector: z.string().min(1) }),
   z.object({
@@ -239,6 +250,14 @@ export const stashPatchRequestSchema = z.object({
   selector: z.string().min(1),
 });
 
+export const conflictSideRequestSchema = z.object({
+  /** The repository. `file` is the conflicted path inside it, the way every other channel names a
+   *  repository and something in it. */
+  path: z.string().min(1),
+  file: z.string().min(1),
+  side: z.enum(['base', 'ours', 'theirs']),
+});
+
 export const stashPayloadSchema = z.object({
   root: z.string().min(1),
   stashes: z.array(
@@ -251,6 +270,13 @@ export const stashPayloadSchema = z.object({
     }),
   ),
 });
+
+export interface ConflictSidePayload {
+  readonly root: string;
+  readonly side: 'base' | 'ours' | 'theirs';
+  readonly path: string;
+  readonly content: string;
+}
 
 export interface StashPatchPayload {
   readonly root: string;
@@ -361,6 +387,12 @@ export interface OrbitreeApi {
     readonly path: string;
     readonly selector: string;
   }) => Promise<Result<StashPatchPayload>>;
+  /** One side of a conflicted path, read from the index stage that holds it. */
+  readonly readConflictSide: (request: {
+    readonly path: string;
+    readonly file: string;
+    readonly side: 'base' | 'ours' | 'theirs';
+  }) => Promise<Result<ConflictSidePayload>>;
   readonly run: (request: RunRequest) => Promise<Result<RunPayload>>;
   readonly pickDirectory: () => Promise<string | null>;
   readonly togglePopup: () => Promise<Result<boolean>>;

@@ -43,8 +43,8 @@ const SCREEN_COPY: Readonly<Record<ScreenState, ScreenCopy>> = {
     title: 'Merge in progress',
     truth: 'A merge has stopped and is waiting: the files listed below are still in conflict.',
     next:
-      'Resolve each conflicted file in the working tree below; finishing or aborting the merge ' +
-      'is a CLI operation for now.',
+      'Open a conflicted file to see the three versions git is holding; take a side or edit the ' +
+      'result, mark it resolved, and commit to finish — or give the merge up from the same screen.',
   },
   'cherry-pick': {
     title: 'Cherry-pick in progress',

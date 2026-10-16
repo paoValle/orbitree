@@ -1162,3 +1162,44 @@ code {
   border-left: 2px solid var(--line);
   padding-left: 8px;
 }
+
+/* A conflicted path: the three versions git holds, side by side, and the way out of the merge. */
+.conflict-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.conflict-title {
+  margin-right: auto;
+  color: var(--danger);
+}
+
+.conflict-sides {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.conflict-side h3 {
+  margin: 0 0 4px;
+  color: var(--text-dim);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.conflict-side pre {
+  margin: 0;
+  padding: 6px;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg);
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+}
