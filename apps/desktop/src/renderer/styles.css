@@ -416,11 +416,7 @@ button.danger,
 }
 
 .stash-entry {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
   padding: 3px 0;
-  min-width: 0;
 }
 
 .stash-entry .selector {
@@ -1147,4 +1143,22 @@ code {
 /* Every button after the first sits next to it rather than spreading the row out. */
 .ref-row .stage + .stage {
   margin-left: 0;
+}
+
+/* A stash, its four buttons, and — when asked for — the patch it holds. */
+.stash-line {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.stash-line .subject {
+  margin-right: auto;
+}
+
+.stash-patch {
+  margin: 6px 0 2px;
+  border-left: 2px solid var(--line);
+  padding-left: 8px;
 }

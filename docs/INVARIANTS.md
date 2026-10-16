@@ -41,7 +41,8 @@ whose risk is `destructive` unless a `confirmation` is present, and refuses a co
 `true` from a UI bug is indistinguishable from a deliberate click.
 
 **Guarded operations**: `reset-hard`, `clean`, `discard`, `discard-hunk`, `push` with `force`,
-`branch-delete` with `force`, `tag-delete`. Everything else is `read`, `local` or `remote`.
+`branch-delete` with `force`, `tag-delete`, `stash-drop`. Everything else is `read`, `local` or
+`remote`.
 
 **Without it**: a code path with a forgotten guard deletes a working tree, and nothing in the
 test suite notices.

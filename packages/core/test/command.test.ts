@@ -41,6 +41,9 @@ const EXAMPLE: Record<GitOp, GitCommand> = {
   merge: { op: 'merge', ref: 'feature' },
   'stash-push': { op: 'stash-push' },
   'stash-pop': { op: 'stash-pop' },
+  'stash-apply': { op: 'stash-apply', selector: 'stash@{0}' },
+  'stash-drop': { op: 'stash-drop', selector: 'stash@{0}' },
+  'stash-show': { op: 'stash-show', selector: 'stash@{0}' },
   'branch-delete': { op: 'branch-delete', name: 'feature' },
   fetch: { op: 'fetch' },
   pull: { op: 'pull' },
@@ -81,6 +84,7 @@ describe('the risk of an operation', () => {
       'discard',
       'discard-hunk',
       'reset-hard',
+      'stash-drop',
       'tag-delete',
     ]);
     // ... and the two that escalate only when asked to.

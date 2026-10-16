@@ -482,6 +482,8 @@ export const OP_EXAMPLES: readonly GitCommand[] = [
   { op: 'merge', ref: 'feature' },
   { op: 'stash-push' },
   { op: 'stash-pop' },
+  { op: 'stash-apply', selector: 'stash@{0}' },
+  { op: 'stash-drop', selector: 'stash@{0}' },
   { op: 'branch-delete', name: 'feature' },
   { op: 'fetch' },
   { op: 'pull' },
@@ -561,7 +563,20 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
     case 'stash-push':
       return { op: 'stash-push' };
     case 'stash-pop':
-      return { op: 'stash-pop' };
+      return args[0] === undefined ? { op: 'stash-pop' } : { op: 'stash-pop', selector: args[0] };
+    case 'stash-apply':
+    case 'stash-drop':
+    case 'stash-show': {
+      // The selector, which is `stash@{0}` or anything else git resolves as a stash: this CLI
+      // hands it back unchanged, and `assertSafeRef` in the argv is what refuses a hostile one.
+      const selector = args[0];
+      if (selector === undefined || selector === '') {
+        throw new InvalidArgumentError(
+          `${op} needs a stash selector, as \`orbitree ops\` lists it`,
+        );
+      }
+      return { op, selector };
+    }
     case 'diff':
       return { op: 'diff', rev: args[0] ?? 'HEAD' };
     case 'commit-detail':

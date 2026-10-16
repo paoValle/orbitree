@@ -74,8 +74,10 @@ path in the repository. `--op discard-hunk --arg <path> --arg <hunk>` reverses o
 path's uncommitted diff: the patch is built from a read of the file inside the process that runs
 git, so a caller names a hunk rather than supplying a patch. `--op branch-rename --arg <from> --arg
 <to>` renames a branch without depending on which one is checked out, and `--op tag-delete --arg
-<name>` removes a tag — which is `destructive`, because git has no safe form of it. The risk names
-below are what decide whether a confirmation is required:
+<name>` removes a tag — which is `destructive`, because git has no safe form of it. The stash
+operations take a selector: `--op stash-show --arg stash@{0}` reads its patch, `stash-apply` and
+`stash-pop` put the work back, and `stash-drop` destroys the entry — the only one of the four that
+is `destructive`. The risk names below are what decide whether a confirmation is required:
 
 ```
 read        nothing changes

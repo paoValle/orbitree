@@ -8,6 +8,7 @@ import {
   readGraph,
   readRefs,
   readStash,
+  readStashPatch,
   readStatus,
   riskOf,
 } from '@orbitree/core';
@@ -31,6 +32,7 @@ import {
   rememberRequestSchema,
   runRequestSchema,
   setHotkeyRequestSchema,
+  stashPatchRequestSchema,
   stashRequestSchema,
   statusPathSchema,
   statusPayloadSchema,
@@ -127,6 +129,14 @@ function registerHandlers(): void {
       // A string arrives, like on every other channel; the schema is for the value inside it.
       const repo = await openRepo(stashRequestSchema.parse({ path: String(path) }).path);
       return { root: repo.root, stashes: await readStash(repo) };
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.stashPatch, (_event, request: unknown) =>
+    attempt(async () => {
+      const parsed = stashPatchRequestSchema.parse(request);
+      const repo = await openRepo(parsed.path);
+      return { root: repo.root, files: await readStashPatch(repo, { selector: parsed.selector }) };
     }),
   );
 

@@ -146,7 +146,14 @@ The working tree becomes editable, and the confirmation machinery gets its real 
 - [ ] Summary and description as two fields in the commit box, because the summary is what the graph
       shows and everything after it is for the reader of the commit.
 - [ ] Merge, and the conflict screen: ours/theirs/both at the hunk level.
-- [ ] Stash push/pop/apply/drop, with a diff preview.
+- [x] Stash push/pop/apply/drop, with a diff preview. Push is the quick bar's Stash; the card lists
+      every entry with show, apply, pop and drop. `stash-show` reads the stash's own patch through
+      the same parser and the same pane as any other diff, so a preview is not a second opinion
+      about what a stash holds. `stash-drop` is destructive and `docs/INVARIANTS.md` lists it: pop
+      and apply put the work back in the working tree first, and drop throws it away without putting
+      it anywhere. `apps/desktop/test/e2e/stash.spec.ts` asserts against git and the file on disk
+      rather than against the card: showing changes nothing, applying puts the work back and keeps
+      the stash, and dropping refuses without a reason and then removes it.
 - [ ] Undo: every change in the session is listed with the `git` command that reverses it.
 - [ ] Every one of those is reachable through `orbitree run --op <op>`, with `--dry-run` first.
 
