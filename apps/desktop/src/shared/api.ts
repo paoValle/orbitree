@@ -91,6 +91,13 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
     side: z.enum(['ours', 'theirs']),
     paths: z.readonly(z.array(z.string())),
   }),
+  z.object({
+    op: literal('resolve-conflict'),
+    path: z.string().min(1),
+    region: z.int().min(0),
+    take: z.enum(['ours', 'theirs', 'both', 'custom']),
+    content: z.exactOptional(z.string()),
+  }),
   z.object({ op: literal('stash-list') }),
   z.object({ op: literal('stash-apply'), selector: z.string().min(1) }),
   z.object({

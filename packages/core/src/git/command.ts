@@ -80,6 +80,18 @@ export type GitCommand =
       readonly side: 'ours' | 'theirs';
       readonly paths: readonly string[];
     }
+  /**
+   * Resolve one conflict region of one path, by replacing it with one side, both, or the caller's
+   * own text. The patch is built from a fresh read of the file, so what a caller supplies is a
+   * choice and, at most, the lines of one region.
+   */
+  | {
+      readonly op: 'resolve-conflict';
+      readonly path: string;
+      readonly region: number;
+      readonly take: 'ours' | 'theirs' | 'both' | 'custom';
+      readonly content?: string;
+    }
   | { readonly op: 'stash-push'; readonly message?: string }
   | { readonly op: 'stash-pop'; readonly selector?: string }
   | { readonly op: 'stash-apply'; readonly selector: string }
@@ -158,6 +170,7 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'stash-apply':
     case 'merge-abort':
     case 'take-side':
+    case 'resolve-conflict':
       return 'local';
 
     // Dropping a stash is the one stash operation that loses something by itself: `pop` and
@@ -369,6 +382,11 @@ export function toArgv(cmd: GitCommand): string[] {
     // this is not destructive, and why marking the path resolved is a separate step (`add`).
     case 'take-side':
       return ['checkout', `--${cmd.side}`, '--', ...assertSafePaths(cmd.paths)];
+
+    // Forward rather than `--reverse`: this patch says what the file should become. It is built
+    // from a read of the file, so the lines it removes are the conflict's own.
+    case 'resolve-conflict':
+      return ['apply', '--recount', '--whitespace=nowarn', '-'];
 
     // `:2:path` is the index stage, and the leading colon is what makes this safe to build from a
     // path: the argument can never be read as a flag, whatever the path starts with. `assertSafeRef`

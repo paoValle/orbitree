@@ -42,6 +42,7 @@ const EXAMPLE: Record<GitOp, GitCommand> = {
   'merge-abort': { op: 'merge-abort' },
   'conflict-side': { op: 'conflict-side', side: 'ours', path: 'file.txt' },
   'take-side': { op: 'take-side', side: 'theirs', paths: ['file.txt'] },
+  'resolve-conflict': { op: 'resolve-conflict', path: 'file.txt', region: 0, take: 'ours' },
   'stash-push': { op: 'stash-push' },
   'stash-pop': { op: 'stash-pop' },
   'stash-apply': { op: 'stash-apply', selector: 'stash@{0}' },

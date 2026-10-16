@@ -77,7 +77,14 @@ git, so a caller names a hunk rather than supplying a patch. `--op branch-rename
 <name>` removes a tag — which is `destructive`, because git has no safe form of it. The stash
 operations take a selector: `--op stash-show --arg stash@{0}` reads its patch, `stash-apply` and
 `stash-pop` put the work back, and `stash-drop` destroys the entry — the only one of the four that
-is `destructive`. The risk names below are what decide whether a confirmation is required:
+is `destructive`. Conflict resolution is per region: `--op resolve-conflict --arg <path> --arg <region> --arg
+ours|theirs|both|custom` replaces one region of a conflicted file, where a region is counted from 0
+in the file *as it is now* — resolving one renumbers the rest, so a caller re-reads before the next
+call. The patch is built inside the executor from a read of the file, so `custom` text can only
+become the added lines of that one region. It is `local`: the three index stages survive, and
+`git checkout -m -- <path>` puts the conflict back.
+
+The risk names below are what decide whether a confirmation is required:
 
 ```
 read        nothing changes

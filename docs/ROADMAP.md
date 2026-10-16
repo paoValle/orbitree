@@ -151,8 +151,10 @@ The working tree becomes editable, and the confirmation machinery gets its real 
       (`git checkout --ours/--theirs`, which leaves the conflict in the index and is therefore
       undoable), resolving a path as `git add` under git's own word for it, and giving the merge up.
       `apps/desktop/test/e2e/conflict.spec.ts` asserts all of it against git and the file on disk.
-      Not yet: choosing per *hunk*, and an editable result — both of which need a way to write a
-      file's content through the guarded gateway, which does not exist yet.
+      Choosing per region is in the core — `orbitree run --op resolve-conflict --arg <path> --arg
+      <region> --arg ours|theirs|both|custom`, asserted by `packages/core/test/conflict.test.ts` on a
+      two-region conflict made by git — and has no button in the panel yet. Not yet: that button, and
+      an editable result.
 - [x] Stash push/pop/apply/drop, with a diff preview. Push is the quick bar's Stash; the card lists
       every entry with show, apply, pop and drop. `stash-show` reads the stash's own patch through
       the same parser and the same pane as any other diff, so a preview is not a second opinion

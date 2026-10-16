@@ -9,6 +9,7 @@ export const APP_NAME = 'orbitree';
 
 export * from './git/command.ts';
 export * from './git/count.ts';
+export * from './git/conflict.ts';
 export * from './git/diff.ts';
 export * from './git/exec.ts';
 export * from './git/log.ts';
