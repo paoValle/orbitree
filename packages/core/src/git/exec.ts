@@ -2,7 +2,7 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { type GitCommand, InvalidArgumentError, isDestructive, riskOf, toArgv } from './command.ts';
-import { countConflictStarts, parseConflictRegions, resolutionPatch } from './conflict.ts';
+import { countConflictStarts, linesOf, parseConflictRegions, resolutionPatch } from './conflict.ts';
 import { parseDiff, patchForHunk } from './diff.ts';
 import { redact } from './redact.ts';
 
@@ -201,11 +201,6 @@ export async function executeOrThrow(cmd: GitCommand, options: ExecuteOptions): 
  * caller's `custom` text can only ever become the *added* lines of that one region — it cannot name
  * another file, and it cannot become a header, because every added line is prefixed.
  */
-/** A caller's text as lines. Empty text is *no* lines, which is how a region is deleted. */
-function contentLines(text: string): string[] {
-  return text === '' ? [] : text.replace(/\n$/, '').split('\n');
-}
-
 function resolutionPatchFor(
   cmd: Extract<GitCommand, { op: 'resolve-conflict' }>,
   cwd: string,
@@ -220,7 +215,7 @@ function resolutionPatchFor(
       `${cmd.path} does not end with a newline, which a patch cannot express`,
     );
   }
-  const lines = text.split('\n').slice(0, -1);
+  const lines = linesOf(text);
   const regions = parseConflictRegions(lines);
   // A file with a marker the parser could not pair up is a file whose regions are not the ones a
   // caller counted, and resolving region 2 of a half-read list would be resolving a different one.
@@ -240,7 +235,7 @@ function resolutionPatchFor(
         ? region.theirs
         : cmd.take === 'both'
           ? [...region.ours, ...region.theirs]
-          : contentLines(cmd.content ?? '');
+          : linesOf(cmd.content ?? '');
   return resolutionPatch(cmd.path, lines, region, replacement);
 }
 

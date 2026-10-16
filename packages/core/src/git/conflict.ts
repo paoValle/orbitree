@@ -31,6 +31,14 @@ export interface ConflictRegion {
 }
 
 /**
+ * Text as lines. Empty text is no lines at all, which is how a region is deleted; a trailing
+ * newline belongs to the file and not to a line.
+ */
+export function linesOf(text: string): string[] {
+  return text === '' ? [] : text.replace(/\n$/, '').split('\n');
+}
+
+/**
  * Every region the markers describe, in order.
  *
  * A file whose markers do not pair up yields the regions that do: a caller comparing the count
