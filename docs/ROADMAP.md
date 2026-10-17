@@ -310,14 +310,21 @@ Remotes, credentials, and the errors that come with the network.
 the app, each with the token coming from the system helper and never appearing in a log —
 checked by a test that greps the session log for the token's shape.
 
-Not met, and the two halves are in different states. The second — the token never appearing — is
-testable without a network and is tested: a push to a URL holding a token reaches neither the CLI's
-output nor the copy button, `[I8]` pins it, and there is no session log to grep because the app writes
-none, so the surfaces that could leak are the argv, the stderr and the state file. The first half
-needs a token that came from a helper, which is the credentials item above and waits on the decision
-of whether the core may spawn anything but git. A test that pushes to a real GitHub and a real
-self-hosted GitLab would need two accounts and two tokens in CI; the honest version of it, when the
-credentials item lands, is a local bare repository behind a helper that answers.
+Met against a real transport, and **not** against GitHub or GitLab. `packages/core/test/credential-push.test.ts`
+runs the whole shape of the criterion locally: a bare repository served over HTTP by a node server in
+front of `git http-backend`, refusing every request without Basic auth; a credential helper — the same
+canned helper a person would write — answering with a token; `push` through the product's own
+executor; and git's answer from *inside* the remote saying the commit arrived. The same fixture given
+the wrong token is what `diagnoseFailure` is asked about, so the "token refused" sentence is tested
+against a real 401 rather than a copied string, and `credential-fill` is asked the same question the
+push answered. Nothing the product prints or holds contains the token: that is `[I8]`, asserted both
+here and in the CLI's own output.
+
+What is still not met is the part that names two forges, and the reason is not the product: a test
+that pushed to GitHub and to a self-hosted GitLab would need two accounts and two tokens in CI, and it
+would be testing them rather than this. The app's half of it — a push from the window, with the
+command and its outcome on the activity card — is `commit.spec.ts` and `activity.spec.ts`, which push
+through the same executor this test does.
 
 ## P3.5 — Explain
 
