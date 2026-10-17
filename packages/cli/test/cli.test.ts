@@ -217,6 +217,37 @@ describe('the CLI and the app are the same program', () => {
     }
   });
 
+  it('[I5] `identity` says who commits are made as, and from which file', async () => {
+    // The fixture sets its own name and email, so the local scope is what answers — the machine's
+    // global config must not be able to decide what this test asserts.
+    const result = await cli(['identity', root, '--json']);
+    expect(result.code).toBe(EXIT.ok);
+    const printed = JSON.parse(result.lines[0] as string) as {
+      data: {
+        identity: {
+          name: { value: string; scope: string; origin: string } | null;
+          email: { value: string } | null;
+        };
+      };
+    };
+    expect(printed.data.identity.name?.value).toBe('CLI Test');
+    expect(printed.data.identity.name?.scope).toBe('local');
+    expect(printed.data.identity.email?.value).toBe('cli@example.invalid');
+    // Read a second way: git's own answer for the same question, and the file it names.
+    const fromGit = await execFileAsync('git', ['config', '--show-origin', 'user.email'], {
+      cwd: root,
+    });
+    expect(fromGit.stdout).toContain('cli@example.invalid');
+    expect(printed.data.identity.email?.value).toBe(
+      (await execFileAsync('git', ['config', 'user.email'], { cwd: root })).stdout.trim(),
+    );
+
+    // The text form names where each part came from, which is the half a person reads.
+    const text = (await cli(['identity', root])).lines.join('\n');
+    expect(text).toContain('CLI Test');
+    expect(text).toContain('local');
+  });
+
   it('[I3] every operation the CLI publishes is reachable through `run --op`', async () => {
     // The claim of the doc and of the roadmap item: `ops` lists what `run` accepts. Two lists that
     // can drift, so one of them — the published one — is what the test walks, and an operation that
@@ -268,6 +299,7 @@ describe('the CLI and the app are the same program', () => {
       pull: [],
       push: ['origin', 'main'],
       'remote-list': [],
+      identity: [],
       'remote-add': ['origin', 'git@example.invalid:x/y.git'],
       'remote-rename': ['origin', 'upstream'],
       'remote-set-url': ['origin', '../elsewhere'],

@@ -134,6 +134,11 @@ export type GitCommand =
     }
   | { readonly op: 'branch-delete'; readonly name: string; readonly force?: boolean }
   /**
+   * The identity commits are made with: the name, the email and the signing key in force, each with
+   * the file it came from. A read: `git config` prints the config and asks nothing of a machine.
+   */
+  | { readonly op: 'identity' }
+  /**
    * The remotes, as they are configured on this disk. Not a read of a machine: `git remote -v`
    * prints what the config says, and nothing here goes near a network.
    */
@@ -212,6 +217,7 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'conflict-side':
     case 'worktree-list':
     case 'remote-list':
+    case 'identity':
       return 'read';
 
     case 'add':
@@ -556,6 +562,12 @@ export function toArgv(cmd: GitCommand): string[] {
 
     case 'remote-list':
       return ['remote', '-v'];
+
+    // `--null` because a value may hold a newline, and `--show-scope`/`--show-origin` because
+    // "somebody's name is here" is a different answer from "this name, from this file, is the one in
+    // force". The restriction to `user.*` keeps the whole config out of the process's memory.
+    case 'identity':
+      return ['config', '--null', '--show-origin', '--show-scope', '--get-regexp', '^user\\.'];
 
     case 'remote-add':
       return ['remote', 'add', assertSafeName(cmd.name, 'remote name'), assertSafeUrl(cmd.url)];

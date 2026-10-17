@@ -33,6 +33,7 @@ import {
   readDiff,
   readGraph,
   readRefs,
+  readIdentity,
   readRemotes,
   readStash,
   readStatus,
@@ -43,6 +44,7 @@ import {
   type WorkingTreeNode,
   type Worktree,
   type Remote,
+  type Identity,
 } from '@orbitree/core';
 import { Command } from 'commander';
 
@@ -258,6 +260,19 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
       const remotes = await readRemotes(repo);
       emit(io, opts.json === true, 'remotes', { root: repo.root, remotes }, (data) =>
         describeRemotes(data.remotes),
+      );
+    });
+
+  program
+    .command('identity')
+    .description('the name, email and signing key commits are made with, and where each comes from')
+    .argument('[path]', 'a path inside the repository', '.')
+    .option('--json', 'one JSON object on stdout')
+    .action(async (path: string, opts: { json?: boolean }) => {
+      const repo = await openRepo(path);
+      const identity = await readIdentity(repo);
+      emit(io, opts.json === true, 'identity', { root: repo.root, identity }, (data) =>
+        describeIdentity(data.identity),
       );
     });
 
@@ -546,6 +561,7 @@ export const OP_EXAMPLES: readonly GitCommand[] = [
   { op: 'pull' },
   { op: 'push', remote: 'origin', branch: 'main' },
   { op: 'remote-list' },
+  { op: 'identity' },
   { op: 'remote-add', name: 'origin', url: 'git@example.invalid:x/y.git' },
   { op: 'remote-rename', name: 'origin', to: 'upstream' },
   { op: 'remote-set-url', name: 'origin', url: '../elsewhere' },
@@ -583,6 +599,8 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
       return args[0] === undefined ? { op: 'fetch' } : { op: 'fetch', remote: args[0] };
     case 'remote-list':
       return { op: 'remote-list' };
+    case 'identity':
+      return { op: 'identity' };
     case 'remote-add':
     case 'remote-set-url': {
       const [name, url] = args;
@@ -874,6 +892,21 @@ function describeWip(
   const state = waiting.length === 0 ? 'clean' : waiting.join(', ');
   // Padded to the width of a hash and the space after it, so the lane column lines up.
   return `${'WIP'.padEnd(9)}${String(lane).padStart(2)} ${state} -> ${on}`;
+}
+
+/**
+ * The identity, one line per part of it: what it says, and where it came from. A part nobody set is
+ * said to be unset rather than left out, because "git will refuse to commit" is an answer a reader
+ * needs before they try rather than after.
+ */
+function describeIdentity(identity: Identity): string {
+  const part = (label: string, value: Identity['name']): string =>
+    `${label.padEnd(12)} ${value === null ? '(unset)' : `${value.value}  (${value.scope}, ${value.origin})`}`;
+  return [
+    part('name', identity.name),
+    part('email', identity.email),
+    part('signing key', identity.signingKey),
+  ].join('\n');
 }
 
 /**

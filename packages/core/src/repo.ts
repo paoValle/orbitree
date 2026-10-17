@@ -6,7 +6,13 @@ import { parseCommitCount } from './git/count.ts';
 import { type ConflictRegion, linesOf, parseConflictRegions } from './git/conflict.ts';
 import { visibleCommits } from './graph/visible.ts';
 import { type DiffFile, parseDiff } from './git/diff.ts';
-import { type ExecuteOptions, execute, executeOrThrow, type GitResult } from './git/exec.ts';
+import {
+  type ExecuteOptions,
+  execute,
+  executeOrThrow,
+  GitFailedError,
+  type GitResult,
+} from './git/exec.ts';
 import {
   type Commit,
   type CommitDetail,
@@ -17,6 +23,7 @@ import {
 } from './git/log.ts';
 import { parseStashList, type StashEntry } from './git/stash.ts';
 import { parseRemotes, type Remote } from './git/remote.ts';
+import { type Identity, parseIdentity } from './git/identity.ts';
 import { parseWorktrees, type Worktree } from './git/worktree.ts';
 import {
   PENDING_ORDER,
@@ -285,6 +292,29 @@ export async function readRemotes(
   const { stdout } = await executeOrThrow({ op: 'remote-list' }, { cwd: repo.root, ...options });
   const parsed = parseRemotes(stdout);
   if (!parsed.ok) throw new RepositoryParseError('the remote list', parsed.error, parsed.record);
+  return parsed.value;
+}
+
+/**
+ * The identity commits are made with, and where each part of it comes from.
+ *
+ * A repository nobody has configured a name in is not an error: `git config --get-regexp` exits 1
+ * when nothing matches, which is the answer "nothing is set" rather than a failed read, and looking
+ * at a repository is not something that requires an identity.
+ */
+export async function readIdentity(
+  repo: RepoHandle,
+  options: Partial<ExecuteOptions> = {},
+): Promise<Identity> {
+  const result = await execute({ op: 'identity' }, { cwd: repo.root, ...options });
+  if (result.exitCode !== 0) {
+    const nothingMatched = result.exitCode === 1 && result.stderr.trim() === '';
+    if (!nothingMatched) {
+      throw new GitFailedError(result.argv, result.exitCode, result.stderr);
+    }
+  }
+  const parsed = parseIdentity(result.stdout);
+  if (!parsed.ok) throw new RepositoryParseError('the identity', parsed.error, parsed.record);
   return parsed.value;
 }
 

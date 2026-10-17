@@ -108,6 +108,7 @@ const cases: readonly (readonly [GitCommand, GitCommand | null])[] = [
   [{ op: 'remote-remove', name: 'origin' }, null],
   [{ op: 'remote-set-url', name: 'origin', url: '../elsewhere' }, null],
   [{ op: 'remote-list' }, null],
+  [{ op: 'identity' }, null],
   [{ op: 'status' }, null],
 ];
 

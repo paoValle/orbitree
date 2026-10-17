@@ -74,6 +74,7 @@ made.
 | `orbitree graph [path] --json` | commits, rows with lanes, edges, the working tree as the node above them, the stashes among the ordinary commits, and the refs on each commit |
 | `orbitree refs [path] --json` | branches, tags and remote refs |
 | `orbitree remotes [path] --json` | the remotes this repository is configured with: their name and their two URLs |
+| `orbitree identity [path] --json` | the name, email and signing key commits are made with, and the file each part came from |
 | `orbitree worktrees [path] --json` | every working directory this repository has checked out, the one you asked from marked |
 | `orbitree diff [path] --json [--rev <rev>] [--path <path>]` | the patch against `HEAD` (or `--rev`), as files and hunks; without `--json`, the raw patch |
 | `orbitree show [path] --json [--rev <rev>]` | one commit: its metadata and the patch it introduced, with `against` saying what the patch is measured against |

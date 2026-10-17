@@ -59,6 +59,7 @@ const EXAMPLE: Record<GitOp, GitCommand> = {
   pull: { op: 'pull' },
   push: { op: 'push', remote: 'origin', branch: 'main' },
   'remote-list': { op: 'remote-list' },
+  identity: { op: 'identity' },
   'remote-add': { op: 'remote-add', name: 'origin', url: 'git@example.invalid:x/y.git' },
   'remote-remove': { op: 'remote-remove', name: 'origin' },
   'remote-rename': { op: 'remote-rename', name: 'origin', to: 'upstream' },

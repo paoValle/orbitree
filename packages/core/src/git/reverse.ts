@@ -150,6 +150,9 @@ export function reverseOf(cmd: GitCommand, before: BeforeState): GitCommand | nu
     case 'remote-remove':
     case 'remote-set-url':
     case 'remote-list':
+    // The identity is read and never written by this product: changing it is `config --set`,
+    // which is not an operation here yet.
+    case 'identity':
       return null;
   }
 }

@@ -118,6 +118,7 @@ orbitree graph  [path] --json [--limit 200] [--all] [--rev <rev>] [--hide <ref>]
 orbitree refs   [path] --json
 orbitree worktrees [path] --json
 orbitree remotes [path] --json
+orbitree identity [path] --json
 orbitree diff   [path] --json [--rev <rev>] [--cached | --unstaged] [--path <path>]
 orbitree show   [path] --json [--rev <rev>]
 ```
@@ -197,6 +198,14 @@ lines git printed — because a remote is one thing with two URLs even though `g
 one line per URL. It is a read of the config and not of a machine: whether the other end answers is
 `fetch`'s question, and this one never touches the network. Without `--json` it prints the name,
 the fetch URL and, when it differs, the push URL.
+
+`identity` returns the name, email and signing key commits would be made with, each as
+`{ value, scope, origin }` — `scope` being `system`, `global`, `local`, `worktree` or `command`, and
+`origin` the file git read it from. A part nobody set is `null` rather than an empty string, because
+git refuses a commit without a name and that is worth knowing before trying. The resolution is git's
+own: `git config` prints the records in the order it applies them, so the last occurrence of a key is
+the one in force, and `records` keeps every `user.*` entry in that order so a key this version does
+not name is still visible.
 
 ## Changing a repository
 

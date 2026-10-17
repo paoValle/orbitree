@@ -136,6 +136,7 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
   z.object({ op: literal('branch-delete'), name: z.string(), force: z.exactOptional(z.boolean()) }),
   z.object({ op: literal('fetch'), remote: z.exactOptional(z.string()) }),
   z.object({ op: literal('remote-list') }),
+  z.object({ op: literal('identity') }),
   z.object({ op: literal('remote-add'), name: z.string().min(1), url: z.string().min(1) }),
   z.object({ op: literal('remote-remove'), name: z.string().min(1) }),
   z.object({

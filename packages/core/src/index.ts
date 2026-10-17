@@ -12,6 +12,7 @@ export * from './git/count.ts';
 export * from './git/conflict.ts';
 export * from './git/diff.ts';
 export * from './git/exec.ts';
+export * from './git/identity.ts';
 export * from './git/log.ts';
 export * from './git/redact.ts';
 export * from './git/remote.ts';
