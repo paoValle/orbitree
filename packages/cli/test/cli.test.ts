@@ -248,6 +248,33 @@ describe('the CLI and the app are the same program', () => {
     expect(text).toContain('local');
   });
 
+  it('[I5] a fetch reports its progress, as it goes and in the result', async () => {
+    // A bare repository holding this fixture's history, and a second repository to fetch it into:
+    // pushing with an explicit URL leaves the fixture itself with no remote and no new ref.
+    const beside = await mkdtemp(join(tmpdir(), 'orbitree-cli-progress-'));
+    const bare = join(beside, 'remote.git');
+    const reader = join(beside, 'reader');
+    await execFileAsync('git', ['init', '--bare', '--quiet', bare]);
+    await execFileAsync('git', ['push', '--quiet', `file://${bare}`, 'main'], { cwd: root });
+    await execFileAsync('git', ['init', '-b', 'main', '--quiet', reader]);
+    try {
+      const args = ['run', reader, '--op', 'fetch', '--arg', `file://${bare}`];
+      const text = await cli([...args, '--json']);
+      const printed = JSON.parse(text.lines[0] as string) as {
+        data: { progress: { phase: string; percent: number | null } | null; stderr: string };
+      };
+      // git writes progress only when something asked it to, so this is also the assertion that
+      // `--progress` is in the argv: without it a pipe sees nothing until the fetch is over.
+      expect(printed.data.progress?.phase).not.toBeUndefined();
+      expect(text.errors.join('\n')).toContain('Count');
+      // The lines are git's own, and the text git printed still holds them: the two reads of the
+      // same event agree.
+      expect(printed.data.stderr).toContain('Counting objects');
+    } finally {
+      await rm(beside, { recursive: true, force: true });
+    }
+  });
+
   it('[I5] a remote failure comes back explained, not only printed', async () => {
     // A push to a port nothing listens on: a real failure, instantly, and no network involved.
     const result = await cli([

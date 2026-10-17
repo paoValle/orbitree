@@ -169,6 +169,15 @@ button.danger,
   color: #ffd7d7;
 }
 
+/* What a remote command is doing right now: git's own line, in the bar where the command was asked
+   for. It stays after the command ends, because "Receiving objects 100%" is the answer to whether
+   the fetch worked. */
+.progress {
+  color: var(--text-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 /* The next step after a network failure, under the failing command rather than instead of git's
    own words. On its own line: it is a sentence, not another piece of the command's output. */
 .run-advice {

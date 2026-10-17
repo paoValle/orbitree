@@ -249,7 +249,9 @@ Rules an agent should assume:
 - Do not parse the human-readable output. It is for people and will change; use `--json`.
 - Do not use the CLI to work around the invariants (a raw `git` in a shell is outside the
   product, and `--force-with-lease` is a decision, not a default).
-- Do not assume `stderr` is empty on success: a fetch writes progress there.
+- Do not assume `stderr` is empty on success: a fetch writes progress there. The same lines arrive
+  as they happen and are also in the result, parsed, as `progress` — the last one, which is how far
+  the command got: `{ phase, percent, detail, raw }`.
 
 ## Forge operations (P5) and agents (P6)
 

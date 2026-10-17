@@ -15,6 +15,7 @@ import {
   APP_NAME,
   type CommitDetail,
   ConfirmationRequiredError,
+  describeProgress,
   diagnoseFailure,
   execute,
   type GitCommand,
@@ -28,6 +29,7 @@ import {
   openRepo,
   type Ref,
   type RepoHandle,
+  type Progress,
   type RepoState,
   readCommit,
   readDiff,
@@ -421,8 +423,16 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
       ) => {
         const command = commandFrom(opts.op, opts.arg ?? [], opts.message);
         const repo = await openRepo(path);
+        // Progress is printed as it arrives rather than with the result: a fetch that takes a minute
+        // is the case this exists for, and a line printed at the end would be a report. It goes to
+        // stderr, so `--json` is still one object on stdout.
+        const reported: Progress[] = [];
         const result = await execute(command, {
           cwd: repo.root,
+          onProgress: (progress) => {
+            reported.push(progress);
+            io.err(describeProgress(progress));
+          },
           ...(opts.confirm === undefined
             ? {}
             : {
@@ -453,6 +463,10 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
               diagnosis === null
                 ? null
                 : { failure: diagnosis.kind, what: diagnosis.what, whatToDo: diagnosis.whatToDo },
+            // The last progress line, which is how far the command got. The whole list is of
+            // interest while it runs and not after, and a window that only sees the result wants
+            // the same one line an agent does.
+            progress: reported.at(-1) ?? null,
           },
           (data) =>
             data.dryRun

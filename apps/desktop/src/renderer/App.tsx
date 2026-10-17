@@ -4,6 +4,7 @@ import {
   type DiffFile,
   type GitCommand,
   type GraphData,
+  type Progress,
   type QuickCommand,
   type RepoState,
   type StashPayload,
@@ -14,7 +15,7 @@ import { type CommitAction, GraphPane } from './GraphPane.tsx';
 import { LeftPanel } from './LeftPanel.tsx';
 import { ActivityIcon, CloseIcon, CopyIcon, quickIcon, StashIcon } from './icons.tsx';
 import { type ScreenState, StateScreen } from './StateScreen.tsx';
-import { type Pending, type RunRecord, recordRun } from './shared.ts';
+import { describeProgress, type Pending, type RunRecord, recordRun } from './shared.ts';
 import { WorkingTreePanel } from './WorkingTreePanel.tsx';
 
 /**
@@ -138,6 +139,14 @@ export function App(): React.ReactElement {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [runs, setRuns] = useState<readonly RunRecord[]>([]);
+  /**
+   * The progress of the command that is running, or of the last one that reported any.
+   *
+   * Kept after the command ends rather than cleared: a fetch that finished is a fetch that moved,
+   * and the line saying how far it got is the same line a person was watching. It is cleared when
+   * the next command starts, which is when it stops being about anything that just happened.
+   */
+  const [progress, setProgress] = useState<Progress | null>(null);
   /** Bumped by every operation that ran, so a pane holding a diff knows to read it again. */
   const [revision, setRevision] = useState(0);
   /** The working tree's own card, so the WIP node can point at it without searching the document. */
@@ -162,6 +171,11 @@ export function App(): React.ReactElement {
   useEffect(() => {
     if (ask !== null) askInput.current?.focus();
   }, [ask]);
+  // Progress arrives as it happens, from the process that runs git: an event rather than a field of
+  // the result, because the result arrives when there is nothing left to report.
+  useEffect(() => {
+    window.orbitree.onRunProgress(setProgress);
+  }, []);
 
   const active = tabs.find((tab) => tab.id === activeId) ?? null;
 
@@ -351,6 +365,7 @@ export function App(): React.ReactElement {
       const selection = active.filter;
       const requested = active.limit;
       setBusy(true);
+      setProgress(null);
       const result = await window.orbitree.run({
         path: target,
         command: command.command,
@@ -658,6 +673,11 @@ export function App(): React.ReactElement {
             );
           })}
           <span className="spacer" />
+          {progress === null ? null : (
+            <span className="progress" data-testid="run-progress" role="status">
+              {describeProgress(progress)}
+            </span>
+          )}
           <button
             type="button"
             className="quick"

@@ -15,6 +15,7 @@ export * from './git/diagnose.ts';
 export * from './git/exec.ts';
 export * from './git/identity.ts';
 export * from './git/log.ts';
+export * from './git/progress.ts';
 export * from './git/redact.ts';
 export * from './git/remote.ts';
 export * from './git/reverse.ts';

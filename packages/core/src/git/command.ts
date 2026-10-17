@@ -588,17 +588,21 @@ export function toArgv(cmd: GitCommand): string[] {
     case 'remote-set-url':
       return ['remote', 'set-url', assertSafeName(cmd.name, 'remote name'), assertSafeUrl(cmd.url)];
 
+    // `--progress` on all three: without it git reports progress only to a terminal, so a GUI or a
+    // pipe sees nothing until the command is done — which for a clone-sized fetch is the whole time
+    // somebody would want to know whether it is moving.
     case 'fetch':
-      return ['fetch', '--prune', ...(cmd.remote === undefined ? [] : [cmd.remote])];
+      return ['fetch', '--progress', '--prune', ...(cmd.remote === undefined ? [] : [cmd.remote])];
 
     // `--ff-only` by default: a divergent pull is a decision for the person in front of
     // the screen, not something a background refresh is allowed to resolve by merging.
     case 'pull':
-      return ['pull', '--ff-only'];
+      return ['pull', '--progress', '--ff-only'];
 
     case 'push':
       return [
         'push',
+        '--progress',
         cmd.remote,
         cmd.branch,
         ...(cmd.force === true ? ['--force-with-lease'] : []),

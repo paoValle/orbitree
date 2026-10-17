@@ -24,6 +24,8 @@ const api: OrbitreeApi = {
   // The main process says when the quick window appears, because the repository it is about
   // is whatever the main window last opened, and that can change while it is hidden.
   onShown: (callback) => ipcRenderer.on(CHANNELS.popupShown, () => callback()),
+  onRunProgress: (callback) =>
+    ipcRenderer.on(CHANNELS.runProgress, (_event, progress) => callback(progress)),
   showWindow: () => ipcRenderer.invoke(CHANNELS.showWindow),
   readState: () => ipcRenderer.invoke(CHANNELS.stateRead),
   remember: (path) => ipcRenderer.invoke(CHANNELS.stateRemember, { path }),

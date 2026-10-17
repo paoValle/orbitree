@@ -10,6 +10,7 @@ import {
   wholeFilePatch,
 } from './conflict.ts';
 import { parseDiff, patchForHunk } from './diff.ts';
+import { parseProgressLine, type Progress } from './progress.ts';
 import { redact } from './redact.ts';
 
 export class GitNotFoundError extends Error {
@@ -108,6 +109,15 @@ export interface ExecuteOptions {
   readonly timeoutMs?: number;
   readonly signal?: AbortSignal;
   readonly env?: NodeJS.ProcessEnv;
+  /**
+   * Called as git reports progress, one call per line, for the commands that report it at all
+   * (`fetch`, `pull` and `push`, whose argv carries `--progress`).
+   *
+   * A callback rather than a promise over a list, because a fetch that takes a minute is exactly
+   * the case this exists for: a caller that wants the lines afterwards can collect them itself, and
+   * one that wants to show them as they arrive does not have to wait for the command to finish.
+   */
+  readonly onProgress?: (progress: Progress) => void;
   /** Builds the argv and returns it without running anything. */
   readonly dryRun?: boolean;
 }
@@ -178,6 +188,7 @@ export async function execute(cmd: GitCommand, options: ExecuteOptions): Promise
     timeoutMs,
     ...(input === null ? {} : { input }),
     ...(options.signal === undefined ? {} : { signal: options.signal }),
+    ...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
   });
 
   return {
@@ -274,6 +285,8 @@ interface SpawnOptions {
   /** What the child reads on stdin, when it reads anything at all. */
   readonly input?: string;
   readonly signal?: AbortSignal;
+  /** Called per progress line, for the commands whose argv asks git for them. */
+  readonly onProgress?: (progress: Progress) => void;
 }
 
 /**
@@ -372,7 +385,20 @@ function spawnGit(
     };
 
     child.stdout?.on('data', (chunk: Buffer) => collect(out, chunk));
-    child.stderr?.on('data', (chunk: Buffer) => collect(err, chunk));
+    // Progress is on stderr, separated by carriage returns, so a line is only a line once one of
+    // those or a newline has arrived: what is left in `pending` is a row still being overwritten.
+    let pending = '';
+    child.stderr?.on('data', (chunk: Buffer) => {
+      collect(err, chunk);
+      if (options.onProgress === undefined) return;
+      pending += chunk.toString('utf8');
+      const parts = pending.split(/\r|\n/);
+      pending = parts.pop() ?? '';
+      for (const part of parts) {
+        const progress = parseProgressLine(part);
+        if (progress !== null) options.onProgress(progress);
+      }
+    });
 
     child.on('error', (error: NodeJS.ErrnoException) => {
       cleanup();

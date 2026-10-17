@@ -207,8 +207,12 @@ describe('the argv a command produces', () => {
     expect(index).not.toContain('HEAD');
   });
 
-  it('[I2] a pull is fast-forward only', () => {
-    expect(toArgv({ op: 'pull' })).toEqual(['pull', '--ff-only']);
+  it('[I2] a pull is fast-forward only, and the remote commands ask for progress', () => {
+    expect(toArgv({ op: 'pull' })).toEqual(['pull', '--progress', '--ff-only']);
+    // Without `--progress` git reports progress only to a terminal, which a GUI and a pipe are not:
+    // the flag is what makes the same lines arrive where a window or an agent can see them.
+    expect(toArgv({ op: 'fetch' })).toContain('--progress');
+    expect(toArgv({ op: 'push', remote: 'origin', branch: 'main' })).toContain('--progress');
   });
 
   it('[I2] a remote URL that git would read as a flag is refused, not passed', () => {
