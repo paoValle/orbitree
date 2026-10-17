@@ -227,7 +227,10 @@ first-class worktrees for that second reason.
 - [ ] A tab per worktree: the repository is the same, so the *history* is the same, and what differs
       is the working tree, the index and the path. A tab that says which working copy it is on, and a
       panel section listing the others with a way to open one.
-- [ ] `orbitree worktrees --json`, so an agent can name a working copy the way the window does.
+- [x] `orbitree worktrees --json`, so an agent can name a working copy the way the window does: the
+      path, the head, the branch (or `detached`, or `bare`), and the reasons git gives for a worktree
+      being locked or prunable. The one the command was run in is marked, because the same history in
+      two directories is only useful if a reader can tell which directory they asked from.
 
 **Exit**: with two worktrees of one repository, `orbitree worktrees . --json` lists both with their
 branch and their head, the window opens the second one as its own tab, and a commit made in one is

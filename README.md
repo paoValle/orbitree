@@ -72,6 +72,7 @@ made.
 | `orbitree status [path] --json` | `HEAD` (branch / detached / unborn, ahead and behind), staged, unstaged, renamed, unmerged and untracked entries |
 | `orbitree graph [path] --json` | commits, rows with lanes, edges, the working tree as the node above them, the stashes among the ordinary commits, and the refs on each commit |
 | `orbitree refs [path] --json` | branches, tags and remote refs |
+| `orbitree worktrees [path] --json` | every working directory this repository has checked out, the one you asked from marked |
 | `orbitree diff [path] --json [--rev <rev>] [--path <path>]` | the patch against `HEAD` (or `--rev`), as files and hunks; without `--json`, the raw patch |
 | `orbitree show [path] --json [--rev <rev>]` | one commit: its metadata and the patch it introduced, with `against` saying what the patch is measured against |
 | `orbitree ops --json` | every operation, its risk level, and the argv it produces |
