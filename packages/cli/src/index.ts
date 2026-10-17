@@ -501,6 +501,7 @@ export const OP_EXAMPLES: readonly GitCommand[] = [
   { op: 'conflict-side', side: 'ours', path: 'file.txt' },
   { op: 'discard-hunk', path: 'file.txt', hunk: 0 },
   { op: 'resolve-conflict', path: 'file.txt', region: 0, take: 'ours' },
+  { op: 'resolve-file', path: 'file.txt', content: 'the whole file, as it should read' },
   { op: 'merge', ref: 'feature' },
   { op: 'stash-push' },
   { op: 'stash-pop' },
@@ -632,6 +633,13 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
         throw new InvalidArgumentError('conflict-side takes base, ours or theirs, then a path');
       }
       return { op: 'conflict-side', side: args[0], path: args[1] };
+    case 'resolve-file': {
+      const filePath = args[0];
+      if (filePath === undefined || filePath === '') {
+        throw new InvalidArgumentError('resolve-file takes a path and the text it should hold');
+      }
+      return { op: 'resolve-file', path: filePath, content: args.slice(1).join('\n') };
+    }
     case 'resolve-conflict': {
       const path = args[0];
       const region = Number.parseInt(args[1] ?? '', 10);

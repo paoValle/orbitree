@@ -127,3 +127,31 @@ export function resolutionPatch(
     '',
   ].join('\n');
 }
+
+/**
+ * The patch that replaces a whole file with `replacement`, to be applied with `git apply`.
+ *
+ * The whole-file case is not a special case of `resolutionPatch` with a bigger region: a conflict is
+ * a region inside a file, and this is a file being decided on as a whole — which is what an editor
+ * does. The property is the same one, and it is the reason this is built rather than diffed: the
+ * lines to remove come from the file as it is on disk, and every line of the caller's text is
+ * prefixed, so text that looks like a patch header becomes one added line and cannot become a header.
+ */
+export function wholeFilePatch(
+  path: string,
+  lines: readonly string[],
+  replacement: readonly string[],
+): string {
+  const body: string[] = [];
+  for (const line of lines) body.push(`-${line}`);
+  for (const line of replacement) body.push(`+${line}`);
+  const quoted = quotePath(path);
+  return [
+    `diff --git a/${quoted} b/${quoted}`,
+    `--- a/${quoted}`,
+    `+++ b/${quoted}`,
+    `@@ -1,${lines.length} +1,${replacement.length} @@`,
+    ...body,
+    '',
+  ].join('\n');
+}

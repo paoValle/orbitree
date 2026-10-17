@@ -99,6 +99,11 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
     paths: z.readonly(z.array(z.string())),
   }),
   z.object({
+    op: literal('resolve-file'),
+    path: z.string().min(1),
+    content: z.string(),
+  }),
+  z.object({
     op: literal('resolve-conflict'),
     path: z.string().min(1),
     region: z.int().min(0),

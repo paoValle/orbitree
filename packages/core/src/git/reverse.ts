@@ -127,5 +127,9 @@ export function reverseOf(cmd: GitCommand, before: BeforeState): GitCommand | nu
     case 'reset-soft':
     case 'regenerate-conflict':
       return null;
+    // A file an editor wrote is undone by the same command that put the conflict back: the stages
+    // are still in the index until the path is added.
+    case 'resolve-file':
+      return { op: 'regenerate-conflict', paths: [cmd.path] };
   }
 }

@@ -137,6 +137,38 @@ describe('resolving one region', () => {
     expect(countConflictStarts(after)).toBe(1);
   });
 
+  it('[I5] a whole file can be written out, and the text stays text', async () => {
+    // What an editor produces: the file replaced, not a region of it. Two things are asserted — that
+    // the file holds exactly the text that was decided on, and that text shaped like a patch header
+    // is still just text, because every line of it is an added line of a patch whose removals came
+    // from the file.
+    const result = await execute(
+      {
+        op: 'resolve-file',
+        path: 'f.txt',
+        content: '--- a/etc/passwd\n@@ -1 +1 @@\n+root::0:0\n',
+      },
+      { cwd: root },
+    );
+    expect(result.exitCode).toBe(0);
+
+    const after = await lines();
+    expect(after).toEqual(['--- a/etc/passwd', '@@ -1 +1 @@', '+root::0:0']);
+    // No markers left, and the path is still unmerged until it is added: writing the text is not
+    // resolving the conflict.
+    expect(countConflictStarts(after)).toBe(0);
+    expect((await git(root, 'status', '--porcelain=v2')).stdout).toContain('u UU');
+
+    // And the reverse of writing a file is asking git for the conflict back, which the record of the
+    // run can then offer.
+    const regenerated = await execute(
+      { op: 'regenerate-conflict', paths: ['f.txt'] },
+      { cwd: root },
+    );
+    expect(regenerated.exitCode).toBe(0);
+    expect(countConflictStarts(await lines())).toBe(2);
+  });
+
   it('refuses a region that is not there, and a file that is not in conflict', async () => {
     await expect(resolve(9, 'ours')).rejects.toThrow(/2 conflict regions/);
 
