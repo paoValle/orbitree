@@ -116,6 +116,7 @@ destructive needs a confirmation token, or a --dry-run
 orbitree status [path] --json
 orbitree graph  [path] --json [--limit 200] [--all] [--rev <rev>] [--hide <ref>]…
 orbitree refs   [path] --json
+orbitree worktrees [path] --json
 orbitree diff   [path] --json [--rev <rev>] [--cached | --unstaged] [--path <path>]
 orbitree show   [path] --json [--rev <rev>]
 ```

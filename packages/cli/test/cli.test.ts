@@ -106,6 +106,31 @@ describe('the CLI and the app are the same program', () => {
     });
   });
 
+  it('[I5] `worktrees` lists the working copy the command was run from', async () => {
+    const result = await cli(['worktrees', root, '--json']);
+    const printed = JSON.parse(result.lines[0] as string) as {
+      data: {
+        root: string;
+        worktrees: { path: string; branch: string | null; head: string | null }[];
+      };
+    };
+    // One working directory, because that is what this fixture is; git's own answer for how many is
+    // what the parser is compared against rather than the other way round.
+    const listed = await execFileAsync('git', ['worktree', 'list', '--porcelain'], { cwd: root });
+    expect(printed.data.worktrees).toHaveLength(
+      listed.stdout.split('\n\n').filter((block) => block.trim() !== '').length,
+    );
+    const only = printed.data.worktrees[0];
+    expect(only?.branch).toBe('main');
+    expect(only?.head).toMatch(/^[0-9a-f]{40}$/);
+    expect(only?.path.endsWith(printed.data.root.split('/').pop() ?? '')).toBe(true);
+
+    // And the text form marks it, which is the whole point: the same history in two directories is
+    // only useful if a reader can tell which one they asked from.
+    const text = await cli(['worktrees', root]);
+    expect(text.lines.join('\n')).toContain('main');
+  });
+
   it('[I5] `graph` hides what only a hidden name can reach', async () => {
     // The claim is about the picture and about nothing else: nothing is written, HEAD stays where it
     // is, and the commits kept are the ones a visible name can still reach. `HEAD` is in the tips

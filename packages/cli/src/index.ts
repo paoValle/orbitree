@@ -35,10 +35,12 @@ import {
   readRefs,
   readStash,
   readStatus,
+  readWorktrees,
   riskOf,
   SCHEMA_VERSION,
   toArgv,
   type WorkingTreeNode,
+  type Worktree,
 } from '@orbitree/core';
 import { Command } from 'commander';
 
@@ -230,6 +232,19 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
         );
       },
     );
+
+  program
+    .command('worktrees')
+    .description('every working directory this repository has checked out')
+    .argument('[path]', 'a path inside the repository', '.')
+    .option('--json', 'one JSON object on stdout')
+    .action(async (path: string, opts: { json?: boolean }) => {
+      const repo = await openRepo(path);
+      const worktrees = await readWorktrees(repo);
+      emit(io, opts.json === true, 'worktrees', { root: repo.root, worktrees }, (data) =>
+        describeWorktrees(data.worktrees, repo.root),
+      );
+    });
 
   program
     .command('refs')
@@ -815,6 +830,21 @@ function describeWip(
   const state = waiting.length === 0 ? 'clean' : waiting.join(', ');
   // Padded to the width of a hash and the space after it, so the lane column lines up.
   return `${'WIP'.padEnd(9)}${String(lane).padStart(2)} ${state} -> ${on}`;
+}
+
+/**
+ * The worktrees, one per line, with the one this command was run in marked. The mark is the whole
+ * point of the output: the same history in two directories is only useful if you can tell which
+ * directory you asked from.
+ */
+function describeWorktrees(worktrees: readonly Worktree[], here: string): string {
+  return worktrees
+    .map((worktree) => {
+      const mark = worktree.path === here ? '*' : ' ';
+      const where = worktree.bare ? 'bare' : (worktree.branch ?? 'detached');
+      return `${mark} ${(worktree.head ?? '').slice(0, 8).padEnd(8)} ${where.padEnd(20)} ${worktree.path}`;
+    })
+    .join('\n');
 }
 
 function describeRefs(refs: readonly Ref[]): string {
