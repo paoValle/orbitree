@@ -229,7 +229,7 @@ test('commit and push commits, then pushes, and records both', async () => {
       .toBe(head);
 
     const commands = page.locator('[data-testid=activity-argv]');
-    await expect(commands.first()).toContainText('git push origin HEAD');
+    await expect(commands.first()).toContainText('git push --progress origin HEAD');
     await expect(commands.nth(1)).toContainText('git commit');
   } finally {
     await closeApp(handle);

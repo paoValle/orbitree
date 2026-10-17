@@ -15,9 +15,10 @@ import {
   APP_NAME,
   type CommitDetail,
   ConfirmationRequiredError,
+  describeProgress,
+  diagnoseFailure,
   execute,
   type GitCommand,
-  type GitFailedError,
   type GitNotFoundError,
   type GraphData,
   gitVersion,
@@ -28,11 +29,14 @@ import {
   openRepo,
   type Ref,
   type RepoHandle,
+  type Progress,
   type RepoState,
   readCommit,
   readDiff,
   readGraph,
   readRefs,
+  readIdentity,
+  readRemotes,
   readStash,
   readStatus,
   readWorktrees,
@@ -41,6 +45,8 @@ import {
   toArgv,
   type WorkingTreeNode,
   type Worktree,
+  type Remote,
+  type Identity,
 } from '@orbitree/core';
 import { Command } from 'commander';
 
@@ -247,6 +253,32 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
     });
 
   program
+    .command('remotes')
+    .description('the remotes this repository is configured with, and what they are for')
+    .argument('[path]', 'a path inside the repository', '.')
+    .option('--json', 'one JSON object on stdout')
+    .action(async (path: string, opts: { json?: boolean }) => {
+      const repo = await openRepo(path);
+      const remotes = await readRemotes(repo);
+      emit(io, opts.json === true, 'remotes', { root: repo.root, remotes }, (data) =>
+        describeRemotes(data.remotes),
+      );
+    });
+
+  program
+    .command('identity')
+    .description('the name, email and signing key commits are made with, and where each comes from')
+    .argument('[path]', 'a path inside the repository', '.')
+    .option('--json', 'one JSON object on stdout')
+    .action(async (path: string, opts: { json?: boolean }) => {
+      const repo = await openRepo(path);
+      const identity = await readIdentity(repo);
+      emit(io, opts.json === true, 'identity', { root: repo.root, identity }, (data) =>
+        describeIdentity(data.identity),
+      );
+    });
+
+  program
     .command('refs')
     .description('every branch, tag and remote ref')
     .argument('[path]', 'a path inside the repository', '.')
@@ -391,8 +423,16 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
       ) => {
         const command = commandFrom(opts.op, opts.arg ?? [], opts.message);
         const repo = await openRepo(path);
+        // Progress is printed as it arrives rather than with the result: a fetch that takes a minute
+        // is the case this exists for, and a line printed at the end would be a report. It goes to
+        // stderr, so `--json` is still one object on stdout.
+        const reported: Progress[] = [];
         const result = await execute(command, {
           cwd: repo.root,
+          onProgress: (progress) => {
+            reported.push(progress);
+            io.err(describeProgress(progress));
+          },
           ...(opts.confirm === undefined
             ? {}
             : {
@@ -404,6 +444,9 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
               }),
           ...(opts.dryRun === true ? { dryRun: true } : {}),
         });
+        // A failed remote command is a result here rather than a thrown error — `run` reports what
+        // git did — so the explanation is attached where the failure is, not only in `fail`.
+        const diagnosis = result.exitCode === 0 ? null : diagnoseFailure(result.stderr);
         emit(
           io,
           opts.json === true,
@@ -416,11 +459,22 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
             exitCode: result.exitCode,
             stdout: result.stdout,
             stderr: result.stderr,
+            diagnosis:
+              diagnosis === null
+                ? null
+                : { failure: diagnosis.kind, what: diagnosis.what, whatToDo: diagnosis.whatToDo },
+            // The last progress line, which is how far the command got. The whole list is of
+            // interest while it runs and not after, and a window that only sees the result wants
+            // the same one line an agent does.
+            progress: reported.at(-1) ?? null,
           },
           (data) =>
             data.dryRun
               ? `would run: git ${data.argv.join(' ')}`
-              : `git ${data.argv.join(' ')}\n${data.stdout}`.trimEnd(),
+              : `git ${data.argv.join(' ')}\n${data.stdout}`.trimEnd() +
+                (data.diagnosis === null
+                  ? ''
+                  : `\n${data.diagnosis.what} ${data.diagnosis.whatToDo}`),
         );
       },
     );
@@ -530,6 +584,12 @@ export const OP_EXAMPLES: readonly GitCommand[] = [
   { op: 'fetch' },
   { op: 'pull' },
   { op: 'push', remote: 'origin', branch: 'main' },
+  { op: 'remote-list' },
+  { op: 'identity' },
+  { op: 'remote-add', name: 'origin', url: 'git@example.invalid:x/y.git' },
+  { op: 'remote-rename', name: 'origin', to: 'upstream' },
+  { op: 'remote-set-url', name: 'origin', url: '../elsewhere' },
+  { op: 'remote-remove', name: 'origin' },
   { op: 'reset-hard', rev: 'HEAD~1' },
   { op: 'clean' },
   { op: 'discard', paths: ['file.txt'] },
@@ -561,6 +621,32 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
       return { op: 'commit', message, ...(args[0] === undefined ? {} : { body: args[0] }) };
     case 'fetch':
       return args[0] === undefined ? { op: 'fetch' } : { op: 'fetch', remote: args[0] };
+    case 'remote-list':
+      return { op: 'remote-list' };
+    case 'identity':
+      return { op: 'identity' };
+    case 'remote-add':
+    case 'remote-set-url': {
+      const [name, url] = args;
+      if (name === undefined || name === '' || url === undefined || url === '') {
+        throw new InvalidArgumentError(`${op} needs a name and a URL: --arg origin --arg <url>`);
+      }
+      return op === 'remote-add'
+        ? { op: 'remote-add', name, url }
+        : { op: 'remote-set-url', name, url };
+    }
+    case 'remote-remove':
+    case 'remote-rename': {
+      const [name, to] = args;
+      if (name === undefined || name === '') {
+        throw new InvalidArgumentError(`${op} needs a remote name`);
+      }
+      if (op === 'remote-remove') return { op: 'remote-remove', name };
+      if (to === undefined || to === '') {
+        throw new InvalidArgumentError('remote-rename needs the remote and its new name');
+      }
+      return { op: 'remote-rename', name, to };
+    }
     case 'pull':
       return { op: 'pull' };
     case 'push': {
@@ -833,6 +919,39 @@ function describeWip(
 }
 
 /**
+ * The identity, one line per part of it: what it says, and where it came from. A part nobody set is
+ * said to be unset rather than left out, because "git will refuse to commit" is an answer a reader
+ * needs before they try rather than after.
+ */
+function describeIdentity(identity: Identity): string {
+  const part = (label: string, value: Identity['name']): string =>
+    `${label.padEnd(12)} ${value === null ? '(unset)' : `${value.value}  (${value.scope}, ${value.origin})`}`;
+  return [
+    part('name', identity.name),
+    part('email', identity.email),
+    part('signing key', identity.signingKey),
+  ].join('\n');
+}
+
+/**
+ * The remotes, one per line: the name, where it fetches from, and where it pushes to when that is a
+ * different place. Two URLs on one line because a remote is one thing — the split is git's output
+ * format, not its meaning.
+ */
+function describeRemotes(remotes: readonly Remote[]): string {
+  return remotes
+    .map((remote) => {
+      const fetch = remote.fetchUrl ?? '(no fetch url)';
+      const push =
+        remote.pushUrl === null || remote.pushUrl === remote.fetchUrl
+          ? ''
+          : ` push: ${remote.pushUrl}`;
+      return `${remote.name.padEnd(16)} ${fetch}${push}`;
+    })
+    .join('\n');
+}
+
+/**
  * The worktrees, one per line, with the one this command was run in marked. The mark is the whole
  * point of the output: the same history in two directories is only useful if you can tell which
  * directory you asked from.
@@ -883,7 +1002,7 @@ function commandNameOf(argv: readonly string[]): string {
 }
 
 /** Unused imports are a compile error here, so the types live in one `import type` above. */
-export type { GitFailedError, GitNotFoundError, GraphData, RepoHandle };
+export type { GitNotFoundError, GraphData, RepoHandle };
 
 if (process.argv[1] !== undefined && import.meta.url === `file://${process.argv[1]}`) {
   process.exitCode = await main(process.argv.slice(2));

@@ -133,6 +133,28 @@ export type GitCommand =
       readonly force?: boolean;
     }
   | { readonly op: 'branch-delete'; readonly name: string; readonly force?: boolean }
+  /**
+   * The identity commits are made with: the name, the email and the signing key in force, each with
+   * the file it came from. A read: `git config` prints the config and asks nothing of a machine.
+   */
+  | { readonly op: 'identity' }
+  /**
+   * The remotes, as they are configured on this disk. Not a read of a machine: `git remote -v`
+   * prints what the config says, and nothing here goes near a network.
+   */
+  | { readonly op: 'remote-list' }
+  | { readonly op: 'remote-add'; readonly name: string; readonly url: string }
+  /**
+   * Forgetting a remote: its config section and the tracking refs under `refs/remotes/<name>`.
+   *
+   * `local` rather than `destructive`, by the standard the rest of this file uses: `fetch --prune`
+   * deletes those same tracking refs and asks nobody, so the product does not treat that copy as
+   * work of the person's. What it cannot bring back is the URL, which is why the reverse of this is
+   * `null` rather than a guess.
+   */
+  | { readonly op: 'remote-remove'; readonly name: string }
+  | { readonly op: 'remote-rename'; readonly name: string; readonly to: string }
+  | { readonly op: 'remote-set-url'; readonly name: string; readonly url: string }
   // --- remote: talks to another machine (through git, never from here) ---
   | { readonly op: 'fetch'; readonly remote?: string }
   | { readonly op: 'pull' }
@@ -194,6 +216,8 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'stash-show':
     case 'conflict-side':
     case 'worktree-list':
+    case 'remote-list':
+    case 'identity':
       return 'read';
 
     case 'add':
@@ -217,6 +241,11 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'regenerate-conflict':
     case 'resolve-file':
     case 'worktree-add':
+    // A remote is a section of the config and a directory of tracking refs, both on this disk.
+    case 'remote-add':
+    case 'remote-remove':
+    case 'remote-rename':
+    case 'remote-set-url':
       return 'local';
     // `git worktree remove` refuses a directory with changes in it; `--force` does not, and that is
     // the same deal as `branch -d` against `-D`.
@@ -285,6 +314,20 @@ function assertSafeName(name: string, what: string): string {
     throw new InvalidArgumentError(`invalid ${what}: ${JSON.stringify(name)}`);
   }
   return name;
+}
+
+/**
+ * A remote URL, refused when git would read it as an option.
+ *
+ * There is no `--` to hide behind — `git remote add <name> <url>` takes positionals — so a URL
+ * beginning with a dash has to be refused here. Everything else is git's business: `../x`, `ssh://`,
+ * `git@host:path` and a path with a space in it are all URLs somebody means.
+ */
+function assertSafeUrl(url: string): string {
+  if (url === '' || url.includes('\u0000') || url.startsWith('-')) {
+    throw new InvalidArgumentError(`refusing a remote URL git would read as a flag: ${url}`);
+  }
+  return url;
 }
 
 /**
@@ -517,17 +560,49 @@ export function toArgv(cmd: GitCommand): string[] {
       assertSafeName(cmd.name, 'branch name');
       return ['branch', cmd.force === true ? '-D' : '-d', cmd.name];
 
+    case 'remote-list':
+      return ['remote', '-v'];
+
+    // `--null` because a value may hold a newline, and `--show-scope`/`--show-origin` because
+    // "somebody's name is here" is a different answer from "this name, from this file, is the one in
+    // force". The restriction to `user.*` keeps the whole config out of the process's memory.
+    case 'identity':
+      return ['config', '--null', '--show-origin', '--show-scope', '--get-regexp', '^user\\.'];
+
+    case 'remote-add':
+      return ['remote', 'add', assertSafeName(cmd.name, 'remote name'), assertSafeUrl(cmd.url)];
+
+    case 'remote-remove':
+      return ['remote', 'remove', assertSafeName(cmd.name, 'remote name')];
+
+    case 'remote-rename':
+      return [
+        'remote',
+        'rename',
+        assertSafeName(cmd.name, 'remote name'),
+        assertSafeName(cmd.to, 'remote name'),
+      ];
+
+    // `set-url` replaces the URL a name points at; the old one is not in the command, which is why
+    // `reverseOf` answers `null` for it.
+    case 'remote-set-url':
+      return ['remote', 'set-url', assertSafeName(cmd.name, 'remote name'), assertSafeUrl(cmd.url)];
+
+    // `--progress` on all three: without it git reports progress only to a terminal, so a GUI or a
+    // pipe sees nothing until the command is done — which for a clone-sized fetch is the whole time
+    // somebody would want to know whether it is moving.
     case 'fetch':
-      return ['fetch', '--prune', ...(cmd.remote === undefined ? [] : [cmd.remote])];
+      return ['fetch', '--progress', '--prune', ...(cmd.remote === undefined ? [] : [cmd.remote])];
 
     // `--ff-only` by default: a divergent pull is a decision for the person in front of
     // the screen, not something a background refresh is allowed to resolve by merging.
     case 'pull':
-      return ['pull', '--ff-only'];
+      return ['pull', '--progress', '--ff-only'];
 
     case 'push':
       return [
         'push',
+        '--progress',
         cmd.remote,
         cmd.branch,
         ...(cmd.force === true ? ['--force-with-lease'] : []),

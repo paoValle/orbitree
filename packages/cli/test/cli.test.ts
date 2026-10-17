@@ -179,6 +179,176 @@ describe('the CLI and the app are the same program', () => {
     expect(head.stdout.trim()).toMatch(/^[0-9a-f]{40}$/);
   });
 
+  it('[I5] `remotes` reads the config, and two URLs are one remote', async () => {
+    // Not a network call: `git remote -v` prints what the config says, so the fixture is two config
+    // lines and the cross-check is the config itself.
+    await execFileAsync('git', ['remote', 'add', 'origin', 'git@example.invalid:x/y.git'], {
+      cwd: root,
+    });
+    await execFileAsync(
+      'git',
+      ['remote', 'set-url', '--push', 'origin', 'git@example.invalid:x/y-push.git'],
+      { cwd: root },
+    );
+    try {
+      const result = await cli(['remotes', root, '--json']);
+      expect(result.code).toBe(EXIT.ok);
+      const printed = JSON.parse(result.lines[0] as string) as {
+        data: {
+          remotes: { name: string; fetchUrl: string | null; pushUrl: string | null }[];
+        };
+      };
+      expect(printed.data.remotes).toHaveLength(1);
+      const origin = printed.data.remotes[0];
+      expect(origin?.name).toBe('origin');
+      // The fetch URL is the one the config holds, read a second way rather than believed.
+      const fromConfig = await execFileAsync('git', ['config', '--get', 'remote.origin.url'], {
+        cwd: root,
+      });
+      expect(origin?.fetchUrl).toBe(fromConfig.stdout.trim());
+      expect(origin?.pushUrl).toBe('git@example.invalid:x/y-push.git');
+
+      // The text form says both, because a push URL that differs is the thing a reader came for.
+      const text = (await cli(['remotes', root])).lines.join('\n');
+      expect(text).toContain('origin');
+      expect(text).toContain('x/y-push.git');
+    } finally {
+      await execFileAsync('git', ['remote', 'remove', 'origin'], { cwd: root });
+    }
+  });
+
+  it('[I5] `identity` says who commits are made as, and from which file', async () => {
+    // The fixture sets its own name and email, so the local scope is what answers — the machine's
+    // global config must not be able to decide what this test asserts.
+    const result = await cli(['identity', root, '--json']);
+    expect(result.code).toBe(EXIT.ok);
+    const printed = JSON.parse(result.lines[0] as string) as {
+      data: {
+        identity: {
+          name: { value: string; scope: string; origin: string } | null;
+          email: { value: string } | null;
+        };
+      };
+    };
+    expect(printed.data.identity.name?.value).toBe('CLI Test');
+    expect(printed.data.identity.name?.scope).toBe('local');
+    expect(printed.data.identity.email?.value).toBe('cli@example.invalid');
+    // Read a second way: git's own answer for the same question, and the file it names.
+    const fromGit = await execFileAsync('git', ['config', '--show-origin', 'user.email'], {
+      cwd: root,
+    });
+    expect(fromGit.stdout).toContain('cli@example.invalid');
+    expect(printed.data.identity.email?.value).toBe(
+      (await execFileAsync('git', ['config', 'user.email'], { cwd: root })).stdout.trim(),
+    );
+
+    // The text form names where each part came from, which is the half a person reads.
+    const text = (await cli(['identity', root])).lines.join('\n');
+    expect(text).toContain('CLI Test');
+    expect(text).toContain('local');
+  });
+
+  it('[I5] a fetch reports its progress, as it goes and in the result', async () => {
+    // A bare repository holding this fixture's history, and a second repository to fetch it into:
+    // pushing with an explicit URL leaves the fixture itself with no remote and no new ref.
+    const beside = await mkdtemp(join(tmpdir(), 'orbitree-cli-progress-'));
+    const bare = join(beside, 'remote.git');
+    const reader = join(beside, 'reader');
+    // `-b main`, because a bare repository's HEAD is what a fetch of it resolves, and it otherwise
+    // comes from the machine's `init.defaultBranch` — `master` on a CI runner.
+    await execFileAsync('git', ['init', '--bare', '-b', 'main', '--quiet', bare]);
+    await execFileAsync('git', ['push', '--quiet', `file://${bare}`, 'main'], { cwd: root });
+    await execFileAsync('git', ['init', '-b', 'main', '--quiet', reader]);
+    try {
+      const args = ['run', reader, '--op', 'fetch', '--arg', `file://${bare}`];
+      const text = await cli([...args, '--json']);
+      const printed = JSON.parse(text.lines[0] as string) as {
+        data: { progress: { phase: string; percent: number | null } | null; stderr: string };
+      };
+      // git writes progress only when something asked it to, so this is also the assertion that
+      // `--progress` is in the argv: without it a pipe sees nothing until the fetch is over.
+      expect(printed.data.progress?.phase).not.toBeUndefined();
+      expect(text.errors.join('\n')).toContain('Count');
+      // The lines are git's own, and the text git printed still holds them: the two reads of the
+      // same event agree.
+      expect(printed.data.stderr).toContain('Counting objects');
+    } finally {
+      await rm(beside, { recursive: true, force: true });
+    }
+  });
+
+  it('[I5] a remote failure comes back explained, not only printed', async () => {
+    // A push to a port nothing listens on: a real failure, instantly, and no network involved.
+    const result = await cli([
+      'run',
+      root,
+      '--op',
+      'push',
+      '--arg',
+      'https://127.0.0.1:9/no/such.git',
+      '--arg',
+      'main',
+      '--json',
+    ]);
+    // A failed remote command is a result rather than a failed invocation: `run` reports what git
+    // did, exit code and all.
+    expect(result.code).toBe(EXIT.ok);
+    const printed = JSON.parse(result.lines[0] as string) as {
+      data: {
+        exitCode: number;
+        stderr: string;
+        diagnosis: { failure: string; what: string; whatToDo: string } | null;
+      };
+    };
+    expect(printed.data.exitCode).not.toBe(0);
+    expect(printed.data.stderr).toContain('Failed to connect');
+    expect(printed.data.diagnosis?.failure).toBe('offline');
+    expect(printed.data.diagnosis?.whatToDo).toContain('network');
+
+    // And the text form says it too, after git's own words rather than instead of them.
+    const text = await cli([
+      'run',
+      root,
+      '--op',
+      'push',
+      '--arg',
+      'https://127.0.0.1:9/no/such.git',
+      '--arg',
+      'main',
+    ]);
+    expect(text.lines.join('\n')).toContain('Check the network');
+  });
+
+  it('[I8] a credential in a remote URL never reaches the output, only the argv git gets', async () => {
+    // A push to a port nothing listens on, with the token in the URL: instant, and the failure is
+    // the same one a real remote gives. Everything the CLI prints is checked, because the command
+    // line is printed in four places: the text form, the JSON, the dry run, and the diagnosis.
+    const token = 'ghp_ABCDEFGHIJKLMNOPQRST';
+    const url = `https://user:${token}@127.0.0.1:9/x.git`;
+    const run = await cli(['run', root, '--op', 'push', '--arg', url, '--arg', 'main', '--json']);
+    expect(run.lines.join('')).not.toContain(token);
+    expect(run.errors.join('')).not.toContain(token);
+    expect(run.lines.join('')).toContain('https://***@127.0.0.1:9/x.git');
+
+    const text = await cli(['run', root, '--op', 'push', '--arg', url, '--arg', 'main']);
+    expect(text.lines.join('')).not.toContain(token);
+
+    // A dry run is a display as well, and it is the one a caller reads before deciding.
+    const planned = await cli([
+      'run',
+      root,
+      '--op',
+      'push',
+      '--arg',
+      url,
+      '--arg',
+      'main',
+      '--dry-run',
+      '--json',
+    ]);
+    expect(planned.lines.join('')).not.toContain(token);
+  });
+
   it('[I3] every operation the CLI publishes is reachable through `run --op`', async () => {
     // The claim of the doc and of the roadmap item: `ops` lists what `run` accepts. Two lists that
     // can drift, so one of them — the published one — is what the test walks, and an operation that
@@ -229,6 +399,12 @@ describe('the CLI and the app are the same program', () => {
       fetch: [],
       pull: [],
       push: ['origin', 'main'],
+      'remote-list': [],
+      identity: [],
+      'remote-add': ['origin', 'git@example.invalid:x/y.git'],
+      'remote-rename': ['origin', 'upstream'],
+      'remote-set-url': ['origin', '../elsewhere'],
+      'remote-remove': ['origin'],
       'reset-hard': ['HEAD'],
       clean: ['file.txt'],
       discard: ['file.txt'],

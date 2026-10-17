@@ -2,8 +2,10 @@ import { join } from 'node:path';
 import {
   BEFORE_NOTHING,
   ConfirmationRequiredError,
+  diagnoseFailure,
   execute,
   openRepo,
+  redact,
   readCommit,
   readConflictRegions,
   readConflictSide,
@@ -184,7 +186,7 @@ function registerHandlers(): void {
     }),
   );
 
-  ipcMain.handle(CHANNELS.run, (_event, request: unknown) =>
+  ipcMain.handle(CHANNELS.run, (event, request: unknown) =>
     attempt(async () => {
       // Parse, do not cast: this is the boundary between a web page and a process that
       // can delete a working tree.
@@ -192,6 +194,11 @@ function registerHandlers(): void {
       const repo = await openRepo(parsed.path);
       const result = await execute(parsed.command, {
         cwd: repo.root,
+        // Sent as it arrives, so a window can say a fetch is moving rather than only that it
+        // finished. The channel carries git's own line, parsed: the renderer decides how to draw it.
+        onProgress: (progress) => {
+          if (!event.sender.isDestroyed()) event.sender.send(CHANNELS.runProgress, progress);
+        },
         ...(parsed.confirm === undefined
           ? {}
           : {
@@ -206,14 +213,27 @@ function registerHandlers(): void {
       // the window sends the state, the process that can run git names the command — and knows
       // whether running it would need a reason.
       const reverse = reverseOf(parsed.command, parsed.before ?? BEFORE_NOTHING);
+      // A failed command that failed for a network reason carries the next step with it, because
+      // git's stderr is a sentence for somebody who already knows how ssh and tokens work.
+      const diagnosis = result.exitCode === 0 ? null : diagnoseFailure(result.stderr);
       return {
         op: parsed.command.op,
         risk: riskOf(parsed.command),
         argv: result.argv,
+        diagnosis:
+          diagnosis === null
+            ? null
+            : { failure: diagnosis.kind, what: diagnosis.what, whatToDo: diagnosis.whatToDo },
         reverse:
           reverse === null
             ? null
-            : { command: reverse, argv: toArgv(reverse), risk: riskOf(reverse) },
+            : {
+                command: reverse,
+                // Redacted like every other argv a screen shows: the reverse of adding a remote
+                // carries its URL, and a URL can hold a token.
+                argv: toArgv(reverse).map(redact),
+                risk: riskOf(reverse),
+              },
         exitCode: result.exitCode,
         stdout: result.stdout,
         stderr: result.stderr,

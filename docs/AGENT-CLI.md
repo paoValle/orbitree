@@ -117,6 +117,8 @@ orbitree status [path] --json
 orbitree graph  [path] --json [--limit 200] [--all] [--rev <rev>] [--hide <ref>]…
 orbitree refs   [path] --json
 orbitree worktrees [path] --json
+orbitree remotes [path] --json
+orbitree identity [path] --json
 orbitree diff   [path] --json [--rev <rev>] [--cached | --unstaged] [--path <path>]
 orbitree show   [path] --json [--rev <rev>]
 ```
@@ -191,6 +193,20 @@ caller's guess. A merge is shown as one diff against its **first parent**, never
 patch and never as one diff per parent. Without `--json`, the command prints the metadata
 (hash, author, date, subject, body) followed by the raw patch.
 
+`remotes` returns `remotes`, one record per name — `name`, `fetchUrl`, `pushUrl` and the `raw`
+lines git printed — because a remote is one thing with two URLs even though `git remote -v` prints
+one line per URL. It is a read of the config and not of a machine: whether the other end answers is
+`fetch`'s question, and this one never touches the network. Without `--json` it prints the name,
+the fetch URL and, when it differs, the push URL.
+
+`identity` returns the name, email and signing key commits would be made with, each as
+`{ value, scope, origin }` — `scope` being `system`, `global`, `local`, `worktree` or `command`, and
+`origin` the file git read it from. A part nobody set is `null` rather than an empty string, because
+git refuses a commit without a name and that is worth knowing before trying. The resolution is git's
+own: `git config` prints the records in the order it applies them, so the last occurrence of a key is
+the one in force, and `records` keeps every `user.*` entry in that order so a key this version does
+not name is still visible.
+
 ## Changing a repository
 
 Every mutation goes through one command, and the operation name is the same string the app's
@@ -220,6 +236,14 @@ Rules an agent should assume:
 - A failed `git` is a **value**, not an exception: exit 4, `stderr` populated, the repository in
   whatever state git left it. After a conflict, `status` reports `unmerged` entries — check them
   before assuming success.
+- The `argv` in a result is the command as git was given it **with any credential masked**
+  (`https://***@host/x.git`). Use `--dry-run` to see the same masked line before running; do not
+  expect to read a password out of this output, and do not put one there.
+- A failed remote command carries a `diagnosis` beside `stderr`: `{ failure, what, whatToDo }`, where
+  `failure` is `ssh-key`, `host-key`, `token`, `offline`, `repository-not-found`, `diverged` or
+  `refused-by-server`. It is `null` when the failure is not one of those — a missing revision, a
+  conflict — and it never replaces `stderr`, so read both: the diagnosis says what to do, and git's
+  words say what happened.
 
 ## What an agent should not do
 
@@ -228,7 +252,9 @@ Rules an agent should assume:
 - Do not parse the human-readable output. It is for people and will change; use `--json`.
 - Do not use the CLI to work around the invariants (a raw `git` in a shell is outside the
   product, and `--force-with-lease` is a decision, not a default).
-- Do not assume `stderr` is empty on success: a fetch writes progress there.
+- Do not assume `stderr` is empty on success: a fetch writes progress there. The same lines arrive
+  as they happen and are also in the result, parsed, as `progress` — the last one, which is how far
+  the command got: `{ phase, percent, detail, raw }`.
 
 ## Forge operations (P5) and agents (P6)
 

@@ -1,4 +1,17 @@
-import type { GitCommand, QuickCommand, RunPayload } from '../shared/api.ts';
+import type { GitCommand, Progress, QuickCommand, RunPayload } from '../shared/api.ts';
+
+/**
+ * One progress line, in words: `Receiving objects 45% · 1.20 MiB | 1.10 MiB/s`.
+ *
+ * Written here rather than imported from the core, because the renderer does not import the core at
+ * runtime — the rule that keeps a screen from being able to spawn git by accident. It is four lines of
+ * formatting, which is the price of that rule.
+ */
+export function describeProgress(progress: Progress): string {
+  const head =
+    progress.percent === null ? progress.phase : `${progress.phase} ${progress.percent}%`;
+  return progress.detail === '' ? head : `${head} · ${progress.detail}`;
+}
 
 /** A destructive command waiting for the reason that will let it run. */
 export interface Pending {
@@ -21,6 +34,8 @@ export interface RunRecord {
   readonly exitCode: number;
   /** The first thing the command said, or an empty string. */
   readonly detail: string;
+  /** What to do about a network failure, or `null` when there is nothing useful to add. */
+  readonly advice: string | null;
   /**
    * `git` and its arguments, as the command that puts the repository back.
    *
@@ -41,5 +56,6 @@ export function recordRun(result: RunPayload): RunRecord {
     reverse: result.reverse,
     exitCode: result.exitCode,
     detail: (result.stderr || result.stdout).trim().split('\n').slice(0, 2).join(' · '),
+    advice: result.diagnosis?.whatToDo ?? null,
   };
 }

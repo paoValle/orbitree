@@ -10,6 +10,7 @@ import {
   wholeFilePatch,
 } from './conflict.ts';
 import { parseDiff, patchForHunk } from './diff.ts';
+import { parseProgressLine, type Progress } from './progress.ts';
 import { redact } from './redact.ts';
 
 export class GitNotFoundError extends Error {
@@ -43,7 +44,9 @@ export class GitFailedError extends Error {
   readonly exitCode: number;
   readonly stderr: string;
   constructor(argv: readonly string[], exitCode: number, stderr: string) {
-    super(`git exited with ${exitCode}: ${redact(stderr.trim()) || argv.join(' ')}`);
+    // The fallback names the command when git said nothing, and a command can hold a credential:
+    // `redact` covers both halves.
+    super(`git exited with ${exitCode}: ${redact(stderr.trim() || argv.join(' '))}`);
     this.argv = argv;
     this.exitCode = exitCode;
     this.stderr = stderr;
@@ -108,6 +111,15 @@ export interface ExecuteOptions {
   readonly timeoutMs?: number;
   readonly signal?: AbortSignal;
   readonly env?: NodeJS.ProcessEnv;
+  /**
+   * Called as git reports progress, one call per line, for the commands that report it at all
+   * (`fetch`, `pull` and `push`, whose argv carries `--progress`).
+   *
+   * A callback rather than a promise over a list, because a fetch that takes a minute is exactly
+   * the case this exists for: a caller that wants the lines afterwards can collect them itself, and
+   * one that wants to show them as they arrive does not have to wait for the command to finish.
+   */
+  readonly onProgress?: (progress: Progress) => void;
   /** Builds the argv and returns it without running anything. */
   readonly dryRun?: boolean;
 }
@@ -144,6 +156,18 @@ export function gitEnv(base: NodeJS.ProcessEnv = process.env): Record<string, st
   return env;
 }
 
+/**
+ * The argv as it may be *shown*: the same words with any credential in them masked.
+ *
+ * A remote URL can hold a token, `git push --progress https://user:ghp_…@host/x.git` is a real argv,
+ * and both front-ends show this line and let it be copied. `toArgv` stays pure and unredacted — it is
+ * what git is given — and this is applied where the argv leaves the process, exactly as `stdout` and
+ * `stderr` are.
+ */
+function shownArgv(argv: readonly string[]): readonly string[] {
+  return argv.map(redact);
+}
+
 /** A fresh request: the executor is the only thing that knows how to be careful. */
 export async function execute(cmd: GitCommand, options: ExecuteOptions): Promise<GitResult> {
   const risk = riskOf(cmd);
@@ -152,7 +176,7 @@ export async function execute(cmd: GitCommand, options: ExecuteOptions): Promise
   // A dry run is how a caller finds out *what* it is being asked to confirm, so it is the
   // one path that gets to resolve the argv first. Nothing is spawned here.
   if (options.dryRun === true) {
-    return { argv, exitCode: 0, stdout: '', stderr: '', durationMs: 0, risk };
+    return { argv: shownArgv(argv), exitCode: 0, stdout: '', stderr: '', durationMs: 0, risk };
   }
 
   // Fail closed. `riskOf` is exhaustive over the command union, so an operation with a new
@@ -178,10 +202,11 @@ export async function execute(cmd: GitCommand, options: ExecuteOptions): Promise
     timeoutMs,
     ...(input === null ? {} : { input }),
     ...(options.signal === undefined ? {} : { signal: options.signal }),
+    ...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
   });
 
   return {
-    argv,
+    argv: shownArgv(argv),
     exitCode,
     // Redacted on the way in: nothing downstream has to remember.
     stdout: redact(stdout),
@@ -274,6 +299,8 @@ interface SpawnOptions {
   /** What the child reads on stdin, when it reads anything at all. */
   readonly input?: string;
   readonly signal?: AbortSignal;
+  /** Called per progress line, for the commands whose argv asks git for them. */
+  readonly onProgress?: (progress: Progress) => void;
 }
 
 /**
@@ -342,7 +369,7 @@ function spawnGit(
       if (settled) return;
       settled = true;
       child.kill('SIGKILL');
-      reject(new GitTimeoutError(argv, options.timeoutMs));
+      reject(new GitTimeoutError(shownArgv(argv), options.timeoutMs));
     }, options.timeoutMs);
 
     const onAbort = (): void => {
@@ -372,7 +399,20 @@ function spawnGit(
     };
 
     child.stdout?.on('data', (chunk: Buffer) => collect(out, chunk));
-    child.stderr?.on('data', (chunk: Buffer) => collect(err, chunk));
+    // Progress is on stderr, separated by carriage returns, so a line is only a line once one of
+    // those or a newline has arrived: what is left in `pending` is a row still being overwritten.
+    let pending = '';
+    child.stderr?.on('data', (chunk: Buffer) => {
+      collect(err, chunk);
+      if (options.onProgress === undefined) return;
+      pending += chunk.toString('utf8');
+      const parts = pending.split(/\r|\n/);
+      pending = parts.pop() ?? '';
+      for (const part of parts) {
+        const progress = parseProgressLine(part);
+        if (progress !== null) options.onProgress(progress);
+      }
+    });
 
     child.on('error', (error: NodeJS.ErrnoException) => {
       cleanup();

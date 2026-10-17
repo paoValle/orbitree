@@ -6,7 +6,15 @@
  * is asserted to cover `GitCommand` at compile time, so the IPC surface cannot drift away
  * from what the core actually accepts.
  */
-import type { CommitData, DiffFile, GitCommand, GraphData, Ref, RepoState } from '@orbitree/core';
+import type {
+  CommitData,
+  DiffFile,
+  GitCommand,
+  GraphData,
+  Progress,
+  Ref,
+  RepoState,
+} from '@orbitree/core';
 import { z } from 'zod';
 import { CHANNELS } from './channels.ts';
 
@@ -39,6 +47,9 @@ const literal = <T extends string>(value: T): z.ZodLiteral<T> => z.literal(value
  */
 const PENDING_REFS = ['MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REBASE_HEAD'] as const;
 const PENDING_OPERATIONS = ['merge', 'cherry-pick', 'rebase'] as const;
+
+/** Re-exported for the renderer, which does not import the core at runtime: a type import is erased. */
+export type { Progress };
 
 export const gitCommandSchema = z.discriminatedUnion('op', [
   z.object({ op: literal('version') }),
@@ -135,6 +146,16 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
   z.object({ op: literal('stash-push'), message: z.exactOptional(z.string()) }),
   z.object({ op: literal('branch-delete'), name: z.string(), force: z.exactOptional(z.boolean()) }),
   z.object({ op: literal('fetch'), remote: z.exactOptional(z.string()) }),
+  z.object({ op: literal('remote-list') }),
+  z.object({ op: literal('identity') }),
+  z.object({ op: literal('remote-add'), name: z.string().min(1), url: z.string().min(1) }),
+  z.object({ op: literal('remote-remove'), name: z.string().min(1) }),
+  z.object({
+    op: literal('remote-rename'),
+    name: z.string().min(1),
+    to: z.string().min(1),
+  }),
+  z.object({ op: literal('remote-set-url'), name: z.string().min(1), url: z.string().min(1) }),
   z.object({ op: literal('pull') }),
   z.object({
     op: literal('push'),
@@ -442,6 +463,16 @@ export interface RunPayload {
   readonly stdout: string;
   readonly stderr: string;
   readonly durationMs: number;
+  /**
+   * What to do about the failure, when the command failed for one of the network reasons the core
+   * knows — an SSH key that is not loaded, a token without the right scope, a machine that cannot
+   * reach the host. `null` for every ordinary failure: a merge conflict needs no advice.
+   */
+  readonly diagnosis: {
+    readonly failure: string;
+    readonly what: string;
+    readonly whatToDo: string;
+  } | null;
 }
 
 export type Result<T> =
@@ -489,6 +520,13 @@ export interface OrbitreeApi {
   readonly pickDirectory: () => Promise<string | null>;
   readonly togglePopup: () => Promise<Result<boolean>>;
   readonly onShown: (callback: () => void) => void;
+  /**
+   * Called as git reports progress, while a remote command runs.
+   *
+   * An event rather than a field of the result, because a fetch that takes a minute is the case it
+   * exists for: the result arrives when there is nothing left to report.
+   */
+  readonly onRunProgress: (callback: (progress: Progress) => void) => void;
   readonly showWindow: () => Promise<Result<boolean>>;
   readonly readState: () => Promise<Result<PersistedState>>;
   readonly remember: (path: string) => Promise<Result<PersistedState>>;
