@@ -6,6 +6,7 @@ import {
   type GraphData,
   type IdentityPayload,
   type Progress,
+  type RemotesPayload,
   type QuickCommand,
   type RepoState,
   type StashPayload,
@@ -45,6 +46,8 @@ interface Tab {
   /** The other working directories of this repository, read with everything else. */
   /** Who commits will be authored as, read with everything else. */
   readonly identity: IdentityPayload['identity'] | null;
+  /** The remotes the config holds: a name and the two URLs it points at. */
+  readonly remotes: RemotesPayload['remotes'];
   readonly worktrees: readonly {
     readonly path: string;
     readonly branch: string | null;
@@ -70,6 +73,7 @@ const EMPTY_TAB = (id: number): Tab => ({
   hidden: [],
   worktrees: [],
   identity: null,
+  remotes: [],
   gone: null,
 });
 
@@ -82,15 +86,18 @@ const GRAPH_LIMIT = 300;
 
 const MAX_TABS = 8;
 
-/** One value the commit menu needs before it can run: a branch or a tag name. */
+/** One value — or two, for a remote — that an action needs before it can run. */
 interface AskState {
   /**
-   * What the value is for. `rename` carries the branch being renamed in `hash`, which is the
-   * field the other two use for the commit their name will point at: one dialog, three questions.
+   * What the values are for. `rename` carries the branch being renamed in `hash`, which is the field
+   * the other kinds use for the commit their name will point at or for the remote they act on: one
+   * dialog, six questions.
    */
-  readonly kind: 'branch' | 'tag' | 'rename';
+  readonly kind: 'branch' | 'tag' | 'rename' | 'remote-add' | 'remote-rename' | 'remote-url';
   readonly hash: string;
   readonly value: string;
+  /** The second value, which only `remote-add` has: a name and where it points. */
+  readonly value2: string;
 }
 
 /** One dialog, three questions, so its title is a function of the question. */
@@ -132,6 +139,9 @@ function beforeStateOf(tab: Tab): {
 function askTitle(ask: AskState): string {
   if (ask.kind === 'branch') return 'Create branch here';
   if (ask.kind === 'tag') return 'Create tag here';
+  if (ask.kind === 'remote-add') return 'Add a remote';
+  if (ask.kind === 'remote-rename') return `Rename ${ask.hash}`;
+  if (ask.kind === 'remote-url') return `Where ${ask.hash} points`;
   return `Rename ${ask.hash}`;
 }
 
@@ -272,6 +282,11 @@ export function App(): React.ReactElement {
       // remotes are, and a card that loaded when you looked at it would move under the cursor.
       const identityResult = await window.orbitree.readIdentity(target);
       patchTab(id, { identity: identityResult.ok ? identityResult.value.identity : null });
+
+      // The remotes the config holds. A remote with nothing fetched from it has no rows in the
+      // remote-branch list and is still a remote, which is why this is its own read.
+      const remoteResult = await window.orbitree.readRemotes(target);
+      patchTab(id, { remotes: remoteResult.ok ? remoteResult.value.remotes : [] });
 
       // An unborn head cannot be logged: `git log` exits 128 on a branch with no commits, so
       // the graph is not read at all rather than read and failed.
@@ -484,10 +499,10 @@ export function App(): React.ReactElement {
     (action: CommitAction, commit: { readonly hash: string; readonly subject: string }): void => {
       switch (action) {
         case 'create-branch':
-          setAsk({ kind: 'branch', hash: commit.hash, value: '' });
+          setAsk({ kind: 'branch', hash: commit.hash, value: '', value2: '' });
           return;
         case 'create-tag':
-          setAsk({ kind: 'tag', hash: commit.hash, value: '' });
+          setAsk({ kind: 'tag', hash: commit.hash, value: '', value2: '' });
           return;
         case 'checkout':
           void runCommand({
@@ -527,13 +542,22 @@ export function App(): React.ReactElement {
   const confirmAsk = useCallback((): void => {
     if (ask === null) return;
     const name = ask.value.trim();
-    if (name === '') return;
+    const second = ask.value2.trim();
+    // A remote needs both halves: a name with nowhere to point is not a remote, and a URL with no
+    // name cannot be asked for anything.
+    if (name === '' || (ask.kind === 'remote-add' && second === '')) return;
     const command: GitCommand =
       ask.kind === 'branch'
         ? { op: 'branch-create', name, start: ask.hash }
         : ask.kind === 'rename'
           ? { op: 'branch-rename', name: ask.hash, to: name }
-          : { op: 'tag-create', name, rev: ask.hash };
+          : ask.kind === 'remote-add'
+            ? { op: 'remote-add', name, url: second }
+            : ask.kind === 'remote-rename'
+              ? { op: 'remote-rename', name: ask.hash, to: name }
+              : ask.kind === 'remote-url'
+                ? { op: 'remote-set-url', name: ask.hash, url: name }
+                : { op: 'tag-create', name, rev: ask.hash };
     setAsk(null);
     void runCommand({
       id: ask.kind,
@@ -543,7 +567,13 @@ export function App(): React.ReactElement {
           ? `branch ${name}`
           : ask.kind === 'rename'
             ? `branch -m ${ask.hash} ${name}`
-            : `tag ${name}`,
+            : ask.kind === 'remote-add'
+              ? `remote add ${name} ${second}`
+              : ask.kind === 'remote-rename'
+                ? `remote rename ${ask.hash} ${name}`
+                : ask.kind === 'remote-url'
+                  ? `remote set-url ${ask.hash} ${name}`
+                  : `tag ${name}`,
       danger: false,
       command,
     });
@@ -720,6 +750,23 @@ export function App(): React.ReactElement {
               submodules={submodulesOf(active ?? undefined)}
               worktrees={active?.worktrees ?? []}
               identity={active?.identity ?? null}
+              remotes={active?.remotes ?? []}
+              onAddRemote={() => setAsk({ kind: 'remote-add', hash: '', value: '', value2: '' })}
+              onRenameRemote={(remote) =>
+                setAsk({ kind: 'remote-rename', hash: remote, value: remote, value2: '' })
+              }
+              onSetRemoteUrl={(remote, url) =>
+                setAsk({ kind: 'remote-url', hash: remote, value: url, value2: '' })
+              }
+              onRemoveRemote={(remote) =>
+                runGuarded({
+                  id: 'remote-remove',
+                  label: `Remove ${remote}`,
+                  hint: `remote remove ${remote}`,
+                  danger: false,
+                  command: { op: 'remote-remove', name: remote },
+                })
+              }
               openPaths={tabs
                 .map((tab) => tab.root)
                 .filter((root): root is string => root !== null)}
@@ -759,7 +806,7 @@ export function App(): React.ReactElement {
                 })
               }
               onRename={(ref) =>
-                setAsk({ kind: 'rename', hash: ref.shortName, value: ref.shortName })
+                setAsk({ kind: 'rename', hash: ref.shortName, value: ref.shortName, value2: '' })
               }
               onDelete={(ref) =>
                 runGuarded({
@@ -1200,9 +1247,31 @@ export function App(): React.ReactElement {
                 }
               }}
               placeholder={
-                ask.kind === 'tag' ? 'tag name' : ask.kind === 'rename' ? 'new name' : 'branch name'
+                ask.kind === 'tag'
+                  ? 'tag name'
+                  : ask.kind === 'rename' || ask.kind === 'remote-rename'
+                    ? 'new name'
+                    : ask.kind === 'remote-add'
+                      ? 'remote name'
+                      : ask.kind === 'remote-url'
+                        ? 'URL'
+                        : 'branch name'
               }
             />
+            {ask.kind === 'remote-add' ? (
+              <input
+                data-testid="ask-input-url"
+                value={ask.value2}
+                onChange={(event) => setAsk({ ...ask, value2: event.target.value })}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    confirmAsk();
+                  }
+                }}
+                placeholder="URL"
+              />
+            ) : null}
             <div className="modal-actions">
               <button type="button" onClick={() => setAsk(null)}>
                 Cancel
@@ -1211,7 +1280,11 @@ export function App(): React.ReactElement {
                 type="button"
                 data-testid="ask-confirm"
                 className="primary"
-                disabled={ask.value.trim() === ''}
+                // A remote needs both halves, and a button that is enabled and does nothing is worse
+                // than one that says why it cannot be pressed.
+                disabled={
+                  ask.value.trim() === '' || (ask.kind === 'remote-add' && ask.value2.trim() === '')
+                }
                 onClick={confirmAsk}
               >
                 Create

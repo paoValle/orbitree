@@ -186,6 +186,16 @@ button.danger,
   font-size: 12px;
 }
 
+/* A remote's URL, which is longer than the panel and more useful than a count. */
+.remote-url {
+  flex-basis: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
 .identity-row {
   gap: 6px;
   align-items: baseline;

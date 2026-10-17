@@ -339,6 +339,21 @@ export interface IdentityPayload {
   };
 }
 
+/**
+ * The remotes this repository is configured with: a name and the two URLs it points at.
+ *
+ * Not the same list as the remote *branches* the panel shows: a remote with nothing fetched from it
+ * has no branches and is still a remote, and the question this answers is what the config says.
+ */
+export interface RemotesPayload {
+  readonly root: string;
+  readonly remotes: readonly {
+    readonly name: string;
+    readonly fetchUrl: string | null;
+    readonly pushUrl: string | null;
+  }[];
+}
+
 export interface WorktreesPayload {
   readonly root: string;
   readonly worktrees: readonly {
@@ -531,6 +546,8 @@ export interface OrbitreeApi {
   readonly readWorktrees: (path: string) => Promise<Result<WorktreesPayload>>;
   /** The name, email and signing key commits are made with, and the file each came from. */
   readonly readIdentity: (path: string) => Promise<Result<IdentityPayload>>;
+  /** The remotes this repository is configured with, as the config has them. */
+  readonly readRemotes: (path: string) => Promise<Result<RemotesPayload>>;
   /** One stash's patch, read on demand: a list of stashes is cheap, their patches are not. */
   readonly readStashPatch: (request: {
     readonly path: string;
