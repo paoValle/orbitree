@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import type { Ref } from '../shared/api.ts';
-import { BranchIcon, ChevronDownIcon, FileConfigIcon, RemoteIcon, TagIcon } from './icons.tsx';
+import {
+  BranchIcon,
+  ChevronDownIcon,
+  FileConfigIcon,
+  FolderIcon,
+  RemoteIcon,
+  TagIcon,
+} from './icons.tsx';
 
 /**
  * The left panel: the names a repository has, in sections.
@@ -21,6 +28,22 @@ import { BranchIcon, ChevronDownIcon, FileConfigIcon, RemoteIcon, TagIcon } from
  */
 export interface LeftPanelProps {
   readonly refs: readonly Ref[];
+  /**
+   * The other working directories of this repository, and which of them are already open.
+   *
+   * A tab *is* a path, so opening one of these is opening a path: the model did not have to change
+   * for a worktree to get a tab, and that is worth knowing rather than designing around.
+   */
+  readonly worktrees: readonly {
+    readonly path: string;
+    readonly branch: string | null;
+    readonly bare: boolean;
+    readonly detached: boolean;
+    readonly locked: string | null;
+    readonly prunable: string | null;
+  }[];
+  readonly openPaths: readonly string[];
+  readonly onOpenWorktree: (path: string) => void;
   readonly submodules: readonly { readonly path: string; readonly state: string }[];
   /** `*` is every ref; anything else is the revision the graph is read from. */
   readonly filter: string;
@@ -72,6 +95,9 @@ function Section({
 
 export function LeftPanel({
   refs,
+  worktrees,
+  openPaths,
+  onOpenWorktree,
   submodules,
   filter,
   hidden,
@@ -223,6 +249,47 @@ export function LeftPanel({
         refs={matching(refs.filter((ref) => ref.kind === 'tag'))}
         render={row}
       />
+
+      <details className="panel-section" data-testid="panel-section" data-section="Worktrees" open>
+        <summary>
+          <ChevronDownIcon size={12} />
+          <span className="panel-title">Worktrees</span>
+          <span className="panel-count">{worktrees.length}</span>
+        </summary>
+        {worktrees.length < 2 ? (
+          <p className="empty">this one only</p>
+        ) : (
+          <ul className="panel-list">
+            {worktrees.map((entry) => (
+              <li
+                key={entry.path}
+                className="panel-row"
+                data-testid="worktree-row"
+                data-path={entry.path}
+              >
+                <button
+                  type="button"
+                  className="panel-name"
+                  data-testid="worktree-open"
+                  title={entry.path}
+                  disabled={openPaths.includes(entry.path)}
+                  onClick={() => onOpenWorktree(entry.path)}
+                >
+                  <span className="entry-kind" aria-hidden="true">
+                    <FolderIcon size={14} />
+                  </span>
+                  {entry.path.split('/').pop() ?? entry.path}
+                  {entry.locked === null ? null : <span className="panel-note">locked</span>}
+                  {entry.prunable === null ? null : <span className="panel-note">prunable</span>}
+                </button>
+                <span className="panel-note">
+                  {entry.bare ? 'bare' : entry.detached ? 'detached' : (entry.branch ?? '?')}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </details>
 
       <details className="panel-section" data-testid="panel-section" data-section="Submodules" open>
         <summary>

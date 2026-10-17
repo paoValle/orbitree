@@ -1,7 +1,16 @@
 import { mkdir, rm } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { closeApp, commit, git, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
+import {
+  closeApp,
+  commit,
+  git,
+  launchApp,
+  mainWindow,
+  makeRepo,
+  makeRunDir,
+  writeIn,
+} from './support.ts';
 
 /**
  * The branches and the tags, which are names for commits and the only things in the product that
@@ -147,6 +156,44 @@ test('hiding a name changes the picture and nothing else', async () => {
   } finally {
     await closeApp(handle);
     await rm(repo, { recursive: true, force: true });
+  }
+});
+
+/**
+ * A worktree in the panel, and a tab on it.
+ *
+ * The finding this test pins: **a tab is a path**, so opening a worktree is opening a path — the tab
+ * model did not have to change for a second working copy to get its own tab. What the panel adds is
+ * seeing them, and knowing which are already open.
+ */
+test('the other working copies are listed, and one opens as its own tab', async () => {
+  const beside = await makeRunDir('worktrees-');
+  const repo = await makeRepo({ base: 'the first line\n' });
+  await git(repo, ['branch', 'side']);
+  const second = join(beside, 'side');
+  await git(repo, ['worktree', 'add', second, 'side']);
+
+  const handle = await launchApp(repo);
+  try {
+    const page = await mainWindow(handle.app);
+    const rows = page.locator('[data-testid=worktree-row]');
+    await expect(rows).toHaveCount(2);
+    // The one being read, and the other one by its directory name and its branch.
+    await expect(rows.filter({ hasText: 'side' }).first()).toContainText('side');
+
+    await rows.filter({ hasText: 'side' }).first().locator('[data-testid=worktree-open]').click();
+
+    // A second tab, on the worktree: its own path, and its own branch in the working tree's card.
+    await expect(page.locator('[data-testid=tab]')).toHaveCount(2);
+    // The worktree's own path, as git spells it: on a Mac that is `/private/var` where the fixture
+    // was made under `/var`, so the assertion is about which directory, not about its spelling.
+    expect(await page.locator('input.path').inputValue()).toMatch(/\/side$/);
+    await expect(page.locator('[data-testid=working-tree]')).toContainText('on side');
+    // And the repository is one: the graph is the same history.
+    await expect(page.locator('[data-testid=graph-count]')).toContainText('commits');
+  } finally {
+    await closeApp(handle);
+    await rm(beside, { recursive: true, force: true });
   }
 });
 

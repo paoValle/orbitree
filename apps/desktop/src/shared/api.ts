@@ -289,6 +289,19 @@ export const statusPayloadSchema = z.object({
 
 export const stashRequestSchema = z.object({ path: z.string().min(1) });
 
+export interface WorktreesPayload {
+  readonly root: string;
+  readonly worktrees: readonly {
+    readonly path: string;
+    readonly head: string | null;
+    readonly branch: string | null;
+    readonly bare: boolean;
+    readonly detached: boolean;
+    readonly locked: string | null;
+    readonly prunable: string | null;
+  }[];
+}
+
 export const stashPatchRequestSchema = z.object({
   path: z.string().min(1),
   selector: z.string().min(1),
@@ -454,6 +467,8 @@ export interface OrbitreeApi {
   ) => Promise<Result<DiffPayload>>;
   readonly readCommit: (path: string, rev: string) => Promise<Result<CommitData>>;
   readonly readStash: (path: string) => Promise<Result<StashPayload>>;
+  /** Every working directory this repository has checked out, `stashRequestSchema`-shaped. */
+  readonly readWorktrees: (path: string) => Promise<Result<WorktreesPayload>>;
   /** One stash's patch, read on demand: a list of stashes is cheap, their patches are not. */
   readonly readStashPatch: (request: {
     readonly path: string;

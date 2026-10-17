@@ -12,6 +12,7 @@ import {
   readRefs,
   readStash,
   readStashPatch,
+  readWorktrees,
   readStatus,
   reverseOf,
   toArgv,
@@ -165,6 +166,13 @@ function registerHandlers(): void {
       const repo = await openRepo(parsed.path);
       const content = await readConflictSide(repo, { path: parsed.file, side: parsed.side });
       return { root: repo.root, side: parsed.side, path: parsed.file, content };
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.worktrees, (_event, path: unknown) =>
+    attempt(async () => {
+      const repo = await openRepo(String(path));
+      return { root: repo.root, worktrees: await readWorktrees(repo) };
     }),
   );
 

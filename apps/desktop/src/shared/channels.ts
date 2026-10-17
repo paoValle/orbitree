@@ -12,6 +12,7 @@ export const CHANNELS = {
   refs: 'repo:refs',
   stash: 'repo:stash',
   stashPatch: 'stash:patch',
+  worktrees: 'repo:worktrees',
   conflictSide: 'conflict:side',
   conflictRegions: 'conflict:regions',
   diff: 'repo:diff',

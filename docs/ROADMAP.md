@@ -224,9 +224,12 @@ first-class worktrees for that second reason.
 - [x] Read them: `git worktree list --porcelain`, a total parser, and the list the window can show.
 - [x] Create one (`worktree add <path> [<branch>]`), remove one (`worktree remove`, and `--force`
       which is destructive), each reachable through `orbitree run --op`.
-- [ ] A tab per worktree: the repository is the same, so the *history* is the same, and what differs
-      is the working tree, the index and the path. A tab that says which working copy it is on, and a
-      panel section listing the others with a way to open one.
+- [x] A tab per worktree: the repository is the same, so the *history* is the same, and what differs
+      is the working tree, the index and the path. **The tab model did not have to change**: a tab is
+      already a path, so a worktree opens in one by opening it — what was missing is a panel section
+      listing the others, marked with the branch they are on and with the ones already open disabled.
+      `apps/desktop/test/e2e/refs.spec.ts` opens the second working copy and asserts its own path, its
+      own branch in the working-tree card, and the same history in the graph.
 - [x] `orbitree worktrees --json`, so an agent can name a working copy the way the window does: the
       path, the head, the branch (or `detached`, or `bare`), and the reasons git gives for a worktree
       being locked or prunable. The one the command was run in is marked, because the same history in
