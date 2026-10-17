@@ -9,6 +9,7 @@ import {
   resolutionPatch,
   wholeFilePatch,
 } from './conflict.ts';
+import { credentialRequestText } from './credential.ts';
 import { parseDiff, patchForHunk } from './diff.ts';
 import { parseProgressLine, type Progress } from './progress.ts';
 import { redact } from './redact.ts';
@@ -316,6 +317,9 @@ interface SpawnOptions {
  * repository before a reason exists.
  */
 async function stdinFor(cmd: GitCommand, options: ExecuteOptions): Promise<string | null> {
+  // The credential request is what git reads, and it is data rather than an argument: it belongs on
+  // stdin, where the protocol says it goes.
+  if (cmd.op === 'credential-fill') return credentialRequestText(cmd.request);
   if (cmd.op === 'resolve-conflict') return resolutionPatchFor(cmd, options.cwd);
   if (cmd.op === 'resolve-file') return wholeFilePatchFor(cmd, options.cwd);
   if (cmd.op !== 'discard-hunk') return null;

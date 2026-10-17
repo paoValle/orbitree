@@ -146,7 +146,10 @@ copied. The argv git is actually given stays exactly as `toArgv` built it: it is
 the process that is masked. `redact` removes credentials from URLs, GitHub/GitLab token shapes, AWS
 key ids and bearer headers. The test covers each shape, asserts that an ordinary message is
 untouched, and asserts that a credential in a pushed URL reaches neither the text form nor the JSON
-of `orbitree run`. **What it does not cover**: the app has no remote-management button yet, so no
+of `orbitree run`. The one operation that asks for a credential — `credential-fill`, which runs the
+helper the user configured — never *returns* the secret: `parseCredential` withholds the `password`
+record and says whether one came back, so a token the product does not need is a token it cannot
+leak. **What it does not cover**: the app has no remote-management button yet, so no
 argv a *screen* can show carries a URL today; the masking is on the boundary rather than on the paths
 that currently reach it.
 

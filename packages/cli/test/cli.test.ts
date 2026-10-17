@@ -349,6 +349,49 @@ describe('the CLI and the app are the same program', () => {
     expect(planned.lines.join('')).not.toContain(token);
   });
 
+  it('[I8] a stored credential is reported, and the secret is never printed', async () => {
+    // The helper is a fixture that answers with a known secret, and the machine's own helpers are
+    // taken out of the answer: a test that read somebody's keychain would be asserting about their
+    // laptop rather than about this program.
+    const beside = await mkdtemp(join(tmpdir(), 'orbitree-cli-credential-'));
+    const config = join(beside, 'helper.config');
+    const secret = 's3cret-not-a-token-shape';
+    await writeFile(
+      config,
+      `[credential]\n\thelper = "!f() { echo username=someone; echo password=${secret}; }; f"\n`,
+      'utf8',
+    );
+    const before = {
+      global: process.env.GIT_CONFIG_GLOBAL,
+      system: process.env.GIT_CONFIG_SYSTEM,
+    };
+    process.env.GIT_CONFIG_GLOBAL = config;
+    process.env.GIT_CONFIG_SYSTEM = '/dev/null';
+    try {
+      const result = await cli(['credential', root, '--host', 'example.invalid', '--json']);
+      expect(result.code).toBe(EXIT.ok);
+      const printed = JSON.parse(result.lines[0] as string) as {
+        data: { available: boolean; username: string | null; hasPassword: boolean };
+      };
+      expect(printed.data.available).toBe(true);
+      expect(printed.data.username).toBe('someone');
+      expect(printed.data.hasPassword).toBe(true);
+      expect(result.lines.join('')).not.toContain(secret);
+      expect(result.errors.join('')).not.toContain(secret);
+
+      // The text form names who the credential is for, and not what it is.
+      const text = await cli(['credential', root, '--host', 'example.invalid']);
+      expect(text.lines.join('')).toContain('someone');
+      expect(text.lines.join('')).not.toContain(secret);
+    } finally {
+      if (before.global === undefined) delete process.env.GIT_CONFIG_GLOBAL;
+      else process.env.GIT_CONFIG_GLOBAL = before.global;
+      if (before.system === undefined) delete process.env.GIT_CONFIG_SYSTEM;
+      else process.env.GIT_CONFIG_SYSTEM = before.system;
+      await rm(beside, { recursive: true, force: true });
+    }
+  });
+
   it('[I3] every operation the CLI publishes is reachable through `run --op`', async () => {
     // The claim of the doc and of the roadmap item: `ops` lists what `run` accepts. Two lists that
     // can drift, so one of them — the published one — is what the test walks, and an operation that
@@ -401,6 +444,7 @@ describe('the CLI and the app are the same program', () => {
       push: ['origin', 'main'],
       'remote-list': [],
       identity: [],
+      'credential-fill': ['github.com'],
       'remote-add': ['origin', 'git@example.invalid:x/y.git'],
       'remote-rename': ['origin', 'upstream'],
       'remote-set-url': ['origin', '../elsewhere'],

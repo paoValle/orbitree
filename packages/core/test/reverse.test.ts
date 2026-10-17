@@ -109,6 +109,7 @@ const cases: readonly (readonly [GitCommand, GitCommand | null])[] = [
   [{ op: 'remote-set-url', name: 'origin', url: '../elsewhere' }, null],
   [{ op: 'remote-list' }, null],
   [{ op: 'identity' }, null],
+  [{ op: 'credential-fill', request: { protocol: 'https', host: 'example.invalid' } }, null],
   [{ op: 'status' }, null],
 ];
 

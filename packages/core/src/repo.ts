@@ -24,6 +24,7 @@ import {
 import { parseStashList, type StashEntry } from './git/stash.ts';
 import { parseRemotes, type Remote } from './git/remote.ts';
 import { type Identity, parseIdentity } from './git/identity.ts';
+import { type Credential, type CredentialRequest, parseCredential } from './git/credential.ts';
 import { parseWorktrees, type Worktree } from './git/worktree.ts';
 import {
   PENDING_ORDER,
@@ -293,6 +294,46 @@ export async function readRemotes(
   const parsed = parseRemotes(stdout);
   if (!parsed.ok) throw new RepositoryParseError('the remote list', parsed.error, parsed.record);
   return parsed.value;
+}
+
+/**
+ * Whether a credential is stored for a host, asked of git's own helper.
+ *
+ * A failure to *find* one is not a failure of the read: "nothing is stored" is the answer to the
+ * question, and git says so by exiting non-zero and printing why — which is kept as a note rather than
+ * thrown, because the message is the useful half ("terminal prompts disabled", a helper that is
+ * misconfigured, a keychain that is locked).
+ */
+export async function readCredential(
+  repo: RepoHandle,
+  request: CredentialRequest,
+  options: Partial<ExecuteOptions> = {},
+): Promise<CredentialAnswer> {
+  const result = await execute({ op: 'credential-fill', request }, { cwd: repo.root, ...options });
+  if (result.exitCode !== 0) {
+    return {
+      available: false,
+      username: null,
+      hasPassword: false,
+      entries: [],
+      note: result.stderr.trim().split('\n')[0] ?? '',
+    };
+  }
+  const parsed = parseCredential(result.stdout);
+  if (!parsed.ok) {
+    throw new RepositoryParseError('the credential', parsed.error, parsed.record);
+  }
+  return { ...parsed.value, note: null };
+}
+
+export interface CredentialAnswer {
+  readonly available: boolean;
+  readonly username: string | null;
+  readonly hasPassword: boolean;
+  /** Why there is none, in git's own words, or `null` when one was found. */
+  readonly note: string | null;
+  /** The `key=value` lines git printed, minus the password: the shape is kept, the secret is not. */
+  readonly entries: Credential['entries'];
 }
 
 /**

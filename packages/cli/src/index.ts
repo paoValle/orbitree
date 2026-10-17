@@ -35,6 +35,7 @@ import {
   readDiff,
   readGraph,
   readRefs,
+  readCredential,
   readIdentity,
   readRemotes,
   readStash,
@@ -262,6 +263,26 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
       const remotes = await readRemotes(repo);
       emit(io, opts.json === true, 'remotes', { root: repo.root, remotes }, (data) =>
         describeRemotes(data.remotes),
+      );
+    });
+
+  program
+    .command('credential')
+    .description('whether a credential is stored for a host, asked of git’s own helper')
+    .argument('[path]', 'a path inside the repository', '.')
+    .requiredOption('--host <host>', 'the host to ask about, as a remote URL spells it')
+    .option('--protocol <protocol>', 'https, ssh, or whatever the remote uses', 'https')
+    .option('--json', 'one JSON object on stdout')
+    .action(async (path: string, opts: { host: string; protocol: string; json?: boolean }) => {
+      const repo = await openRepo(path);
+      const answer = await readCredential(repo, {
+        protocol: opts.protocol,
+        host: opts.host,
+      });
+      emit(io, opts.json === true, 'credential', { root: repo.root, ...answer }, (data) =>
+        data.available
+          ? `${data.username ?? '(no username)'} has a credential for ${opts.protocol}://${opts.host}`
+          : `no credential for ${opts.host}: ${data.note ?? 'the helper answered with nothing'}`,
       );
     });
 
@@ -586,6 +607,7 @@ export const OP_EXAMPLES: readonly GitCommand[] = [
   { op: 'push', remote: 'origin', branch: 'main' },
   { op: 'remote-list' },
   { op: 'identity' },
+  { op: 'credential-fill', request: { protocol: 'https', host: 'github.com' } },
   { op: 'remote-add', name: 'origin', url: 'git@example.invalid:x/y.git' },
   { op: 'remote-rename', name: 'origin', to: 'upstream' },
   { op: 'remote-set-url', name: 'origin', url: '../elsewhere' },
@@ -625,6 +647,15 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
       return { op: 'remote-list' };
     case 'identity':
       return { op: 'identity' };
+    case 'credential-fill': {
+      const [host, protocol] = args;
+      if (host === undefined || host === '') {
+        throw new InvalidArgumentError(
+          'credential-fill needs a host: --arg github.com [--arg https]',
+        );
+      }
+      return { op: 'credential-fill', request: { protocol: protocol ?? 'https', host } };
+    }
     case 'remote-add':
     case 'remote-set-url': {
       const [name, url] = args;

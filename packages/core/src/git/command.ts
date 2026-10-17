@@ -1,3 +1,4 @@
+import type { CredentialRequest } from './credential.ts';
 /**
  * The one place where the product decides what `git` is allowed to be asked to do.
  *
@@ -139,6 +140,14 @@ export type GitCommand =
    */
   | { readonly op: 'identity' }
   /**
+   * Whether a credential is stored for a host, by asking git's own helper for one.
+   *
+   * `read` because it changes nothing there is to change — and with a caveat worth stating: it runs
+   * the program the user configured as their helper, which may touch a keychain or refresh a token.
+   * The product never sees what git printed as a secret; see `parseCredential`.
+   */
+  | { readonly op: 'credential-fill'; readonly request: CredentialRequest }
+  /**
    * The remotes, as they are configured on this disk. Not a read of a machine: `git remote -v`
    * prints what the config says, and nothing here goes near a network.
    */
@@ -218,6 +227,7 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'worktree-list':
     case 'remote-list':
     case 'identity':
+    case 'credential-fill':
       return 'read';
 
     case 'add':
@@ -562,6 +572,11 @@ export function toArgv(cmd: GitCommand): string[] {
 
     case 'remote-list':
       return ['remote', '-v'];
+
+    // The request itself travels on stdin, which `stdinFor` builds: an argv here would put a host in
+    // a place git does not read it from.
+    case 'credential-fill':
+      return ['credential', 'fill'];
 
     // `--null` because a value may hold a newline, and `--show-scope`/`--show-origin` because
     // "somebody's name is here" is a different answer from "this name, from this file, is the one in
