@@ -40,6 +40,15 @@ interface Tab {
   readonly limit: number;
   /** The names this tab is not drawing. Per tab, because two readings are two pictures. */
   readonly hidden: readonly string[];
+  /** The other working directories of this repository, read with everything else. */
+  readonly worktrees: readonly {
+    readonly path: string;
+    readonly branch: string | null;
+    readonly bare: boolean;
+    readonly detached: boolean;
+    readonly locked: string | null;
+    readonly prunable: string | null;
+  }[];
   /** Set when the directory could not be read at all: a state screen, not a banner. */
   readonly gone: string | null;
 }
@@ -55,6 +64,7 @@ const EMPTY_TAB = (id: number): Tab => ({
   filter: '*',
   limit: GRAPH_LIMIT,
   hidden: [],
+  worktrees: [],
   gone: null,
 });
 
@@ -232,6 +242,13 @@ export function App(): React.ReactElement {
 
       const stashResult = await window.orbitree.readStash(target);
       patchTab(id, { stashes: stashResult.ok ? stashResult.value.stashes : [] });
+
+      // The worktrees of this repository: the same history in other directories, which is what a
+      // second line of work is doing. Read with everything else rather than on demand, because the
+      // panel shows them beside the branches and a section that loads when you look at it is a
+      // section that moves under the cursor.
+      const worktreeResult = await window.orbitree.readWorktrees(target);
+      patchTab(id, { worktrees: worktreeResult.ok ? worktreeResult.value.worktrees : [] });
 
       // An unborn head cannot be logged: `git log` exits 128 on a branch with no commits, so
       // the graph is not read at all rather than read and failed.
@@ -672,6 +689,11 @@ export function App(): React.ReactElement {
             <LeftPanel
               refs={active?.graph?.refs ?? []}
               submodules={submodulesOf(active ?? undefined)}
+              worktrees={active?.worktrees ?? []}
+              openPaths={tabs
+                .map((tab) => tab.root)
+                .filter((root): root is string => root !== null)}
+              onOpenWorktree={(path) => openPath(path)}
               filter={active?.filter ?? '*'}
               hidden={active?.hidden ?? []}
               busy={busy}
