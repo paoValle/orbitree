@@ -4,7 +4,7 @@ Each phase ends with an exit criterion that is a **command**, not a feeling. A p
 done when the code compiles; it is done when the command it names produces the output it
 promises. Phases are ordered by what unblocks the next one, not by how interesting they are.
 
-Status: **P0, P1 and P1.5 are complete**; P2 is under way, and everything after it is unstarted.
+Status: **P0, P1, P1.5, P2 and P2.5 are complete**; P3 is unstarted, and everything after it too.
 
 ---
 
@@ -239,6 +239,16 @@ first-class worktrees for that second reason.
 branch and their head, the window opens the second one as its own tab, and a commit made in one is
 visible in the other's graph without a reload of the repository — asserted by a test that reads both
 directories with the real `git` binary.
+
+Met by two tests. `packages/cli/test/cli.test.ts` makes a second working copy with `git worktree
+add` and compares the list against `git worktree list --porcelain` read a second way: two entries,
+the same head, `main` and `side`, and exactly one line of the text form marked as the one asked
+from. `apps/desktop/test/e2e/refs.spec.ts` has the second working copy open in its own tab, commits
+on `main` in the first one while it is on screen, and presses Refresh: the other tab's graph goes
+from one commit to two and names the new one. "Without a reload of the repository" is read as
+without reopening it — the window re-reads when it is asked to, and watching the file system for a
+commit made in another directory is a feature no bullet in this phase asked for, so the button is
+the re-read the exit is about.
 
 ## P3 — Sync
 

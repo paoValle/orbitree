@@ -3,9 +3,10 @@
 A local-first Git client: a desktop app for understanding a repository, and a CLI that does
 everything the app does — because it *is* the app, without the window.
 
-> **Status: pre-alpha (roadmap phase P0).** The foundation is in place — the guarded git layer,
-> the parsers, the graph layout, the CLI, an Electron shell that draws the graph, and the test
-> harness. Most of what the product will be is not written yet: see
+> **Status: pre-alpha (roadmap phases P0–P2.5 are complete).** The foundation is in place — the
+> guarded git layer, the parsers, the graph layout, the CLI, and a window that reads a repository
+> and edits its working tree: stage, commit, branch, merge with a conflict screen, stash, and more
+> than one working copy from one history. P3, the network, is not written yet: see
 > [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What it is
