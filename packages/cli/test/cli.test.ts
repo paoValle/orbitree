@@ -254,7 +254,9 @@ describe('the CLI and the app are the same program', () => {
     const beside = await mkdtemp(join(tmpdir(), 'orbitree-cli-progress-'));
     const bare = join(beside, 'remote.git');
     const reader = join(beside, 'reader');
-    await execFileAsync('git', ['init', '--bare', '--quiet', bare]);
+    // `-b main`, because a bare repository's HEAD is what a fetch of it resolves, and it otherwise
+    // comes from the machine's `init.defaultBranch` — `master` on a CI runner.
+    await execFileAsync('git', ['init', '--bare', '-b', 'main', '--quiet', bare]);
     await execFileAsync('git', ['push', '--quiet', `file://${bare}`, 'main'], { cwd: root });
     await execFileAsync('git', ['init', '-b', 'main', '--quiet', reader]);
     try {

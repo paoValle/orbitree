@@ -62,7 +62,10 @@ describe('a network failure, explained', () => {
   it('[I5] a rejected push is a branch that moved, not a broken network', async () => {
     // A real divergence: the remote moves on independently of this branch.
     const remote = join(beside, 'remote.git');
-    await run('git', ['init', '--bare', '--quiet', remote]);
+    // `-b main` explicitly: a bare repository's HEAD decides which branch a clone of it starts on,
+    // and that comes from the machine's `init.defaultBranch` otherwise — which is `master` on the CI
+    // runners and `main` on the machine this was written on.
+    await run('git', ['init', '--bare', '-b', 'main', '--quiet', remote]);
     await run('git', ['remote', 'add', 'origin', remote], { cwd: root });
     await run('git', ['push', '--quiet', 'origin', 'main'], { cwd: root });
 

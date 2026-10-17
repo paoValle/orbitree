@@ -28,7 +28,9 @@ test('a fetch reports what git is doing, in the bar it was asked from', async ()
   const beside = await makeRunDir('progress-');
   const repo = await makeRepo({ base: 'the first line\n' });
   const bare = join(beside, 'remote.git');
-  await git(beside, ['init', '--bare', '--quiet', bare]);
+  // `-b main`: a bare repository's HEAD decides what a fetch of it resolves, and without this it
+  // is the machine's `init.defaultBranch`, which is `master` on a CI runner and `main` here.
+  await git(beside, ['init', '--bare', '-b', 'main', '--quiet', bare]);
   // `origin` pointed at the bare repository and nothing else anywhere: the fixture's history is what
   // the fetch has to move, and the URL scheme is what makes git pack it and report doing so.
   await git(repo, ['remote', 'add', 'origin', `file://${bare}`]);
