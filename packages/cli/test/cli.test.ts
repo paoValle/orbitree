@@ -106,29 +106,49 @@ describe('the CLI and the app are the same program', () => {
     });
   });
 
-  it('[I5] `worktrees` lists the working copy the command was run from', async () => {
-    const result = await cli(['worktrees', root, '--json']);
-    const printed = JSON.parse(result.lines[0] as string) as {
-      data: {
-        root: string;
-        worktrees: { path: string; branch: string | null; head: string | null }[];
+  it('[I5] `worktrees` lists the working copies, the one asked from marked', async () => {
+    // Two working copies of one repository: the same history in two directories, which is only
+    // useful if a reader can tell which one they asked from and what each one is on.
+    const beside = await mkdtemp(join(tmpdir(), 'orbitree-cli-worktree-'));
+    const second = join(beside, 'side');
+    await execFileAsync('git', ['worktree', 'add', '-b', 'side', second], { cwd: root });
+    try {
+      const result = await cli(['worktrees', root, '--json']);
+      expect(result.code).toBe(EXIT.ok);
+      const printed = JSON.parse(result.lines[0] as string) as {
+        data: {
+          root: string;
+          worktrees: { path: string; branch: string | null; head: string | null }[];
+        };
       };
-    };
-    // One working directory, because that is what this fixture is; git's own answer for how many is
-    // what the parser is compared against rather than the other way round.
-    const listed = await execFileAsync('git', ['worktree', 'list', '--porcelain'], { cwd: root });
-    expect(printed.data.worktrees).toHaveLength(
-      listed.stdout.split('\n\n').filter((block) => block.trim() !== '').length,
-    );
-    const only = printed.data.worktrees[0];
-    expect(only?.branch).toBe('main');
-    expect(only?.head).toMatch(/^[0-9a-f]{40}$/);
-    expect(only?.path.endsWith(printed.data.root.split('/').pop() ?? '')).toBe(true);
+      // git's own answer for how many working copies there are is what the parser is compared
+      // against rather than the other way round.
+      const listed = await execFileAsync('git', ['worktree', 'list', '--porcelain'], { cwd: root });
+      const count = listed.stdout.split('\n\n').filter((block) => block.trim() !== '').length;
+      expect(printed.data.worktrees).toHaveLength(count);
+      expect(count).toBe(2);
 
-    // And the text form marks it, which is the whole point: the same history in two directories is
-    // only useful if a reader can tell which one they asked from.
-    const text = await cli(['worktrees', root]);
-    expect(text.lines.join('\n')).toContain('main');
+      // Both at the same commit, because it is one repository; the branch is what tells them apart.
+      const head = (await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: root })).stdout.trim();
+      expect(printed.data.worktrees.map((worktree) => worktree.branch).sort()).toEqual([
+        'main',
+        'side',
+      ]);
+      for (const worktree of printed.data.worktrees) expect(worktree.head).toBe(head);
+      const [here, other] = printed.data.worktrees;
+      expect(here?.path.endsWith(printed.data.root.split('/').pop() ?? '')).toBe(true);
+      expect(other?.path.endsWith('/side')).toBe(true);
+
+      // And the text form marks the one the command was run from, which is the whole point.
+      const lines = (await cli(['worktrees', root])).lines.join('\n').split('\n');
+      expect(lines).toHaveLength(2);
+      expect(lines.filter((line) => line.startsWith('*'))).toHaveLength(1);
+      expect(lines.find((line) => line.startsWith('*'))).toContain('main');
+    } finally {
+      await execFileAsync('git', ['worktree', 'remove', '--force', second], { cwd: root });
+      await execFileAsync('git', ['branch', '-D', 'side'], { cwd: root });
+      await rm(beside, { recursive: true, force: true });
+    }
   });
 
   it('[I5] `graph` hides what only a hidden name can reach', async () => {

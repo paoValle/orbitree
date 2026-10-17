@@ -197,6 +197,50 @@ test('the other working copies are listed, and one opens as its own tab', async 
   }
 });
 
+/**
+ * The phase's exit, in the half a pane test can check: two working copies of one repository, and a
+ * commit made in one is in the other's picture — after a refresh, without reopening the repository,
+ * because it is one history and a tab is a path into it.
+ */
+test('a commit made in one working copy is in the other one’s graph', async () => {
+  const beside = await makeRunDir('worktrees-');
+  const repo = await makeRepo({ base: 'the first line\n' });
+  await git(repo, ['branch', 'side']);
+  const second = join(beside, 'side');
+  await git(repo, ['worktree', 'add', second, 'side']);
+
+  const handle = await launchApp(repo);
+  try {
+    const page = await mainWindow(handle.app);
+    await page
+      .locator('[data-testid=worktree-row]')
+      .filter({ hasText: 'side' })
+      .first()
+      .locator('[data-testid=worktree-open]')
+      .click();
+    await expect(page.locator('[data-testid=tab]')).toHaveCount(2);
+    expect(await page.locator('input.path').inputValue()).toMatch(/\/side$/);
+    await expect(page.locator('[data-testid=graph-count]')).toContainText('1 of 1 commits');
+
+    // Made in the *first* working copy, by git, while the second one is on screen: a commit on
+    // `main`, which is not the branch this tab has checked out.
+    await writeIn(repo, 'beside.txt', 'made in the first working copy\n');
+    await commit(repo, 'made beside it');
+    // Both directories see it, because it is one repository: git's own answer from both sides.
+    const made = await git(repo, ['rev-parse', 'main']);
+    expect(await git(second, ['rev-parse', 'main'])).toBe(made);
+
+    // The picture the tab already holds is stale, and a refresh is what a person would press: no
+    // closed tab, no reopened repository.
+    await page.getByRole('button', { name: 'Refresh' }).click();
+    await expect(page.locator('[data-testid=graph-count]')).toContainText('2 of 2 commits');
+    await expect(page.locator('[data-testid=commit-row]').first()).toContainText('made beside it');
+  } finally {
+    await closeApp(handle);
+    await rm(beside, { recursive: true, force: true });
+  }
+});
+
 test('a branch is merged into the one that is checked out', async () => {
   const repo = await makeRepo({ base: 'the first line\n' });
   await git(repo, ['checkout', '--quiet', '-b', 'work']);
