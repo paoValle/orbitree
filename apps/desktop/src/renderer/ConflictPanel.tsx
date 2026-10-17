@@ -30,6 +30,8 @@ export interface ConflictPanelProps {
     take: 'ours' | 'theirs' | 'both' | 'custom',
     content?: string,
   ) => void;
+  /** Writes the whole file out, which is what the editable column is for. */
+  readonly onSave: (content: string) => void;
   readonly onAbort: () => void;
 }
 
@@ -41,6 +43,7 @@ export function ConflictPanel({
   busy,
   revision,
   onResolve,
+  onSave,
   onAbort,
 }: ConflictPanelProps): React.ReactElement {
   const [sides, setSides] = useState<Readonly<Record<string, string>> | null>(null);
@@ -48,6 +51,14 @@ export function ConflictPanel({
   const [editing, setEditing] = useState<{ readonly region: number; readonly text: string } | null>(
     null,
   );
+  /**
+   * The column that is edited, and the file the person is writing.
+   *
+   * It starts from *ours*, which is the choice a person is making nine times out of ten and the one
+   * the category defaults to; the two other columns are beside it to be read. Typing in it is not a
+   * git call, and saving runs one operation over the whole text.
+   */
+  const [result, setResult] = useState<string | null>(null);
 
   useEffect(() => {
     // `revision` is a trigger rather than a value: resolving a region renumbers the rest, so the
@@ -65,7 +76,10 @@ export function ConflictPanel({
         return [side, result.ok ? result.value.content : ''] as const;
       }),
     ).then((loaded) => {
-      if (!cancelled) setSides(Object.fromEntries(loaded));
+      if (cancelled) return;
+      const bySide = Object.fromEntries(loaded);
+      setSides(bySide);
+      setResult((current) => current ?? bySide.ours ?? '');
     });
 
     void window.orbitree.readConflictRegions({ path: root, file: path }).then((result) => {
@@ -186,17 +200,47 @@ export function ConflictPanel({
         </ul>
       )}
 
-      {sides === null ? (
+      {sides === null || result === null ? (
         <p className="empty">loading…</p>
       ) : (
-        <div className="conflict-sides">
-          {SIDES.map((side) => (
-            <div className="conflict-side" data-testid={`conflict-${side}`} key={side}>
-              <h3>{side === 'base' ? 'the common ancestor' : side}</h3>
-              <pre>{sides[side] === '' ? '(none)' : sides[side]}</pre>
+        <>
+          {/* The common ancestor is not one of the choices, so it does not get a column: it is
+              context for the two that are. */}
+          <details className="conflict-base-note">
+            <summary>the common ancestor</summary>
+            <pre data-testid="conflict-base">{sides.base === '' ? '(none)' : sides.base}</pre>
+          </details>
+          <div className="conflict-sides">
+            <div className="conflict-side" data-testid="conflict-ours">
+              <h3>ours</h3>
+              <pre>{sides.ours === '' ? '(none)' : sides.ours}</pre>
             </div>
-          ))}
-        </div>
+            <div className="conflict-side" data-testid="conflict-result">
+              <h3>the result</h3>
+              <textarea
+                data-testid="conflict-result-text"
+                value={result}
+                onChange={(event) => setResult(event.currentTarget.value)}
+              />
+            </div>
+            <div className="conflict-side" data-testid="conflict-theirs">
+              <h3>theirs</h3>
+              <pre>{sides.theirs === '' ? '(none)' : sides.theirs}</pre>
+            </div>
+          </div>
+          <div className="conflict-save">
+            <button
+              type="button"
+              className="primary"
+              data-testid="conflict-save"
+              disabled={busy === true}
+              onClick={() => onSave(result)}
+            >
+              write this file
+            </button>
+            <span className="empty">mark it resolved when it reads right</span>
+          </div>
+        </>
       )}
     </div>
   );

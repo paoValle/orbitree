@@ -80,6 +80,12 @@ operations take a selector: `--op stash-show --arg stash@{0}` reads its patch, `
 is `destructive`. A commit takes a body as well as a summary: `--op commit --message <summary> --arg <body>`, and the
 two reach git as two `-m`, so the blank line between them is git's rather than ours.
 
+A conflicted path can also be written out whole — `--op resolve-file --arg <path> --arg <text>…` —
+which is what an editor produces: the file replaced with text the caller decided on. The patch is
+built inside the executor from a read of the file, so that text can only become the added lines of
+that one file, and its reverse is `regenerate-conflict`. Neither writes the conflict away: the three
+index stages survive until the path is added, so `git add` is still what resolves it.
+
 Conflict resolution is per region: `--op resolve-conflict --arg <path> --arg <region> --arg
 ours|theirs|both|custom` replaces one region of a conflicted file, where a region is counted from 0
 in the file *as it is now* — resolving one renumbers the rest, so a caller re-reads before the next

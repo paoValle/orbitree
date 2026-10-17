@@ -64,6 +64,8 @@ export interface WorkingTreePanelProps {
   readonly onTakeSide?: (side: 'ours' | 'theirs', path: string) => void;
   /** Gives up on the merge that is under way and puts the branch back where it was. */
   readonly onAbortMerge?: () => void;
+  /** Writes one conflicted path out with the text an editor produced. */
+  readonly onSaveConflict?: (path: string, content: string) => void;
   /** Resolves one conflict region of one path, replacing it with a side or with typed text. */
   readonly onResolveRegion?: (
     path: string,
@@ -141,6 +143,7 @@ export function WorkingTreePanel({
   onDiscardHunk,
   onTakeSide,
   onAbortMerge,
+  onSaveConflict,
   onResolveRegion,
   revision,
   onCommit,
@@ -442,6 +445,7 @@ export function WorkingTreePanel({
             onResolve={(region, take, content) =>
               onResolveRegion?.(path ?? '', region, take, content)
             }
+            onSave={(content) => onSaveConflict?.(path ?? '', content)}
             onAbort={onAbortMerge}
           />
         ) : null}
