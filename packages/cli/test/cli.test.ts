@@ -170,6 +170,7 @@ describe('the CLI and the app are the same program', () => {
       'conflict-side': ['ours', 'file.txt'],
       'discard-hunk': ['file.txt', '0'],
       'resolve-conflict': ['file.txt', '0', 'ours'],
+      'resolve-file': ['file.txt', 'the whole file'],
       merge: ['main'],
       'stash-push': [],
       'stash-pop': [],

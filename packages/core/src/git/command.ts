@@ -97,6 +97,13 @@ export type GitCommand =
    * own text. The patch is built from a fresh read of the file, so what a caller supplies is a
    * choice and, at most, the lines of one region.
    */
+  /**
+   * Replaces a whole file with text a caller decided on, which is what an editor produces.
+   *
+   * The text is data rather than an argument, and the patch is built from a read of the file: what a
+   * caller supplies can only become the *added* lines of that one file.
+   */
+  | { readonly op: 'resolve-file'; readonly path: string; readonly content: string }
   | {
       readonly op: 'resolve-conflict';
       readonly path: string;
@@ -192,6 +199,7 @@ export function riskOf(cmd: GitCommand): Risk {
     // in the other direction.
     case 'reset-soft':
     case 'regenerate-conflict':
+    case 'resolve-file':
       return 'local';
 
     // Dropping a stash is the one stash operation that loses something by itself: `pop` and
@@ -417,6 +425,7 @@ export function toArgv(cmd: GitCommand): string[] {
     // Forward rather than `--reverse`: this patch says what the file should become. It is built
     // from a read of the file, so the lines it removes are the conflict's own.
     case 'resolve-conflict':
+    case 'resolve-file':
       return ['apply', '--recount', '--whitespace=nowarn', '-'];
 
     // `:2:path` is the index stage, and the leading colon is what makes this safe to build from a

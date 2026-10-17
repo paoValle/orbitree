@@ -2,7 +2,13 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { type GitCommand, InvalidArgumentError, isDestructive, riskOf, toArgv } from './command.ts';
-import { countConflictStarts, linesOf, parseConflictRegions, resolutionPatch } from './conflict.ts';
+import {
+  countConflictStarts,
+  linesOf,
+  parseConflictRegions,
+  resolutionPatch,
+  wholeFilePatch,
+} from './conflict.ts';
 import { parseDiff, patchForHunk } from './diff.ts';
 import { redact } from './redact.ts';
 
@@ -195,6 +201,28 @@ export async function executeOrThrow(cmd: GitCommand, options: ExecuteOptions): 
 }
 
 /**
+ * The patch that replaces a whole file with what a caller decided it should say.
+ *
+ * The same read-then-build as the region resolver, for the same reason: the removals are the file's
+ * own lines and the additions are the caller's text, each prefixed, so a line of that text that reads
+ * like a patch header is one added line.
+ */
+function wholeFilePatchFor(cmd: Extract<GitCommand, { op: 'resolve-file' }>, cwd: string): string {
+  const file = join(cwd, cmd.path);
+  if (!statSync(file, { throwIfNoEntry: false })?.isFile()) {
+    throw new InvalidArgumentError(`${cmd.path} is not a file`);
+  }
+  const text = readFileSync(file, 'utf8');
+  if (!text.endsWith('\n')) {
+    throw new InvalidArgumentError(
+      `${cmd.path} does not end with a newline, which a patch cannot express`,
+    );
+  }
+  const replacement = cmd.content === '' ? [] : cmd.content.replace(/\n$/, '').split('\n');
+  return wholeFilePatch(cmd.path, linesOf(text), replacement);
+}
+
+/**
  * The patch that resolves one conflict region, built from the file as it is on disk.
  *
  * The read is what makes the rest safe: the region's own lines are what the patch removes, so a
@@ -262,6 +290,7 @@ interface SpawnOptions {
  */
 async function stdinFor(cmd: GitCommand, options: ExecuteOptions): Promise<string | null> {
   if (cmd.op === 'resolve-conflict') return resolutionPatchFor(cmd, options.cwd);
+  if (cmd.op === 'resolve-file') return wholeFilePatchFor(cmd, options.cwd);
   if (cmd.op !== 'discard-hunk') return null;
 
   const read = await executeOrThrow({ op: 'diff', path: cmd.path }, options);
