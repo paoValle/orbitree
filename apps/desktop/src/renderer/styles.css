@@ -1446,3 +1446,43 @@ code {
   font-family: var(--mono);
   font-size: 11.5px;
 }
+
+/* The conflict editor: the two sides to read, and the one in the middle to write. */
+.conflict-base-note {
+  margin-bottom: 6px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.conflict-base-note pre {
+  margin: 4px 0 0;
+  padding: 5px 6px;
+  max-height: 90px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.conflict-side textarea {
+  display: block;
+  width: 100%;
+  min-height: 220px;
+  padding: 6px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  resize: vertical;
+}
+
+.conflict-save {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}

@@ -871,6 +871,18 @@ export function App(): React.ReactElement {
                   command: { op: 'take-side', side, paths: [entryPath] },
                 })
               }
+              onSaveConflict={(entryPath, content) =>
+                runGuarded({
+                  id: 'resolve-file',
+                  label: `Write ${entryPath}`,
+                  hint: `apply --recount (the whole of ${entryPath})`,
+                  // Nothing is destroyed that git cannot put back: the three stages are still in the
+                  // index, and `checkout -m` puts the conflict there again — which is exactly the
+                  // reverse the activity card will offer.
+                  danger: false,
+                  command: { op: 'resolve-file', path: entryPath, content },
+                })
+              }
               onResolveRegion={(entryPath, region, take, content) =>
                 runGuarded({
                   id: 'resolve-conflict',

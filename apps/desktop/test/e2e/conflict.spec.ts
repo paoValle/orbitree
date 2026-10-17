@@ -40,7 +40,7 @@ test('a conflicted path shows its three versions, takes a side, and the merge is
     // The three versions, read from the index stages rather than from the file with its markers.
     await page.locator('[data-testid=entry-item][data-path="base.txt"]').click();
     await expect(page.locator('[data-testid=conflict]')).toBeVisible();
-    await expect(page.locator('[data-testid=conflict-base] pre')).toHaveText('the common line');
+    await expect(page.locator('[data-testid=conflict-base]')).toHaveText('the common line');
     await expect(page.locator('[data-testid=conflict-ours] pre')).toContainText(
       'what this branch says',
     );
@@ -145,6 +145,50 @@ test('a conflict is resolved region by region, and the list renumbers as it goes
       .getByRole('button', { name: 'resolve' })
       .click();
     await expect.poll(() => git(repo, ['status', '--porcelain=v2'])).not.toContain('u UU');
+  } finally {
+    await closeApp(handle);
+    await rm(repo, { recursive: true, force: true });
+  }
+});
+
+/**
+ * The editor: the two sides to read, and the column in the middle to write.
+ *
+ * The assertion is about the file and about git, not about the widget: what is written is what the
+ * textarea held, and the path stays unmerged until it is added — writing the text is not resolving
+ * the conflict, and a screen that hid that difference would be lying about which step is left.
+ */
+test('the two sides are beside an editable result, and writing it changes the file', async () => {
+  const repo = await conflictedRepo();
+  const handle = await launchApp(repo);
+  try {
+    const page = await mainWindow(handle.app);
+    await page.locator('[data-testid=entry-item][data-path="base.txt"]').click();
+
+    // The result starts from ours, which is the choice being made nine times out of ten, and the two
+    // other columns are there to be read.
+    const result = page.locator('[data-testid=conflict-result-text]');
+    await expect(result).toHaveValue('what this branch says\n');
+    await expect(page.locator('[data-testid=conflict-ours] pre')).toContainText(
+      'what this branch says',
+    );
+    await expect(page.locator('[data-testid=conflict-theirs] pre')).toContainText(
+      'what the other branch says',
+    );
+
+    await result.fill('what the two of them agree it should say\n');
+    await page.locator('[data-testid=conflict-save]').click();
+
+    await expect
+      .poll(async () => await readFile(resolve(repo, 'base.txt'), 'utf8'))
+      .toBe('what the two of them agree it should say\n');
+    // Still unmerged: the file reads right and the conflict is not resolved until it is added.
+    expect(await git(repo, ['status', '--porcelain=v2'])).toContain('u UU');
+
+    const screenshot = resolve(import.meta.dirname, '..', '..', 'reports', 'editor.png');
+    await mkdir(dirname(screenshot), { recursive: true });
+    await page.screenshot({ path: screenshot });
+    console.log(`screenshot: ${screenshot}`);
   } finally {
     await closeApp(handle);
     await rm(repo, { recursive: true, force: true });
