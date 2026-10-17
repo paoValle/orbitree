@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { gitEnv } from '../src/git/exec.ts';
+import { toArgv } from '../src/git/command.ts';
+import { execute, GitFailedError, gitEnv } from '../src/git/exec.ts';
 import { redact } from '../src/git/redact.ts';
 
 describe('secrets on their way out', () => {
@@ -25,6 +26,28 @@ describe('secrets on their way out', () => {
       expect(redact(`remote: ${sample} rejected`), sample).not.toContain(sample.slice(0, 8));
     }
     expect(redact('Authorization: Bearer abcdefghijklmnopqrstuv')).toContain('***redacted***');
+  });
+
+  it('[I8] the argv a caller is shown has the credential masked', async () => {
+    // The credential a UI can leak is not only in stderr: a remote URL holds a token, and both
+    // front-ends show the command and let it be copied. What git is given stays exactly as it was
+    // built — `toArgv` is pure — and what leaves the process is masked.
+    const token = 'ghp_ABCDEFGHIJKLMNOPQRST';
+    const command = {
+      op: 'push',
+      remote: `https://user:${token}@example.invalid/x.git`,
+      branch: 'main',
+    } as const;
+    const planned = await execute(command, { cwd: process.cwd(), dryRun: true });
+    expect(planned.argv.join(' ')).not.toContain(token);
+    expect(planned.argv.join(' ')).toContain('https://***@example.invalid/x.git');
+    expect(toArgv(command).join(' ')).toContain(token);
+
+    // And a failure whose stderr is empty falls back to naming the command, which is the other
+    // place the same argv is printed.
+    const failed = new GitFailedError(toArgv(command), 128, '');
+    expect(failed.message).not.toContain(token);
+    expect(failed.message).toContain('https://***@example.invalid/x.git');
   });
 
   it('[I8] an ordinary message is left alone', () => {

@@ -317,6 +317,36 @@ describe('the CLI and the app are the same program', () => {
     expect(text.lines.join('\n')).toContain('Check the network');
   });
 
+  it('[I8] a credential in a remote URL never reaches the output, only the argv git gets', async () => {
+    // A push to a port nothing listens on, with the token in the URL: instant, and the failure is
+    // the same one a real remote gives. Everything the CLI prints is checked, because the command
+    // line is printed in four places: the text form, the JSON, the dry run, and the diagnosis.
+    const token = 'ghp_ABCDEFGHIJKLMNOPQRST';
+    const url = `https://user:${token}@127.0.0.1:9/x.git`;
+    const run = await cli(['run', root, '--op', 'push', '--arg', url, '--arg', 'main', '--json']);
+    expect(run.lines.join('')).not.toContain(token);
+    expect(run.errors.join('')).not.toContain(token);
+    expect(run.lines.join('')).toContain('https://***@127.0.0.1:9/x.git');
+
+    const text = await cli(['run', root, '--op', 'push', '--arg', url, '--arg', 'main']);
+    expect(text.lines.join('')).not.toContain(token);
+
+    // A dry run is a display as well, and it is the one a caller reads before deciding.
+    const planned = await cli([
+      'run',
+      root,
+      '--op',
+      'push',
+      '--arg',
+      url,
+      '--arg',
+      'main',
+      '--dry-run',
+      '--json',
+    ]);
+    expect(planned.lines.join('')).not.toContain(token);
+  });
+
   it('[I3] every operation the CLI publishes is reachable through `run --op`', async () => {
     // The claim of the doc and of the roadmap item: `ops` lists what `run` accepts. Two lists that
     // can drift, so one of them — the published one — is what the test walks, and an operation that

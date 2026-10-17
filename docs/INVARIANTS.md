@@ -140,9 +140,15 @@ without anyone deciding to remove it.
 **What it protects**: a token in a log file, a screenshot of an error, or a bug report.
 
 **Enforced by**: `redact` is applied to every `stdout` and `stderr` inside `execute`, before
-anything downstream can print or store it, and to the message of `GitFailedError`. It removes
-credentials from URLs, GitHub/GitLab token shapes, AWS key ids and bearer headers. The test
-covers each shape and asserts that an ordinary message is untouched.
+anything downstream can print or store it, to the message of `GitFailedError`, and to the **argv the
+result carries** — a remote URL can hold a token, and both front-ends show the command and let it be
+copied. The argv git is actually given stays exactly as `toArgv` built it: it is the copy that leaves
+the process that is masked. `redact` removes credentials from URLs, GitHub/GitLab token shapes, AWS
+key ids and bearer headers. The test covers each shape, asserts that an ordinary message is
+untouched, and asserts that a credential in a pushed URL reaches neither the text form nor the JSON
+of `orbitree run`. **What it does not cover**: the app has no remote-management button yet, so no
+argv a *screen* can show carries a URL today; the masking is on the boundary rather than on the paths
+that currently reach it.
 
 **Without it**: a failed push prints `https://user:ghp_…@host/…` in the UI and in `--json`.
 

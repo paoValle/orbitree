@@ -44,7 +44,9 @@ export class GitFailedError extends Error {
   readonly exitCode: number;
   readonly stderr: string;
   constructor(argv: readonly string[], exitCode: number, stderr: string) {
-    super(`git exited with ${exitCode}: ${redact(stderr.trim()) || argv.join(' ')}`);
+    // The fallback names the command when git said nothing, and a command can hold a credential:
+    // `redact` covers both halves.
+    super(`git exited with ${exitCode}: ${redact(stderr.trim() || argv.join(' '))}`);
     this.argv = argv;
     this.exitCode = exitCode;
     this.stderr = stderr;
@@ -154,6 +156,18 @@ export function gitEnv(base: NodeJS.ProcessEnv = process.env): Record<string, st
   return env;
 }
 
+/**
+ * The argv as it may be *shown*: the same words with any credential in them masked.
+ *
+ * A remote URL can hold a token, `git push --progress https://user:ghp_…@host/x.git` is a real argv,
+ * and both front-ends show this line and let it be copied. `toArgv` stays pure and unredacted — it is
+ * what git is given — and this is applied where the argv leaves the process, exactly as `stdout` and
+ * `stderr` are.
+ */
+function shownArgv(argv: readonly string[]): readonly string[] {
+  return argv.map(redact);
+}
+
 /** A fresh request: the executor is the only thing that knows how to be careful. */
 export async function execute(cmd: GitCommand, options: ExecuteOptions): Promise<GitResult> {
   const risk = riskOf(cmd);
@@ -162,7 +176,7 @@ export async function execute(cmd: GitCommand, options: ExecuteOptions): Promise
   // A dry run is how a caller finds out *what* it is being asked to confirm, so it is the
   // one path that gets to resolve the argv first. Nothing is spawned here.
   if (options.dryRun === true) {
-    return { argv, exitCode: 0, stdout: '', stderr: '', durationMs: 0, risk };
+    return { argv: shownArgv(argv), exitCode: 0, stdout: '', stderr: '', durationMs: 0, risk };
   }
 
   // Fail closed. `riskOf` is exhaustive over the command union, so an operation with a new
@@ -192,7 +206,7 @@ export async function execute(cmd: GitCommand, options: ExecuteOptions): Promise
   });
 
   return {
-    argv,
+    argv: shownArgv(argv),
     exitCode,
     // Redacted on the way in: nothing downstream has to remember.
     stdout: redact(stdout),
@@ -355,7 +369,7 @@ function spawnGit(
       if (settled) return;
       settled = true;
       child.kill('SIGKILL');
-      reject(new GitTimeoutError(argv, options.timeoutMs));
+      reject(new GitTimeoutError(shownArgv(argv), options.timeoutMs));
     }, options.timeoutMs);
 
     const onAbort = (): void => {

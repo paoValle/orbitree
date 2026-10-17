@@ -5,6 +5,7 @@ import {
   diagnoseFailure,
   execute,
   openRepo,
+  redact,
   readCommit,
   readConflictRegions,
   readConflictSide,
@@ -226,7 +227,13 @@ function registerHandlers(): void {
         reverse:
           reverse === null
             ? null
-            : { command: reverse, argv: toArgv(reverse), risk: riskOf(reverse) },
+            : {
+                command: reverse,
+                // Redacted like every other argv a screen shows: the reverse of adding a remote
+                // carries its URL, and a URL can hold a token.
+                argv: toArgv(reverse).map(redact),
+                risk: riskOf(reverse),
+              },
         exitCode: result.exitCode,
         stdout: result.stdout,
         stderr: result.stderr,
