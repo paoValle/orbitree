@@ -452,6 +452,16 @@ export interface RunPayload {
   readonly stdout: string;
   readonly stderr: string;
   readonly durationMs: number;
+  /**
+   * What to do about the failure, when the command failed for one of the network reasons the core
+   * knows — an SSH key that is not loaded, a token without the right scope, a machine that cannot
+   * reach the host. `null` for every ordinary failure: a merge conflict needs no advice.
+   */
+  readonly diagnosis: {
+    readonly failure: string;
+    readonly what: string;
+    readonly whatToDo: string;
+  } | null;
 }
 
 export type Result<T> =

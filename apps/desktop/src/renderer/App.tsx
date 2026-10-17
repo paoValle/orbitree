@@ -1098,6 +1098,11 @@ export function App(): React.ReactElement {
                         </span>
                       )}
                       {run.detail === '' ? null : <span className="run-detail">{run.detail}</span>}
+                      {run.advice === null ? null : (
+                        <span className="run-advice" data-testid="activity-advice">
+                          {run.advice}
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>

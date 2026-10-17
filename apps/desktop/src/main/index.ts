@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import {
   BEFORE_NOTHING,
   ConfirmationRequiredError,
+  diagnoseFailure,
   execute,
   openRepo,
   readCommit,
@@ -206,10 +207,17 @@ function registerHandlers(): void {
       // the window sends the state, the process that can run git names the command — and knows
       // whether running it would need a reason.
       const reverse = reverseOf(parsed.command, parsed.before ?? BEFORE_NOTHING);
+      // A failed command that failed for a network reason carries the next step with it, because
+      // git's stderr is a sentence for somebody who already knows how ssh and tokens work.
+      const diagnosis = result.exitCode === 0 ? null : diagnoseFailure(result.stderr);
       return {
         op: parsed.command.op,
         risk: riskOf(parsed.command),
         argv: result.argv,
+        diagnosis:
+          diagnosis === null
+            ? null
+            : { failure: diagnosis.kind, what: diagnosis.what, whatToDo: diagnosis.whatToDo },
         reverse:
           reverse === null
             ? null

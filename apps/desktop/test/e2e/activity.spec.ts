@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { closeApp, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
+import { closeApp, git, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
 
 /**
  * The activity list is where the product's thesis becomes useful. The window and the CLI run the
@@ -39,6 +39,39 @@ test('the activity list keeps the command, and it can be copied', async () => {
 
     await page.screenshot({
       path: resolve(import.meta.dirname, '..', '..', 'reports', 'activity.png'),
+    });
+  } finally {
+    await closeApp(handle);
+  }
+});
+
+/**
+ * A network failure says what to do, not only what git printed.
+ *
+ * The remote is a port nothing listens on — 9 is the discard port — so the failure is real, instant
+ * and needs no network: git's own "Failed to connect" is what arrives, and the sentence beside it is
+ * the part a person can act on. Both are asserted, because replacing git's words with advice would
+ * make the advice unverifiable.
+ */
+test('a push that cannot reach the remote explains what to do', async () => {
+  const repo = await makeRepo({ base: 'base\n' });
+  await git(repo, ['remote', 'add', 'origin', 'https://127.0.0.1:9/no/such.git']);
+
+  const handle = await launchApp(repo);
+  try {
+    const page = await mainWindow(handle.app);
+    await page.getByRole('button', { name: 'Push', exact: true }).click();
+
+    // The failing command is in the activity card, which is where a command's outcome lives, and
+    // git's own words are still there beside the advice rather than replaced by it.
+    const argv = page.locator('[data-testid=activity-argv]').first();
+    await expect(argv).toHaveText('git push origin HEAD');
+    await expect(page.locator('.run-detail').first()).toContainText('Failed to connect');
+    await expect(page.locator('[data-testid=activity-advice]')).toContainText('Check the network');
+    // The exit code is the truth about what happened, and it is not zero.
+    await expect(page.locator('.rc.bad').first()).toHaveText('128');
+    await page.screenshot({
+      path: resolve(import.meta.dirname, '..', '..', 'reports', 'network-failure.png'),
     });
   } finally {
     await closeApp(handle);

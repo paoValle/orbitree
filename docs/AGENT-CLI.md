@@ -236,6 +236,11 @@ Rules an agent should assume:
 - A failed `git` is a **value**, not an exception: exit 4, `stderr` populated, the repository in
   whatever state git left it. After a conflict, `status` reports `unmerged` entries — check them
   before assuming success.
+- A failed remote command carries a `diagnosis` beside `stderr`: `{ failure, what, whatToDo }`, where
+  `failure` is `ssh-key`, `host-key`, `token`, `offline`, `repository-not-found`, `diverged` or
+  `refused-by-server`. It is `null` when the failure is not one of those — a missing revision, a
+  conflict — and it never replaces `stderr`, so read both: the diagnosis says what to do, and git's
+  words say what happened.
 
 ## What an agent should not do
 

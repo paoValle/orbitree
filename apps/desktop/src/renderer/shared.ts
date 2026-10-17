@@ -21,6 +21,8 @@ export interface RunRecord {
   readonly exitCode: number;
   /** The first thing the command said, or an empty string. */
   readonly detail: string;
+  /** What to do about a network failure, or `null` when there is nothing useful to add. */
+  readonly advice: string | null;
   /**
    * `git` and its arguments, as the command that puts the repository back.
    *
@@ -41,5 +43,6 @@ export function recordRun(result: RunPayload): RunRecord {
     reverse: result.reverse,
     exitCode: result.exitCode,
     detail: (result.stderr || result.stdout).trim().split('\n').slice(0, 2).join(' · '),
+    advice: result.diagnosis?.whatToDo ?? null,
   };
 }

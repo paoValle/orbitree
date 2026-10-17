@@ -15,9 +15,9 @@ import {
   APP_NAME,
   type CommitDetail,
   ConfirmationRequiredError,
+  diagnoseFailure,
   execute,
   type GitCommand,
-  type GitFailedError,
   type GitNotFoundError,
   type GraphData,
   gitVersion,
@@ -434,6 +434,9 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
               }),
           ...(opts.dryRun === true ? { dryRun: true } : {}),
         });
+        // A failed remote command is a result here rather than a thrown error — `run` reports what
+        // git did — so the explanation is attached where the failure is, not only in `fail`.
+        const diagnosis = result.exitCode === 0 ? null : diagnoseFailure(result.stderr);
         emit(
           io,
           opts.json === true,
@@ -446,11 +449,18 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
             exitCode: result.exitCode,
             stdout: result.stdout,
             stderr: result.stderr,
+            diagnosis:
+              diagnosis === null
+                ? null
+                : { failure: diagnosis.kind, what: diagnosis.what, whatToDo: diagnosis.whatToDo },
           },
           (data) =>
             data.dryRun
               ? `would run: git ${data.argv.join(' ')}`
-              : `git ${data.argv.join(' ')}\n${data.stdout}`.trimEnd(),
+              : `git ${data.argv.join(' ')}\n${data.stdout}`.trimEnd() +
+                (data.diagnosis === null
+                  ? ''
+                  : `\n${data.diagnosis.what} ${data.diagnosis.whatToDo}`),
         );
       },
     );
@@ -978,7 +988,7 @@ function commandNameOf(argv: readonly string[]): string {
 }
 
 /** Unused imports are a compile error here, so the types live in one `import type` above. */
-export type { GitFailedError, GitNotFoundError, GraphData, RepoHandle };
+export type { GitNotFoundError, GraphData, RepoHandle };
 
 if (process.argv[1] !== undefined && import.meta.url === `file://${process.argv[1]}`) {
   process.exitCode = await main(process.argv.slice(2));

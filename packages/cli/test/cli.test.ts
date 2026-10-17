@@ -248,6 +248,48 @@ describe('the CLI and the app are the same program', () => {
     expect(text).toContain('local');
   });
 
+  it('[I5] a remote failure comes back explained, not only printed', async () => {
+    // A push to a port nothing listens on: a real failure, instantly, and no network involved.
+    const result = await cli([
+      'run',
+      root,
+      '--op',
+      'push',
+      '--arg',
+      'https://127.0.0.1:9/no/such.git',
+      '--arg',
+      'main',
+      '--json',
+    ]);
+    // A failed remote command is a result rather than a failed invocation: `run` reports what git
+    // did, exit code and all.
+    expect(result.code).toBe(EXIT.ok);
+    const printed = JSON.parse(result.lines[0] as string) as {
+      data: {
+        exitCode: number;
+        stderr: string;
+        diagnosis: { failure: string; what: string; whatToDo: string } | null;
+      };
+    };
+    expect(printed.data.exitCode).not.toBe(0);
+    expect(printed.data.stderr).toContain('Failed to connect');
+    expect(printed.data.diagnosis?.failure).toBe('offline');
+    expect(printed.data.diagnosis?.whatToDo).toContain('network');
+
+    // And the text form says it too, after git's own words rather than instead of them.
+    const text = await cli([
+      'run',
+      root,
+      '--op',
+      'push',
+      '--arg',
+      'https://127.0.0.1:9/no/such.git',
+      '--arg',
+      'main',
+    ]);
+    expect(text.lines.join('\n')).toContain('Check the network');
+  });
+
   it('[I3] every operation the CLI publishes is reachable through `run --op`', async () => {
     // The claim of the doc and of the roadmap item: `ops` lists what `run` accepts. Two lists that
     // can drift, so one of them — the published one — is what the test walks, and an operation that
