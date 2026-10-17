@@ -265,8 +265,11 @@ Remotes, credentials, and the errors that come with the network.
       was asked from. The finding is in `parseProgress`: git's progress and git's errors share a
       stream, so the phase names are checked rather than guessed — a pattern loose enough to match
       any `word: text` line reads `fatal: unable to access …` as a phase called "fatal". Remote
-      management is in the CLI and not yet in the window: the panel lists remote refs and has no
-      button to add, rename or remove one.
+      management is in both front-ends: `run --op` for an agent, and a **Remotes** section in the
+      window's panel for a person — the config, which is a different list from the remote branches
+      that came from it, since a remote nothing has been fetched from has no branches and is still a
+      remote. Adding one is the dialog that needed a second field (a name and where it points) and
+      the section says which of the two URLs a remote has when they differ.
 - [ ] Credentials from the system helper: `git credential fill`, `gh auth token`, `glab auth
       token`, SSH agent. Tokens are never written to a config file of ours.
       The second half of that sentence is enforced and now tested in both directions: `redact`
