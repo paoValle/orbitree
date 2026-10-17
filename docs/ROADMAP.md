@@ -210,6 +210,30 @@ The working tree becomes editable, and the confirmation machinery gets its real 
 **Exit**: `orbitree run --op commit --message x --json` and the app's Commit button produce the
 same commit object on the same input — asserted by a test, not by inspection.
 
+## P2.5 — Worktrees
+
+One repository, more than one working directory. This is where the product stops being "one window per
+repository" and becomes "one window per working copy", which is why it is a phase and not a bullet: it
+changes what a tab *is*.
+
+The reason it is not `Later`, where the sift put it: a worktree is how one person runs two lines of
+work at once — a review and a fix, a branch and a build — and it is how more than one agent works on
+one repository without fighting over one index. The conventions of the category have settled on
+first-class worktrees for that second reason.
+
+- [x] Read them: `git worktree list --porcelain`, a total parser, and the list the window can show.
+- [x] Create one (`worktree add <path> [<branch>]`), remove one (`worktree remove`, and `--force`
+      which is destructive), each reachable through `orbitree run --op`.
+- [ ] A tab per worktree: the repository is the same, so the *history* is the same, and what differs
+      is the working tree, the index and the path. A tab that says which working copy it is on, and a
+      panel section listing the others with a way to open one.
+- [ ] `orbitree worktrees --json`, so an agent can name a working copy the way the window does.
+
+**Exit**: with two worktrees of one repository, `orbitree worktrees . --json` lists both with their
+branch and their head, the window opens the second one as its own tab, and a commit made in one is
+visible in the other's graph without a reload of the repository — asserted by a test that reads both
+directories with the real `git` binary.
+
 ## P3 — Sync
 
 Remotes, credentials, and the errors that come with the network.

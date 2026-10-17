@@ -126,7 +126,14 @@ export function reverseOf(cmd: GitCommand, before: BeforeState): GitCommand | nu
     // of the run that made it does.
     case 'reset-soft':
     case 'regenerate-conflict':
+    case 'worktree-list':
       return null;
+    // Adding a worktree adds a directory; removing one takes it away, and putting it back is
+    // adding it again — with the branch it was on, which is where the care goes.
+    case 'worktree-add':
+      return { op: 'worktree-remove', path: cmd.path };
+    case 'worktree-remove':
+      return { op: 'worktree-add', path: cmd.path };
     // A file an editor wrote is undone by the same command that put the conflict back: the stages
     // are still in the index until the path is added.
     case 'resolve-file':

@@ -16,6 +16,7 @@ export * from './git/log.ts';
 export * from './git/redact.ts';
 export * from './git/reverse.ts';
 export * from './git/stash.ts';
+export * from './git/worktree.ts';
 export * from './git/status.ts';
 export * from './graph/layout.ts';
 export * from './graph/visible.ts';

@@ -117,6 +117,21 @@ export type GitCommand =
   | { readonly op: 'stash-drop'; readonly selector: string }
   /** One stash's own patch, for looking at before deciding what to do with it. */
   | { readonly op: 'stash-show'; readonly selector: string }
+  /** Every working directory this repository has checked out, this one included. */
+  | { readonly op: 'worktree-list' }
+  | {
+      readonly op: 'worktree-add';
+      /** Where the new working directory goes. */
+      readonly path: string;
+      /** The branch to check out there, or nothing for a new one git names. */
+      readonly branch?: string;
+    }
+  | {
+      readonly op: 'worktree-remove';
+      readonly path: string;
+      /** Removes it even with changes in it, which is why it needs a confirmation. */
+      readonly force?: boolean;
+    }
   | { readonly op: 'branch-delete'; readonly name: string; readonly force?: boolean }
   // --- remote: talks to another machine (through git, never from here) ---
   | { readonly op: 'fetch'; readonly remote?: string }
@@ -178,6 +193,7 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'pending-operation':
     case 'stash-show':
     case 'conflict-side':
+    case 'worktree-list':
       return 'read';
 
     case 'add':
@@ -200,7 +216,12 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'reset-soft':
     case 'regenerate-conflict':
     case 'resolve-file':
+    case 'worktree-add':
       return 'local';
+    // `git worktree remove` refuses a directory with changes in it; `--force` does not, and that is
+    // the same deal as `branch -d` against `-D`.
+    case 'worktree-remove':
+      return cmd.force === true ? 'destructive' : 'local';
 
     // Dropping a stash is the one stash operation that loses something by itself: `pop` and
     // `apply` put the work back in the working tree first, and `drop` throws it away without
@@ -456,6 +477,32 @@ export function toArgv(cmd: GitCommand): string[] {
 
     // The patch a stash holds: the stash against the commit it was taken from, so the same shape
     // as any other diff, read by the same parser and drawn by the same pane.
+    case 'worktree-list':
+      return ['worktree', 'list', '--porcelain'];
+
+    case 'worktree-add':
+      // The path is a positional, so a path starting with a dash would be read as an option: unlike
+      // `add` and `discard` there is no `--` to hide behind before git has decided, so it is refused.
+      if (cmd.path === '' || cmd.path.startsWith('-')) {
+        throw new InvalidArgumentError(
+          `refusing a worktree path git would read as a flag: ${cmd.path}`,
+        );
+      }
+      return [
+        'worktree',
+        'add',
+        cmd.path,
+        ...(cmd.branch === undefined ? [] : [assertSafeRef(cmd.branch)]),
+      ];
+
+    case 'worktree-remove':
+      if (cmd.path === '' || cmd.path.startsWith('-')) {
+        throw new InvalidArgumentError(
+          `refusing a worktree path git would read as a flag: ${cmd.path}`,
+        );
+      }
+      return ['worktree', 'remove', ...(cmd.force === true ? ['--force'] : []), cmd.path];
+
     case 'stash-show':
       return [
         'stash',
