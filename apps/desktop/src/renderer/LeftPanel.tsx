@@ -55,6 +55,16 @@ export interface LeftPanelProps {
     readonly email: IdentityValue | null;
     readonly signingKey: IdentityValue | null;
   } | null;
+  /** The remotes the config holds. Forgetting one is a `local` operation: it is config, not work. */
+  readonly remotes: readonly {
+    readonly name: string;
+    readonly fetchUrl: string | null;
+    readonly pushUrl: string | null;
+  }[];
+  readonly onAddRemote: () => void;
+  readonly onRenameRemote: (name: string) => void;
+  readonly onSetRemoteUrl: (name: string, url: string) => void;
+  readonly onRemoveRemote: (name: string) => void;
   readonly submodules: readonly { readonly path: string; readonly state: string }[];
   /** `*` is every ref; anything else is the revision the graph is read from. */
   readonly filter: string;
@@ -117,6 +127,11 @@ export function LeftPanel({
   openPaths,
   onOpenWorktree,
   identity,
+  remotes,
+  onAddRemote,
+  onRenameRemote,
+  onSetRemoteUrl,
+  onRemoveRemote,
   submodules,
   filter,
   hidden,
@@ -259,10 +274,80 @@ export function LeftPanel({
         render={row}
       />
       <Section
-        title="Remote"
+        title="Remote branches"
         refs={matching(refs.filter((ref) => ref.kind === 'remote'))}
         render={row}
       />
+
+      {/* The configuration, which is a different question from the branches that came from it: a
+          remote nothing has been fetched from has no branches and is still a remote. */}
+      <details className="panel-section" data-testid="panel-section" data-section="Remotes" open>
+        <summary>
+          <ChevronDownIcon size={12} />
+          <span className="panel-title">Remotes</span>
+          <span className="panel-count">{remotes.length}</span>
+        </summary>
+        <ul className="panel-list">
+          <li className="panel-row">
+            <button
+              type="button"
+              className="stage"
+              data-testid="remote-add"
+              disabled={busy === true}
+              onClick={onAddRemote}
+            >
+              add…
+            </button>
+          </li>
+          {remotes.map((remote) => (
+            <li
+              key={remote.name}
+              className="panel-row"
+              data-testid="remote-row"
+              data-remote={remote.name}
+            >
+              <span className="panel-name" title={remote.fetchUrl ?? ''}>
+                <span className="entry-kind" aria-hidden="true">
+                  <RemoteIcon size={14} />
+                </span>
+                {remote.name}
+              </span>
+              <span className="panel-note remote-url" title={remote.pushUrl ?? ''}>
+                {remote.pushUrl !== null && remote.pushUrl !== remote.fetchUrl
+                  ? `push → ${remote.pushUrl}`
+                  : (remote.fetchUrl ?? '')}
+              </span>
+              <button
+                type="button"
+                className="stage"
+                data-testid="remote-rename"
+                disabled={busy === true}
+                onClick={() => onRenameRemote(remote.name)}
+              >
+                rename
+              </button>
+              <button
+                type="button"
+                className="stage"
+                data-testid="remote-url"
+                disabled={busy === true}
+                onClick={() => onSetRemoteUrl(remote.name, remote.fetchUrl ?? '')}
+              >
+                url
+              </button>
+              <button
+                type="button"
+                className="stage danger"
+                data-testid="remote-remove"
+                disabled={busy === true}
+                onClick={() => onRemoveRemote(remote.name)}
+              >
+                remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      </details>
       <Section
         title="Tags"
         refs={matching(refs.filter((ref) => ref.kind === 'tag'))}

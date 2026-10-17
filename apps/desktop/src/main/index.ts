@@ -13,6 +13,7 @@ import {
   readGraph,
   readIdentity,
   readRefs,
+  readRemotes,
   readStash,
   readStashPatch,
   readWorktrees,
@@ -169,6 +170,20 @@ function registerHandlers(): void {
       const repo = await openRepo(parsed.path);
       const content = await readConflictSide(repo, { path: parsed.file, side: parsed.side });
       return { root: repo.root, side: parsed.side, path: parsed.file, content };
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.remotes, (_event, path: unknown) =>
+    attempt(async () => {
+      const repo = await openRepo(statusPathSchema.parse(path));
+      // The name and the two URLs, and not the raw lines: the panel shows what each remote points at,
+      // and the CLI is where every line git printed is available.
+      const remotes = (await readRemotes(repo)).map((remote) => ({
+        name: remote.name,
+        fetchUrl: remote.fetchUrl,
+        pushUrl: remote.pushUrl,
+      }));
+      return { root: repo.root, remotes };
     }),
   );
 
