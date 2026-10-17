@@ -277,11 +277,13 @@ Remotes, credentials, and the errors that come with the network.
       does and does not cover. The first half is not written: asking `gh` or `glab` for a token means
       a second program the core spawns, and today the only spawn in the codebase is git, which is a
       decision this phase has not taken yet.
-- [ ] Per-repository identity (name/email/signing key) with the effective value shown. Read and
-      printed: `parseIdentity` gives the value in force with the file it came from, git's own
-      precedence decides which one that is, and `orbitree identity --json` publishes it for an agent.
-      Not yet **shown**: the window has no card for it, so a person still runs the CLI to see which
-      of two configured identities their commits are being authored as.
+- [x] Per-repository identity (name/email/signing key) with the effective value shown.
+      `parseIdentity` gives the value in force with the file it came from, git's own precedence
+      decides which one that is, and both front-ends show it: `orbitree identity --json` for an agent,
+      and an **Identity** section in the window's panel for a person, which says `unset` for a part
+      nobody configured rather than leaving a blank — git refuses a commit without a name, and that is
+      worth knowing before trying. `apps/desktop/test/e2e/identity.spec.ts` asserts the card against
+      `git config --show-origin` read a second way.
 - [x] A network failure shows what to do (SSH key, token scope, offline), not just stderr.
       `diagnoseFailure` turns the failures that actually occur — an SSH key that is not loaded, a host
       key ssh does not trust, a refused token, an unreachable host, a repository the account cannot

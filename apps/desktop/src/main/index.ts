@@ -11,6 +11,7 @@ import {
   readConflictSide,
   readDiff,
   readGraph,
+  readIdentity,
   readRefs,
   readStash,
   readStashPatch,
@@ -168,6 +169,16 @@ function registerHandlers(): void {
       const repo = await openRepo(parsed.path);
       const content = await readConflictSide(repo, { path: parsed.file, side: parsed.side });
       return { root: repo.root, side: parsed.side, path: parsed.file, content };
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.identity, (_event, path: unknown) =>
+    attempt(async () => {
+      const repo = await openRepo(statusPathSchema.parse(path));
+      // The three in force, and not the whole record list: the window shows a card, and the CLI is
+      // where every `user.*` entry is available.
+      const { name, email, signingKey } = await readIdentity(repo);
+      return { root: repo.root, identity: { name, email, signingKey } };
     }),
   );
 

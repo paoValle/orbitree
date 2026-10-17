@@ -13,6 +13,7 @@ const api: OrbitreeApi = {
   refs: (path) => ipcRenderer.invoke(CHANNELS.refs, path),
   readStash: (path) => ipcRenderer.invoke(CHANNELS.stash, path),
   readWorktrees: (path) => ipcRenderer.invoke(CHANNELS.worktrees, path),
+  readIdentity: (path) => ipcRenderer.invoke(CHANNELS.identity, path),
   readStashPatch: (request) => ipcRenderer.invoke(CHANNELS.stashPatch, request),
   readConflictSide: (request) => ipcRenderer.invoke(CHANNELS.conflictSide, request),
   readConflictRegions: (request) => ipcRenderer.invoke(CHANNELS.conflictRegions, request),
