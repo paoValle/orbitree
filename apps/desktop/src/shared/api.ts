@@ -50,6 +50,8 @@ const PENDING_OPERATIONS = ['merge', 'cherry-pick', 'rebase'] as const;
 
 /** Re-exported for the renderer, which does not import the core at runtime: a type import is erased. */
 export type { Progress };
+/** One part of the identity: the value in force, and where it was read from. */
+export type IdentityValue = NonNullable<IdentityPayload['identity']['name']>;
 
 export const gitCommandSchema = z.discriminatedUnion('op', [
   z.object({ op: literal('version') }),
@@ -310,6 +312,33 @@ export const statusPayloadSchema = z.object({
 
 export const stashRequestSchema = z.object({ path: z.string().min(1) });
 
+/**
+ * Who commits are made as, and where each part of it comes from.
+ *
+ * The window shows the three in force with the file each was read from: a repository with two
+ * identities configured is the case this is for, and the interesting half is which file won.
+ */
+export interface IdentityPayload {
+  readonly root: string;
+  readonly identity: {
+    readonly name: {
+      readonly value: string;
+      readonly scope: string;
+      readonly origin: string;
+    } | null;
+    readonly email: {
+      readonly value: string;
+      readonly scope: string;
+      readonly origin: string;
+    } | null;
+    readonly signingKey: {
+      readonly value: string;
+      readonly scope: string;
+      readonly origin: string;
+    } | null;
+  };
+}
+
 export interface WorktreesPayload {
   readonly root: string;
   readonly worktrees: readonly {
@@ -500,6 +529,8 @@ export interface OrbitreeApi {
   readonly readStash: (path: string) => Promise<Result<StashPayload>>;
   /** Every working directory this repository has checked out, `stashRequestSchema`-shaped. */
   readonly readWorktrees: (path: string) => Promise<Result<WorktreesPayload>>;
+  /** The name, email and signing key commits are made with, and the file each came from. */
+  readonly readIdentity: (path: string) => Promise<Result<IdentityPayload>>;
   /** One stash's patch, read on demand: a list of stashes is cheap, their patches are not. */
   readonly readStashPatch: (request: {
     readonly path: string;

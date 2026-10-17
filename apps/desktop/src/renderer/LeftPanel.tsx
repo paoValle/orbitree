@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Ref } from '../shared/api.ts';
+import type { IdentityValue, Ref } from '../shared/api.ts';
 import {
   BranchIcon,
   ChevronDownIcon,
@@ -44,6 +44,17 @@ export interface LeftPanelProps {
   }[];
   readonly openPaths: readonly string[];
   readonly onOpenWorktree: (path: string) => void;
+  /**
+   * Who commits will be authored as, and where each part of it came from.
+   *
+   * Shown rather than left behind a `git config` in a terminal: a repository with two identities
+   * configured is the case this is for, and the question a person has is which file won.
+   */
+  readonly identity: {
+    readonly name: IdentityValue | null;
+    readonly email: IdentityValue | null;
+    readonly signingKey: IdentityValue | null;
+  } | null;
   readonly submodules: readonly { readonly path: string; readonly state: string }[];
   /** `*` is every ref; anything else is the revision the graph is read from. */
   readonly filter: string;
@@ -93,11 +104,19 @@ function Section({
   );
 }
 
+/** One part of the identity, in the order the card reads. */
+const IDENTITY_PARTS = [
+  { key: 'name', label: 'name' },
+  { key: 'email', label: 'email' },
+  { key: 'signing key', label: 'sign' },
+] as const;
+
 export function LeftPanel({
   refs,
   worktrees,
   openPaths,
   onOpenWorktree,
+  identity,
   submodules,
   filter,
   hidden,
@@ -249,6 +268,40 @@ export function LeftPanel({
         refs={matching(refs.filter((ref) => ref.kind === 'tag'))}
         render={row}
       />
+
+      {identity === null ? null : (
+        <details className="panel-section" data-testid="panel-section" data-section="Identity" open>
+          <summary>
+            <ChevronDownIcon size={12} />
+            <span className="panel-title">Identity</span>
+            {/* No count: three questions with three answers, and a number here would be counting the
+                parts of one name. */}
+          </summary>
+          <ul className="panel-list">
+            {IDENTITY_PARTS.map((part) => {
+              const value = part.key === 'signing key' ? identity.signingKey : identity[part.key];
+              return (
+                <li
+                  key={part.key}
+                  className="panel-row identity-row"
+                  data-testid="identity-row"
+                  data-part={part.key}
+                >
+                  <span className="panel-note">{part.label}</span>
+                  <span
+                    className="identity-value"
+                    data-testid="identity-value"
+                    title={value?.origin}
+                  >
+                    {value?.value ?? 'unset'}
+                  </span>
+                  <span className="panel-note">{value === null ? '' : `from ${value.scope}`}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      )}
 
       <details className="panel-section" data-testid="panel-section" data-section="Worktrees" open>
         <summary>

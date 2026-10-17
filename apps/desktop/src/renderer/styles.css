@@ -186,6 +186,21 @@ button.danger,
   font-size: 12px;
 }
 
+.identity-row {
+  gap: 6px;
+  align-items: baseline;
+}
+
+/* A name, an email or a key path: monospace, like every other value that is a string somebody typed
+   into Git rather than a word the product chose. */
+.identity-value {
+  font-family: var(--mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .state-screen {
   padding: 12px 14px;
   border-bottom: 1px solid var(--line);

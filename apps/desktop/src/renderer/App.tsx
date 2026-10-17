@@ -4,6 +4,7 @@ import {
   type DiffFile,
   type GitCommand,
   type GraphData,
+  type IdentityPayload,
   type Progress,
   type QuickCommand,
   type RepoState,
@@ -42,6 +43,8 @@ interface Tab {
   /** The names this tab is not drawing. Per tab, because two readings are two pictures. */
   readonly hidden: readonly string[];
   /** The other working directories of this repository, read with everything else. */
+  /** Who commits will be authored as, read with everything else. */
+  readonly identity: IdentityPayload['identity'] | null;
   readonly worktrees: readonly {
     readonly path: string;
     readonly branch: string | null;
@@ -66,6 +69,7 @@ const EMPTY_TAB = (id: number): Tab => ({
   limit: GRAPH_LIMIT,
   hidden: [],
   worktrees: [],
+  identity: null,
   gone: null,
 });
 
@@ -263,6 +267,11 @@ export function App(): React.ReactElement {
       // section that moves under the cursor.
       const worktreeResult = await window.orbitree.readWorktrees(target);
       patchTab(id, { worktrees: worktreeResult.ok ? worktreeResult.value.worktrees : [] });
+
+      // Who commits will be authored as, read with everything else: a name is configuration like the
+      // remotes are, and a card that loaded when you looked at it would move under the cursor.
+      const identityResult = await window.orbitree.readIdentity(target);
+      patchTab(id, { identity: identityResult.ok ? identityResult.value.identity : null });
 
       // An unborn head cannot be logged: `git log` exits 128 on a branch with no commits, so
       // the graph is not read at all rather than read and failed.
@@ -710,6 +719,7 @@ export function App(): React.ReactElement {
               refs={active?.graph?.refs ?? []}
               submodules={submodulesOf(active ?? undefined)}
               worktrees={active?.worktrees ?? []}
+              identity={active?.identity ?? null}
               openPaths={tabs
                 .map((tab) => tab.root)
                 .filter((root): root is string => root !== null)}
