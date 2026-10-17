@@ -119,6 +119,7 @@ orbitree refs   [path] --json
 orbitree worktrees [path] --json
 orbitree remotes [path] --json
 orbitree identity [path] --json
+orbitree credential [path] --host <host> [--protocol https] --json
 orbitree diff   [path] --json [--rev <rev>] [--cached | --unstaged] [--path <path>]
 orbitree show   [path] --json [--rev <rev>]
 ```
@@ -192,6 +193,14 @@ prints that raw patch, which is what a terminal wants.
 caller's guess. A merge is shown as one diff against its **first parent**, never as an empty
 patch and never as one diff per parent. Without `--json`, the command prints the metadata
 (hash, author, date, subject, body) followed by the raw patch.
+
+`credential` asks git's own helper whether a credential is stored for a host, and answers with
+`{ available, username, hasPassword, entries, note }`. The **secret is never in the answer**, in
+`--json` or in the text form: the product has no use for it, and a value that is never held cannot
+leak. `entries` keeps the `key=value` lines git printed except that one, `note` is git's own words
+when nothing is stored ("terminal prompts disabled", a locked keychain), and a missing credential is
+an answer rather than an error. This is how a caller checks before pushing, and it is the reason the
+product never writes a token anywhere of its own: the helper is the user's, and the token stays in it.
 
 `remotes` returns `remotes`, one record per name — `name`, `fetchUrl`, `pushUrl` and the `raw`
 lines git printed — because a remote is one thing with two URLs even though `git remote -v` prints

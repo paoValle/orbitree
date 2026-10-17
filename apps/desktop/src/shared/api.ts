@@ -150,6 +150,15 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
   z.object({ op: literal('fetch'), remote: z.exactOptional(z.string()) }),
   z.object({ op: literal('remote-list') }),
   z.object({ op: literal('identity') }),
+  z.object({
+    op: literal('credential-fill'),
+    request: z.object({
+      protocol: z.string().min(1),
+      host: z.string().min(1),
+      path: z.exactOptional(z.string()),
+      username: z.exactOptional(z.string()),
+    }),
+  }),
   z.object({ op: literal('remote-add'), name: z.string().min(1), url: z.string().min(1) }),
   z.object({ op: literal('remote-remove'), name: z.string().min(1) }),
   z.object({

@@ -272,6 +272,14 @@ Remotes, credentials, and the errors that come with the network.
       the section says which of the two URLs a remote has when they differ.
 - [ ] Credentials from the system helper: `git credential fill`, `gh auth token`, `glab auth
       token`, SSH agent. Tokens are never written to a config file of ours.
+      In, as far as git's own helper goes: `credential-fill` asks git for the credential, and
+      `orbitree credential --host <host>` answers whether one is stored, who it is for and why not
+      when there is none — with **the secret withheld**: the product has no use for a token yet (P5
+      does), and a value it never holds is one it cannot leak. Asking git rather than a keychain is
+      also what keeps the layering rule intact: no program but `git` is spawned, and the helper stays
+      whatever the user configured. Not called directly: `gh auth token` and `glab auth token`, which
+      would be a second program the core spawns, and the SSH agent, whose key is used by `ssh` when
+      git calls it rather than by anything here.
       The second half of that sentence is enforced and now tested in both directions: `redact`
       covered `stdout` and `stderr` and **not the argv**, which is the one thing this product shows
       twice over — `orbitree run` prints it and the activity card prints it with a copy button

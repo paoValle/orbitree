@@ -150,6 +150,9 @@ export function reverseOf(cmd: GitCommand, before: BeforeState): GitCommand | nu
     case 'remote-remove':
     case 'remote-set-url':
     case 'remote-list':
+    // Asking a helper for a credential changes nothing this product can reverse, and the credential
+    // itself is not held: there is nothing to put back.
+    case 'credential-fill':
     // The identity is read and never written by this product: changing it is `config --set`,
     // which is not an operation here yet.
     case 'identity':
