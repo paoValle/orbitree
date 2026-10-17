@@ -121,6 +121,17 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
   // schema has to cover the command union: the app types a quick command as `GitCommand` and
   // hands it to this shape, so a member missing here is a compile error there.
   z.object({ op: literal('stash-show'), selector: z.string().min(1) }),
+  z.object({ op: literal('worktree-list') }),
+  z.object({
+    op: literal('worktree-add'),
+    path: z.string().min(1),
+    branch: z.exactOptional(z.string().min(1)),
+  }),
+  z.object({
+    op: literal('worktree-remove'),
+    path: z.string().min(1),
+    force: z.exactOptional(z.boolean()),
+  }),
   z.object({ op: literal('stash-push'), message: z.exactOptional(z.string()) }),
   z.object({ op: literal('branch-delete'), name: z.string(), force: z.exactOptional(z.boolean()) }),
   z.object({ op: literal('fetch'), remote: z.exactOptional(z.string()) }),

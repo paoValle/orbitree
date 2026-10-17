@@ -16,6 +16,7 @@ import {
   type Ref,
 } from './git/log.ts';
 import { parseStashList, type StashEntry } from './git/stash.ts';
+import { parseWorktrees, type Worktree } from './git/worktree.ts';
 import {
   PENDING_ORDER,
   type PendingOperation,
@@ -250,6 +251,23 @@ export async function readStashPatch(
   );
   const parsed = parseDiff(stdout);
   if (!parsed.ok) throw new RepositoryParseError('the stash patch', parsed.error, parsed.record);
+  return parsed.value;
+}
+
+/**
+ * Every working directory this repository has checked out.
+ *
+ * A worktree is a second working copy of one history: the same repository, another directory, its own
+ * index. The list always holds the one the read happened in, which is what makes it useful — it is
+ * the answer to "where else is this repository on this disk".
+ */
+export async function readWorktrees(
+  repo: RepoHandle,
+  options: Partial<ExecuteOptions> = {},
+): Promise<readonly Worktree[]> {
+  const { stdout } = await executeOrThrow({ op: 'worktree-list' }, { cwd: repo.root, ...options });
+  const parsed = parseWorktrees(stdout);
+  if (!parsed.ok) throw new RepositoryParseError('the worktree list', parsed.error, parsed.record);
   return parsed.value;
 }
 

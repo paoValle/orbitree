@@ -507,6 +507,9 @@ export const OP_EXAMPLES: readonly GitCommand[] = [
   { op: 'stash-pop' },
   { op: 'stash-apply', selector: 'stash@{0}' },
   { op: 'stash-show', selector: 'stash@{0}' },
+  { op: 'worktree-list' },
+  { op: 'worktree-add', path: '/tmp/a-worktree' },
+  { op: 'worktree-remove', path: '/tmp/a-worktree' },
   { op: 'stash-drop', selector: 'stash@{0}' },
   { op: 'branch-delete', name: 'feature' },
   { op: 'fetch' },
@@ -633,6 +636,18 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
         throw new InvalidArgumentError('conflict-side takes base, ours or theirs, then a path');
       }
       return { op: 'conflict-side', side: args[0], path: args[1] };
+    case 'worktree-list':
+      return { op: 'worktree-list' };
+    case 'worktree-add':
+    case 'worktree-remove': {
+      const where = args[0];
+      if (where === undefined || where === '') {
+        throw new InvalidArgumentError(`${op} needs a path`);
+      }
+      return op === 'worktree-add'
+        ? { op: 'worktree-add', path: where, ...(args[1] === undefined ? {} : { branch: args[1] }) }
+        : { op: 'worktree-remove', path: where, ...(args[1] === 'force' ? { force: true } : {}) };
+    }
     case 'resolve-file': {
       const filePath = args[0];
       if (filePath === undefined || filePath === '') {
