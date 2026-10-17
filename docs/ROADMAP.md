@@ -4,7 +4,8 @@ Each phase ends with an exit criterion that is a **command**, not a feeling. A p
 done when the code compiles; it is done when the command it names produces the output it
 promises. Phases are ordered by what unblocks the next one, not by how interesting they are.
 
-Status: **P0, P1, P1.5, P2 and P2.5 are complete**; P3 is unstarted, and everything after it too.
+Status: **P0, P1, P1.5, P2 and P2.5 are complete**; P3 is under way, and everything after it is
+unstarted.
 
 ---
 
@@ -254,16 +255,56 @@ the re-read the exit is about.
 
 Remotes, credentials, and the errors that come with the network.
 
-- [ ] Fetch (with progress), pull fast-forward-only, push, force-push-with-lease behind a
-      confirmation, remote management.
+- [x] Fetch (with progress), pull fast-forward-only, push, force-push-with-lease behind a
+      confirmation, remote management. `fetch`, `pull` and `push` were already the guarded
+      operations; what this added is the configuration they take their arguments from
+      (`remote-list`, `remote-add`, `remote-remove`, `remote-rename`, `remote-set-url`, each
+      reachable through `orbitree run --op` and listed by `orbitree ops`) and **progress**: the three
+      remote commands carry `--progress`, `execute` takes an `onProgress` callback, the CLI prints
+      the lines to stderr as they arrive, and the window keeps the last one in the bar the command
+      was asked from. The finding is in `parseProgress`: git's progress and git's errors share a
+      stream, so the phase names are checked rather than guessed — a pattern loose enough to match
+      any `word: text` line reads `fatal: unable to access …` as a phase called "fatal". Remote
+      management is in the CLI and not yet in the window: the panel lists remote refs and has no
+      button to add, rename or remove one.
 - [ ] Credentials from the system helper: `git credential fill`, `gh auth token`, `glab auth
       token`, SSH agent. Tokens are never written to a config file of ours.
-- [ ] Per-repository identity (name/email/signing key) with the effective value shown.
-- [ ] A network failure shows what to do (SSH key, token scope, offline), not just stderr.
+      The second half of that sentence is enforced and now tested in both directions: `redact`
+      covered `stdout` and `stderr` and **not the argv**, which is the one thing this product shows
+      twice over — `orbitree run` prints it and the activity card prints it with a copy button
+      beside it — so a token in a remote URL was on a screen and on the clipboard in the clear. It
+      is masked where the argv leaves the process now, and `docs/INVARIANTS.md` states what that
+      does and does not cover. The first half is not written: asking `gh` or `glab` for a token means
+      a second program the core spawns, and today the only spawn in the codebase is git, which is a
+      decision this phase has not taken yet.
+- [ ] Per-repository identity (name/email/signing key) with the effective value shown. Read and
+      printed: `parseIdentity` gives the value in force with the file it came from, git's own
+      precedence decides which one that is, and `orbitree identity --json` publishes it for an agent.
+      Not yet **shown**: the window has no card for it, so a person still runs the CLI to see which
+      of two configured identities their commits are being authored as.
+- [x] A network failure shows what to do (SSH key, token scope, offline), not just stderr.
+      `diagnoseFailure` turns the failures that actually occur — an SSH key that is not loaded, a host
+      key ssh does not trust, a refused token, an unreachable host, a repository the account cannot
+      see, a branch that moved, a rule the server applies — into a next step, `null` for everything
+      else, and never instead of what git said: the CLI prints it after git's words and the window
+      puts it under the command on the activity card, where a failed command already lives. It reads
+      text, so it is matched on git's own phases and wordings and the finding is recorded: git appends
+      "Please make sure you have the correct access rights and the repository exists" to *every*
+      remote it cannot read, so matching that sentence made a path that is not a repository look like
+      an SSH key problem.
 
 **Exit**: a real `git push` to a GitHub repository and to a self-hosted GitLab instance from
 the app, each with the token coming from the system helper and never appearing in a log —
 checked by a test that greps the session log for the token's shape.
+
+Not met, and the two halves are in different states. The second — the token never appearing — is
+testable without a network and is tested: a push to a URL holding a token reaches neither the CLI's
+output nor the copy button, `[I8]` pins it, and there is no session log to grep because the app writes
+none, so the surfaces that could leak are the argv, the stderr and the state file. The first half
+needs a token that came from a helper, which is the credentials item above and waits on the decision
+of whether the core may spawn anything but git. A test that pushes to a real GitHub and a real
+self-hosted GitLab would need two accounts and two tokens in CI; the honest version of it, when the
+credentials item lands, is a local bare repository behind a helper that answers.
 
 ## P3.5 — Explain
 
