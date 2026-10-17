@@ -117,6 +117,7 @@ orbitree status [path] --json
 orbitree graph  [path] --json [--limit 200] [--all] [--rev <rev>] [--hide <ref>]…
 orbitree refs   [path] --json
 orbitree worktrees [path] --json
+orbitree remotes [path] --json
 orbitree diff   [path] --json [--rev <rev>] [--cached | --unstaged] [--path <path>]
 orbitree show   [path] --json [--rev <rev>]
 ```
@@ -190,6 +191,12 @@ prints that raw patch, which is what a terminal wants.
 caller's guess. A merge is shown as one diff against its **first parent**, never as an empty
 patch and never as one diff per parent. Without `--json`, the command prints the metadata
 (hash, author, date, subject, body) followed by the raw patch.
+
+`remotes` returns `remotes`, one record per name — `name`, `fetchUrl`, `pushUrl` and the `raw`
+lines git printed — because a remote is one thing with two URLs even though `git remote -v` prints
+one line per URL. It is a read of the config and not of a machine: whether the other end answers is
+`fetch`'s question, and this one never touches the network. Without `--json` it prints the name,
+the fetch URL and, when it differs, the push URL.
 
 ## Changing a repository
 

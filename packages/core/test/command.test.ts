@@ -58,6 +58,11 @@ const EXAMPLE: Record<GitOp, GitCommand> = {
   fetch: { op: 'fetch' },
   pull: { op: 'pull' },
   push: { op: 'push', remote: 'origin', branch: 'main' },
+  'remote-list': { op: 'remote-list' },
+  'remote-add': { op: 'remote-add', name: 'origin', url: 'git@example.invalid:x/y.git' },
+  'remote-remove': { op: 'remote-remove', name: 'origin' },
+  'remote-rename': { op: 'remote-rename', name: 'origin', to: 'upstream' },
+  'remote-set-url': { op: 'remote-set-url', name: 'origin', url: '../somewhere-else' },
   'reset-hard': { op: 'reset-hard', rev: 'HEAD~1' },
   clean: { op: 'clean' },
   discard: { op: 'discard', paths: ['file.txt'] },
@@ -203,6 +208,25 @@ describe('the argv a command produces', () => {
 
   it('[I2] a pull is fast-forward only', () => {
     expect(toArgv({ op: 'pull' })).toEqual(['pull', '--ff-only']);
+  });
+
+  it('[I2] a remote URL that git would read as a flag is refused, not passed', () => {
+    // `git remote add <name> <url>` takes positionals, so there is no `--` to hide behind: a URL
+    // beginning with a dash is refused rather than handed to git. Both directions are asserted,
+    // because a guard that refuses everything would pass a test that only checked the refusal.
+    expect(() =>
+      toArgv({ op: 'remote-add', name: 'origin', url: '--upload-pack=rm -rf /' }),
+    ).toThrow(InvalidArgumentError);
+    expect(() => toArgv({ op: 'remote-set-url', name: 'origin', url: '-x' })).toThrow(
+      InvalidArgumentError,
+    );
+    // A URL with a space in it is a path somebody means, and is passed as it was given.
+    expect(toArgv({ op: 'remote-add', name: 'origin', url: '/tmp/two words.git' })).toEqual([
+      'remote',
+      'add',
+      'origin',
+      '/tmp/two words.git',
+    ]);
   });
 
   it('[I2] the status call asks for machine-readable output only', () => {

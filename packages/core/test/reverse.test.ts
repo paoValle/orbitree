@@ -94,6 +94,20 @@ const cases: readonly (readonly [GitCommand, GitCommand | null])[] = [
   [{ op: 'merge-abort' }, null],
   [{ op: 'fetch' }, null],
   [{ op: 'push', remote: 'origin', branch: 'main' }, null],
+  // A remote is a name and two URLs in the config: adding and renaming it are undone by their own
+  // opposites, both of which carry the name, and the other two are not undone at all — the URL that
+  // was there is in neither command.
+  [
+    { op: 'remote-add', name: 'origin', url: 'git@example.invalid:x/y.git' },
+    { op: 'remote-remove', name: 'origin' },
+  ],
+  [
+    { op: 'remote-rename', name: 'origin', to: 'upstream' },
+    { op: 'remote-rename', name: 'upstream', to: 'origin' },
+  ],
+  [{ op: 'remote-remove', name: 'origin' }, null],
+  [{ op: 'remote-set-url', name: 'origin', url: '../elsewhere' }, null],
+  [{ op: 'remote-list' }, null],
   [{ op: 'status' }, null],
 ];
 

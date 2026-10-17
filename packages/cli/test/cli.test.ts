@@ -179,6 +179,44 @@ describe('the CLI and the app are the same program', () => {
     expect(head.stdout.trim()).toMatch(/^[0-9a-f]{40}$/);
   });
 
+  it('[I5] `remotes` reads the config, and two URLs are one remote', async () => {
+    // Not a network call: `git remote -v` prints what the config says, so the fixture is two config
+    // lines and the cross-check is the config itself.
+    await execFileAsync('git', ['remote', 'add', 'origin', 'git@example.invalid:x/y.git'], {
+      cwd: root,
+    });
+    await execFileAsync(
+      'git',
+      ['remote', 'set-url', '--push', 'origin', 'git@example.invalid:x/y-push.git'],
+      { cwd: root },
+    );
+    try {
+      const result = await cli(['remotes', root, '--json']);
+      expect(result.code).toBe(EXIT.ok);
+      const printed = JSON.parse(result.lines[0] as string) as {
+        data: {
+          remotes: { name: string; fetchUrl: string | null; pushUrl: string | null }[];
+        };
+      };
+      expect(printed.data.remotes).toHaveLength(1);
+      const origin = printed.data.remotes[0];
+      expect(origin?.name).toBe('origin');
+      // The fetch URL is the one the config holds, read a second way rather than believed.
+      const fromConfig = await execFileAsync('git', ['config', '--get', 'remote.origin.url'], {
+        cwd: root,
+      });
+      expect(origin?.fetchUrl).toBe(fromConfig.stdout.trim());
+      expect(origin?.pushUrl).toBe('git@example.invalid:x/y-push.git');
+
+      // The text form says both, because a push URL that differs is the thing a reader came for.
+      const text = (await cli(['remotes', root])).lines.join('\n');
+      expect(text).toContain('origin');
+      expect(text).toContain('x/y-push.git');
+    } finally {
+      await execFileAsync('git', ['remote', 'remove', 'origin'], { cwd: root });
+    }
+  });
+
   it('[I3] every operation the CLI publishes is reachable through `run --op`', async () => {
     // The claim of the doc and of the roadmap item: `ops` lists what `run` accepts. Two lists that
     // can drift, so one of them — the published one — is what the test walks, and an operation that
@@ -229,6 +267,11 @@ describe('the CLI and the app are the same program', () => {
       fetch: [],
       pull: [],
       push: ['origin', 'main'],
+      'remote-list': [],
+      'remote-add': ['origin', 'git@example.invalid:x/y.git'],
+      'remote-rename': ['origin', 'upstream'],
+      'remote-set-url': ['origin', '../elsewhere'],
+      'remote-remove': ['origin'],
       'reset-hard': ['HEAD'],
       clean: ['file.txt'],
       discard: ['file.txt'],

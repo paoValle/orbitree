@@ -138,5 +138,18 @@ export function reverseOf(cmd: GitCommand, before: BeforeState): GitCommand | nu
     // are still in the index until the path is added.
     case 'resolve-file':
       return { op: 'regenerate-conflict', paths: [cmd.path] };
+
+    // Adding a remote and renaming one are undone by their own opposites, both of which carry the
+    // name. Removing one and pointing it somewhere else are not: the URL that was there is in
+    // neither command, and adding a name back with a guessed URL is a different remote than the
+    // one that was removed.
+    case 'remote-add':
+      return { op: 'remote-remove', name: cmd.name };
+    case 'remote-rename':
+      return { op: 'remote-rename', name: cmd.to, to: cmd.name };
+    case 'remote-remove':
+    case 'remote-set-url':
+    case 'remote-list':
+      return null;
   }
 }

@@ -33,6 +33,7 @@ import {
   readDiff,
   readGraph,
   readRefs,
+  readRemotes,
   readStash,
   readStatus,
   readWorktrees,
@@ -41,6 +42,7 @@ import {
   toArgv,
   type WorkingTreeNode,
   type Worktree,
+  type Remote,
 } from '@orbitree/core';
 import { Command } from 'commander';
 
@@ -243,6 +245,19 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
       const worktrees = await readWorktrees(repo);
       emit(io, opts.json === true, 'worktrees', { root: repo.root, worktrees }, (data) =>
         describeWorktrees(data.worktrees, repo.root),
+      );
+    });
+
+  program
+    .command('remotes')
+    .description('the remotes this repository is configured with, and what they are for')
+    .argument('[path]', 'a path inside the repository', '.')
+    .option('--json', 'one JSON object on stdout')
+    .action(async (path: string, opts: { json?: boolean }) => {
+      const repo = await openRepo(path);
+      const remotes = await readRemotes(repo);
+      emit(io, opts.json === true, 'remotes', { root: repo.root, remotes }, (data) =>
+        describeRemotes(data.remotes),
       );
     });
 
@@ -530,6 +545,11 @@ export const OP_EXAMPLES: readonly GitCommand[] = [
   { op: 'fetch' },
   { op: 'pull' },
   { op: 'push', remote: 'origin', branch: 'main' },
+  { op: 'remote-list' },
+  { op: 'remote-add', name: 'origin', url: 'git@example.invalid:x/y.git' },
+  { op: 'remote-rename', name: 'origin', to: 'upstream' },
+  { op: 'remote-set-url', name: 'origin', url: '../elsewhere' },
+  { op: 'remote-remove', name: 'origin' },
   { op: 'reset-hard', rev: 'HEAD~1' },
   { op: 'clean' },
   { op: 'discard', paths: ['file.txt'] },
@@ -561,6 +581,30 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
       return { op: 'commit', message, ...(args[0] === undefined ? {} : { body: args[0] }) };
     case 'fetch':
       return args[0] === undefined ? { op: 'fetch' } : { op: 'fetch', remote: args[0] };
+    case 'remote-list':
+      return { op: 'remote-list' };
+    case 'remote-add':
+    case 'remote-set-url': {
+      const [name, url] = args;
+      if (name === undefined || name === '' || url === undefined || url === '') {
+        throw new InvalidArgumentError(`${op} needs a name and a URL: --arg origin --arg <url>`);
+      }
+      return op === 'remote-add'
+        ? { op: 'remote-add', name, url }
+        : { op: 'remote-set-url', name, url };
+    }
+    case 'remote-remove':
+    case 'remote-rename': {
+      const [name, to] = args;
+      if (name === undefined || name === '') {
+        throw new InvalidArgumentError(`${op} needs a remote name`);
+      }
+      if (op === 'remote-remove') return { op: 'remote-remove', name };
+      if (to === undefined || to === '') {
+        throw new InvalidArgumentError('remote-rename needs the remote and its new name');
+      }
+      return { op: 'remote-rename', name, to };
+    }
     case 'pull':
       return { op: 'pull' };
     case 'push': {
@@ -830,6 +874,24 @@ function describeWip(
   const state = waiting.length === 0 ? 'clean' : waiting.join(', ');
   // Padded to the width of a hash and the space after it, so the lane column lines up.
   return `${'WIP'.padEnd(9)}${String(lane).padStart(2)} ${state} -> ${on}`;
+}
+
+/**
+ * The remotes, one per line: the name, where it fetches from, and where it pushes to when that is a
+ * different place. Two URLs on one line because a remote is one thing — the split is git's output
+ * format, not its meaning.
+ */
+function describeRemotes(remotes: readonly Remote[]): string {
+  return remotes
+    .map((remote) => {
+      const fetch = remote.fetchUrl ?? '(no fetch url)';
+      const push =
+        remote.pushUrl === null || remote.pushUrl === remote.fetchUrl
+          ? ''
+          : ` push: ${remote.pushUrl}`;
+      return `${remote.name.padEnd(16)} ${fetch}${push}`;
+    })
+    .join('\n');
 }
 
 /**

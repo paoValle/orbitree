@@ -16,6 +16,7 @@ import {
   type Ref,
 } from './git/log.ts';
 import { parseStashList, type StashEntry } from './git/stash.ts';
+import { parseRemotes, type Remote } from './git/remote.ts';
 import { parseWorktrees, type Worktree } from './git/worktree.ts';
 import {
   PENDING_ORDER,
@@ -268,6 +269,22 @@ export async function readWorktrees(
   const { stdout } = await executeOrThrow({ op: 'worktree-list' }, { cwd: repo.root, ...options });
   const parsed = parseWorktrees(stdout);
   if (!parsed.ok) throw new RepositoryParseError('the worktree list', parsed.error, parsed.record);
+  return parsed.value;
+}
+
+/**
+ * The remotes this repository is configured with, and what each one is for.
+ *
+ * Read from the config, not from the network: a remote is a name and two URLs on this disk, and
+ * whether the machine at the other end answers is a different question — one for `fetch` to ask.
+ */
+export async function readRemotes(
+  repo: RepoHandle,
+  options: Partial<ExecuteOptions> = {},
+): Promise<readonly Remote[]> {
+  const { stdout } = await executeOrThrow({ op: 'remote-list' }, { cwd: repo.root, ...options });
+  const parsed = parseRemotes(stdout);
+  if (!parsed.ok) throw new RepositoryParseError('the remote list', parsed.error, parsed.record);
   return parsed.value;
 }
 

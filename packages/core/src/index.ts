@@ -14,6 +14,7 @@ export * from './git/diff.ts';
 export * from './git/exec.ts';
 export * from './git/log.ts';
 export * from './git/redact.ts';
+export * from './git/remote.ts';
 export * from './git/reverse.ts';
 export * from './git/stash.ts';
 export * from './git/worktree.ts';
