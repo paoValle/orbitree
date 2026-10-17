@@ -108,7 +108,7 @@ destructive needs a confirmation token, or a --dry-run
 
 ```bash
 orbitree status [path] --json
-orbitree graph  [path] --json [--limit 200] [--all] [--rev <rev>]
+orbitree graph  [path] --json [--limit 200] [--all] [--rev <rev>] [--hide <ref>]…
 orbitree refs   [path] --json
 orbitree diff   [path] --json [--rev <rev>] [--cached | --unstaged] [--path <path>]
 orbitree show   [path] --json [--rev <rev>]
@@ -139,6 +139,13 @@ point, because a stash older than `refs/stash` is reachable from nothing but tha
 `total` counts them for the same reason — `--all` here means the repository's whole picture. A row
 whose commit is a stash carries its selector in `stash`, so a caller does not have to guess from a
 subject that reads `On main: …`.
+
+`hidden` is the list of names the picture is not drawing, and `graph --hide <ref>` (repeatable) is
+how a caller asks for one: the commits left out are the ones only a hidden name can still reach, so
+the layout is laid over what remains and no line goes down to nothing. It is a question about the
+*picture* — nothing is written, and `total` still describes the history that was read. HEAD is always
+among the visible names, because the commit somebody is standing on must not vanish from their own
+picture.
 
 `total` is how many commits
 the read history holds (`HEAD`, the revision named by `--rev`, or every ref with `--all`),
