@@ -104,6 +104,8 @@ function registerHandlers(): void {
         limit?: unknown;
         all?: unknown;
         rev?: unknown;
+        /** One file, for its own history: `path` here is already the repository. */
+        file?: unknown;
         hide?: unknown;
       };
       const repo = await openRepo(String(parsed.path));
@@ -112,6 +114,7 @@ function registerHandlers(): void {
         limit,
         all: parsed.all === true,
         ...(typeof parsed.rev === 'string' && parsed.rev !== '' ? { rev: parsed.rev } : {}),
+        ...(typeof parsed.file === 'string' && parsed.file !== '' ? { path: parsed.file } : {}),
         // Names, checked one by one: the renderer is a web page, and this is the list the picture
         // will be missing.
         ...(Array.isArray(parsed.hide) && parsed.hide.length > 0

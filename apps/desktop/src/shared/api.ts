@@ -579,7 +579,14 @@ export interface OrbitreeApi {
   readonly status: (path: string) => Promise<Result<StatusPayload>>;
   readonly graph: (
     path: string,
-    request: { limit: number; all?: boolean; rev?: string; hide?: readonly string[] },
+    request: {
+      limit: number;
+      all?: boolean;
+      rev?: string;
+      /** One file, for its own history: the commits that touched it, in the graph's own shape. */
+      file?: string;
+      hide?: readonly string[];
+    },
   ) => Promise<Result<GraphPayload>>;
   readonly refs: (path: string) => Promise<Result<RefsPayload>>;
   readonly diff: (

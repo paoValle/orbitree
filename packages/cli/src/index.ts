@@ -164,6 +164,9 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
     .option('--limit <n>', 'how many commits to read', '200')
     .option('--all', 'include every ref, not only the current branch')
     .option('--rev <rev>', 'the revision whose history to read, instead of HEAD')
+    // The history of one file, in the graph's own shape: the commits git says touched it, laid out
+    // by the same function that lays out the whole repository.
+    .option('--file <path>', 'only the commits that touched this path')
     .option('--refs', 'include the ref list in the output (implied by --json)')
     .option(
       '--hide <ref>',
@@ -179,6 +182,7 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
           limit: string;
           all?: boolean;
           rev?: string;
+          file?: string;
           refs?: boolean;
           hide?: string[];
         },
@@ -189,6 +193,7 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
           limit,
           ...(opts.all === true ? { all: true } : {}),
           ...(opts.rev === undefined ? {} : { rev: opts.rev }),
+          ...(opts.file === undefined ? {} : { path: opts.file }),
           ...(opts.hide === undefined || opts.hide.length === 0 ? {} : { hide: opts.hide }),
         });
         const includeRefs = opts.json === true || opts.refs === true;
@@ -759,7 +764,11 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
     case 'refs':
       return { op: 'refs' };
     case 'graph':
-      return { op: 'graph', limit: args[0] === undefined ? 200 : Number.parseInt(args[0], 10) };
+      return {
+        op: 'graph',
+        limit: args[0] === undefined ? 200 : Number.parseInt(args[0], 10),
+        ...(args[1] === undefined || args[1] === '' ? {} : { path: args[1] }),
+      };
     case 'pending-operation': {
       const ref = args[0];
       if (ref !== 'MERGE_HEAD' && ref !== 'CHERRY_PICK_HEAD' && ref !== 'REBASE_HEAD') {

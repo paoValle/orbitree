@@ -56,6 +56,18 @@ export const APP_PATH = join(import.meta.dirname, '..', '..');
 /** The CLI entry point, for the test that proves the app and the CLI build the same commit. */
 const CLI = join(APP_PATH, '..', '..', 'bin', 'orbitree');
 
+/**
+ * How long to wait for a command the app ran to show up outside it.
+ *
+ * Playwright's default is five seconds, which is generous for a window and tight for a machine that is
+ * also running forty other specs' worth of git: two runs failed with the command still on its way, one
+ * of them on CI, on a suite that had been green on the same commit. These assertions are about the
+ * *effect* — a file back at HEAD, a path no longer unmerged — and waiting longer for an effect does not
+ * weaken the claim that it happened. Used where a spec waits for something the app did, never as a
+ * blanket for a locator that should already be there.
+ */
+export const EFFECT_TIMEOUT = { timeout: 20_000 } as const;
+
 export interface AppHandle {
   readonly app: ElectronApplication;
   readonly userDataDir: string;

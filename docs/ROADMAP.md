@@ -343,7 +343,17 @@ any of them. None of this mutates a repository, so none of it needs a confirmati
       offered at all, since every line of it would come back as uncommitted.
       `apps/desktop/test/e2e/blame.spec.ts` asserts the pane against `git blame --porcelain` and
       `git log`, and asserts that the jump really moved the graph.
-- [ ] File history: the commits that touched one path, in the graph's own shape.
+- [x] File history: the commits that touched one path, in the graph's own shape. `graph --file <path>`
+      reads it, and it is a field of the graph rather than a second read: git's own simplification
+      answers which commits touched a path, `layoutGraph` draws them, and `total` counts the same set so
+      `truncated` keeps comparing the window with the history it came from. `orbitree graph --file <path>
+      --json` is the same answer for an agent, and the window's file pane has a third **history** view
+      beside diff and blame, one row per commit with the lane it sits in, and the same jump a blamed
+      line has.
+      **The limit, stated rather than discovered**: the pane is reached from the working tree's file
+      list, so a file with nothing uncommitted has no row to click and its history is only available
+      through the CLI. Blame has the same limit. Both want the same answer — a way to look at a file
+      the working tree is not already showing — and neither has it yet.
 - [ ] Branch comparison in both directions: what this branch has that that one does not, and back.
 - [ ] Commit search: message, author, date range, path, and "only mine", applied to the graph as a
       filter rather than as a separate list.

@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
-import type { BlamePayload, DiffFile, RepoState, StatusEntry } from '../shared/api.ts';
+import type {
+  BlamePayload,
+  DiffFile,
+  GraphPayload,
+  RepoState,
+  StatusEntry,
+} from '../shared/api.ts';
+import { laneColor } from './GraphPane.tsx';
 import { ConflictPanel } from './ConflictPanel.tsx';
 import { DiffView } from './DiffView.tsx';
 import { type FileKind, fileKind } from './fileKind.ts';
@@ -139,6 +146,68 @@ function entriesFor(state: RepoState, section: WorkingTreeSection): readonly Sta
   }
 }
 
+/** How many commits of one file's history a pane reads. Well past what a file usually has. */
+const HISTORY_LIMIT = 200;
+
+/**
+ * The commits that touched one file, in the graph's own shape.
+ *
+ * Rows rather than a canvas: the picture is the repository's, and this is one file's slice of it, so
+ * what a reader needs is the list — with the lane each commit sits in, because that is the shape the
+ * graph draws and the pane is showing the same reading of it.
+ */
+function HistoryView({
+  path,
+  loaded,
+  onSelectCommit,
+}: {
+  readonly path: string;
+  readonly loaded: {
+    readonly data: GraphPayload['data'] | null;
+    readonly error: string | null;
+  } | null;
+  readonly onSelectCommit?: (oid: string) => void;
+}): React.ReactElement {
+  if (loaded === null) return <p className="empty">loading…</p>;
+  if (loaded.error !== null) return <p className="empty">{loaded.error}</p>;
+  const commits = loaded.data?.commits ?? [];
+  if (commits.length === 0) {
+    // Not an error: nothing has touched this path yet.
+    return <p className="empty">no commit has touched {path} yet</p>;
+  }
+  return (
+    <ul className="history" data-testid="history">
+      {commits.map((commit, index) => (
+        <li
+          key={commit.hash}
+          className="history-row"
+          data-testid="history-row"
+          data-hash={commit.hash}
+        >
+          <button
+            type="button"
+            className="history-link"
+            data-testid="history-jump"
+            title={`${commit.subject} — show this commit in the graph`}
+            onClick={() => onSelectCommit?.(commit.hash)}
+          >
+            <span
+              className="history-lane"
+              aria-hidden="true"
+              style={{
+                background: laneColor(loaded.data?.layout.rows[index]?.lane ?? 0),
+              }}
+            />
+            <code className="history-oid">{commit.hash.slice(0, 8)}</code>
+            <span className="history-subject">{commit.subject}</span>
+            <span className="history-author">{commit.author.name}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /**
  * The blame of one file, as a list a reader can jump from.
  *
@@ -242,10 +311,16 @@ export function WorkingTreePanel({
    * questions about the same file. It goes back to the diff when another file is clicked, because a
    * mode that follows you to the next file is a mode you forget you are in.
    */
-  const [view, setView] = useState<'diff' | 'blame'>('diff');
+  const [view, setView] = useState<'diff' | 'blame' | 'history'>('diff');
   const [blame, setBlame] = useState<{
     readonly key: string;
     readonly lines: readonly BlamePayload['lines'][number][] | null;
+    readonly error: string | null;
+  } | null>(null);
+  /** The commits that touched the file, in the graph's own shape, read the same way. */
+  const [history, setHistory] = useState<{
+    readonly key: string;
+    readonly data: GraphPayload['data'] | null;
     readonly error: string | null;
   } | null>(null);
   // The files are tagged with the selection they were read for. Without the tag, the previous
@@ -277,6 +352,27 @@ export function WorkingTreePanel({
         result.ok
           ? { key, lines: result.value.lines, error: null }
           : { key, lines: null, error: result.error },
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [root, path, key, view, revision]);
+
+  // The file's history: the commits git says touched it, read through the same call the graph uses.
+  // That is what "in the graph's own shape" means here — the same read, the same layout, a smaller
+  // picture — rather than a second way of asking which commits mention a path.
+  useEffect(() => {
+    void revision;
+    if (root === null || path === null || key === null) return;
+    if (view !== 'history') return;
+    let cancelled = false;
+    void window.orbitree.graph(root, { limit: HISTORY_LIMIT, file: path }).then((result) => {
+      if (cancelled) return;
+      setHistory(
+        result.ok
+          ? { key, data: result.value.data, error: null }
+          : { key, data: null, error: result.error },
       );
     });
     return () => {
@@ -572,15 +668,30 @@ export function WorkingTreePanel({
             >
               blame
             </button>
+            <button
+              type="button"
+              className={view === 'history' ? 'wt-view-button on' : 'wt-view-button'}
+              data-testid="view-history"
+              onClick={() => setView('history')}
+            >
+              history
+            </button>
           </div>
         )}
+        {view === 'history' && path !== null && section !== 'untracked' ? (
+          <HistoryView
+            path={path}
+            loaded={history !== null && history.key === key ? history : null}
+            {...(onSelectCommit === undefined ? {} : { onSelectCommit })}
+          />
+        ) : null}
         {view === 'blame' && path !== null && section !== 'untracked' ? (
           <BlameView
             path={path}
             loaded={blame !== null && blame.key === key ? blame : null}
             {...(onSelectCommit === undefined ? {} : { onSelectCommit })}
           />
-        ) : (
+        ) : view === 'history' && path !== null && section !== 'untracked' ? null : (
           <>
             {section === 'conflicted' && onAbortMerge !== undefined ? (
               <ConflictPanel

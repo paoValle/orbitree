@@ -71,7 +71,7 @@ made.
 | Command | What it returns |
 |---|---|
 | `orbitree status [path] --json` | `HEAD` (branch / detached / unborn, ahead and behind), staged, unstaged, renamed, unmerged and untracked entries |
-| `orbitree graph [path] --json` | commits, rows with lanes, edges, the working tree as the node above them, the stashes among the ordinary commits, and the refs on each commit |
+| `orbitree graph [path] --json [--file <path>]` | commits, rows with lanes, edges, the working tree as the node above them, the stashes among the ordinary commits, and the refs on each commit; `--file` narrows it to the commits that touched one path |
 | `orbitree refs [path] --json` | branches, tags and remote refs |
 | `orbitree remotes [path] --json` | the remotes this repository is configured with: their name and their two URLs |
 | `orbitree identity [path] --json` | the name, email and signing key commits are made with, and the file each part came from |

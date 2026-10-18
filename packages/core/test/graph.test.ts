@@ -25,6 +25,34 @@ function lines(output: string): string[] {
   return output.split('\n').filter((line) => line !== '');
 }
 
+describe('the history of one file', () => {
+  it('[I5] only the commits git says touched the path, and a total that agrees', async () => {
+    const root = fixtureRoot('history');
+    const repo = await openRepo(root);
+
+    // A path this fixture's history touched more than once, asked of git in its own words.
+    const touched = await git(root, 'log', '--format=%H', '--', 'a.txt');
+    const expected = lines(touched.stdout);
+    expect(expected.length).toBeGreaterThan(1);
+
+    const file = await readGraph(repo, { limit: 1000, path: 'a.txt' });
+    expect(file.commits.map((commit) => commit.hash)).toEqual(expected);
+    // `total` is the same set, which is what makes `truncated` an honest sentence in the header: a
+    // total from the whole repository would compare two different pictures.
+    expect(file.total).toBe(expected.length);
+    expect(file.truncated).toBe(false);
+    // The shape is the graph's own: the same layout function, over a smaller set of commits.
+    expect(file.layout.rows.map((row) => row.commit.hash)).toEqual(expected);
+
+    // A path nothing ever touched is an empty history rather than an error: the answer to "what
+    // changed this" can be "nothing".
+    const untouched = await readGraph(repo, { limit: 1000, path: 'never-existed.txt' });
+    expect(untouched.commits).toEqual([]);
+    expect(untouched.total).toBe(0);
+    expect(untouched.layout.rows).toEqual([]);
+  });
+});
+
 describe('the window against the whole history', () => {
   it('[I5] the commit count agrees with git with and without --all', async () => {
     const root = fixtureRoot('history');
