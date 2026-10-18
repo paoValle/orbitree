@@ -53,6 +53,59 @@ describe('the history of one file', () => {
   });
 });
 
+describe('searching the history', () => {
+  it('[I5] grep and author narrow it, and the total counts what was narrowed', async () => {
+    const root = fixtureRoot('history');
+    const repo = await openRepo(root);
+
+    const everything = await readGraph(repo, { limit: 1000 });
+    const searched = await readGraph(repo, { limit: 1000, grep: 'feature' });
+    const expected = await git(root, 'log', '--format=%H', '--grep=feature');
+    // As sets: the order is this product's `--topo-order`, and the question here is which commits match.
+    expect(searched.commits.map((commit) => commit.hash).sort()).toEqual(
+      lines(expected.stdout).sort(),
+    );
+    expect(searched.commits.length).toBeGreaterThan(0);
+    expect(searched.commits.length).toBeLessThan(everything.total);
+    // The same fields go to the count: a total from the whole repository would make the header's
+    // "3 of 12" compare a filtered picture with an unfiltered number.
+    expect(searched.total).toBe(searched.commits.length);
+
+    // The author, by name, cross-checked the same way.
+    const byAuthor = await readGraph(repo, { limit: 1000, author: 'Fixture' });
+    const expectedAuthor = await git(root, 'log', '--format=%H', '--author=Fixture');
+    expect(byAuthor.commits.map((commit) => commit.hash).sort()).toEqual(
+      lines(expectedAuthor.stdout).sort(),
+    );
+    expect(byAuthor.total).toBe(byAuthor.commits.length);
+
+    // A search nobody matches is an empty picture rather than an error, and its total is zero.
+    const nothing = await readGraph(repo, { limit: 1000, grep: 'zzz-nothing-zzz' });
+    expect(nothing.commits).toEqual([]);
+    expect(nothing.total).toBe(0);
+  });
+
+  it('[I5] a bare date means the whole of that day, not that day at this time of day', async () => {
+    const root = fixtureRoot('history');
+    const repo = await openRepo(root);
+    // The fixtures pin every commit to 2026-01-01T00:00:00+00:00 — the same date the search names, and a
+    // time of day nobody searched for. git's own parser fills the missing fields from *now*, so
+    // `--since=2026-01-01` unexpanded means "since 2026-01-01 at the time this test runs", which is a
+    // whole day of commits reported as none. This is that trap, asserted in both directions.
+    const since = await readGraph(repo, { limit: 1000, since: '2026-01-01' });
+    const everything = await readGraph(repo, { limit: 1000 });
+    expect(since.total).toBe(everything.total);
+
+    const after = await readGraph(repo, { limit: 1000, since: '2026-01-02' });
+    expect(after.total).toBe(0);
+    const until = await readGraph(repo, { limit: 1000, until: '2026-01-01' });
+    expect(until.total).toBe(everything.total);
+    // And a form that is not a bare date is git's to read, untouched.
+    const expression = await readGraph(repo, { limit: 1000, since: '2026-01-01T00:00:00' });
+    expect(expression.total).toBe(everything.total);
+  });
+});
+
 describe('the window against the whole history', () => {
   it('[I5] the commit count agrees with git with and without --all', async () => {
     const root = fixtureRoot('history');

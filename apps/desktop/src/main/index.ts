@@ -108,6 +108,10 @@ function registerHandlers(): void {
         rev?: unknown;
         /** One file, for its own history: `path` here is already the repository. */
         file?: unknown;
+        grep?: unknown;
+        author?: unknown;
+        since?: unknown;
+        until?: unknown;
         hide?: unknown;
       };
       const repo = await openRepo(String(parsed.path));
@@ -117,6 +121,14 @@ function registerHandlers(): void {
         all: parsed.all === true,
         ...(typeof parsed.rev === 'string' && parsed.rev !== '' ? { rev: parsed.rev } : {}),
         ...(typeof parsed.file === 'string' && parsed.file !== '' ? { path: parsed.file } : {}),
+        // Search fields, checked one by one like every other value from a web page: a non-string is
+        // dropped rather than coerced into a filter nobody asked for.
+        ...(typeof parsed.grep === 'string' && parsed.grep !== '' ? { grep: parsed.grep } : {}),
+        ...(typeof parsed.author === 'string' && parsed.author !== ''
+          ? { author: parsed.author }
+          : {}),
+        ...(typeof parsed.since === 'string' && parsed.since !== '' ? { since: parsed.since } : {}),
+        ...(typeof parsed.until === 'string' && parsed.until !== '' ? { until: parsed.until } : {}),
         // Names, checked one by one: the renderer is a web page, and this is the list the picture
         // will be missing.
         ...(Array.isArray(parsed.hide) && parsed.hide.length > 0

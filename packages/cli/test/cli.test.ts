@@ -505,6 +505,57 @@ describe('the CLI and the app are the same program', () => {
     }
   });
 
+  it('[I5] `graph` searches the history it draws, with git as the judge', async () => {
+    // The fixture's one commit is authored by `CLI Test`, and its subject is `the first commit`.
+    const bySubject = await cli(['graph', root, '--grep', 'first commit', '--json']);
+    const searched = JSON.parse(bySubject.lines[0] as string) as {
+      data: { commits: { hash: string }[]; total: number };
+    };
+    expect(searched.data.commits).toHaveLength(1);
+    expect(searched.data.total).toBe(1);
+
+    const byAuthor = await cli(['graph', root, '--author', 'CLI Test', '--json']);
+    const authored = JSON.parse(byAuthor.lines[0] as string) as {
+      data: { commits: { hash: string }[]; total: number };
+    };
+    expect(authored.data.commits.map((entry) => entry.hash).sort()).toEqual(
+      (
+        await execFileAsync('git', ['log', '--format=%H', '--author=CLI Test'], { cwd: root })
+      ).stdout
+        .split('\n')
+        .filter((line) => line !== ''),
+    );
+
+    // `--mine` is the identity the repository is configured with, which is the same one `identity`
+    // answers with: the flag is a reading of the config, not a second place to keep a name.
+    const mine = await cli(['graph', root, '--mine', '--json']);
+    const printed = JSON.parse(mine.lines[0] as string) as { data: { commits: unknown[] } };
+    expect(printed.data.commits.length).toBeGreaterThan(0);
+
+    // And a repository with no address anywhere — the machine's own config taken out of the answer, as
+    // a fixture must, since this machine is configured — is a usage error rather than a search for
+    // nothing, because there is no name to search by.
+    const anonymous = await mkdtemp(join(tmpdir(), 'orbitree-cli-anonymous-'));
+    const repository = join(anonymous, 'repo');
+    const empty = join(anonymous, 'empty.config');
+    await execFileAsync('git', ['init', '-b', 'main', '--quiet', repository]);
+    await writeFile(empty, '', 'utf8');
+    const before = { global: process.env.GIT_CONFIG_GLOBAL, system: process.env.GIT_CONFIG_SYSTEM };
+    process.env.GIT_CONFIG_GLOBAL = empty;
+    process.env.GIT_CONFIG_SYSTEM = '/dev/null';
+    try {
+      const refused = await cli(['graph', repository, '--mine', '--json']);
+      expect(refused.code).toBe(EXIT.usage);
+      expect(refused.lines.join('')).toContain('no user.email');
+    } finally {
+      if (before.global === undefined) delete process.env.GIT_CONFIG_GLOBAL;
+      else process.env.GIT_CONFIG_GLOBAL = before.global;
+      if (before.system === undefined) delete process.env.GIT_CONFIG_SYSTEM;
+      else process.env.GIT_CONFIG_SYSTEM = before.system;
+      await rm(anonymous, { recursive: true, force: true });
+    }
+  });
+
   it('[I3] every operation the CLI publishes is reachable through `run --op`', async () => {
     // The claim of the doc and of the roadmap item: `ops` lists what `run` accepts. Two lists that
     // can drift, so one of them — the published one — is what the test walks, and an operation that

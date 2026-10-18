@@ -222,6 +222,13 @@ button.danger,
   padding: 6px 10px 0;
 }
 
+/* `only mine`: a checkbox in the panel's own row style, so it reads as one of the search fields. */
+.search-mine {
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
 /* One side of a comparison: a list of commits, each a jump into the graph. */
 .compare-list {
   margin: 0;

@@ -114,7 +114,9 @@ destructive needs a confirmation token, or a --dry-run
 
 ```bash
 orbitree status [path] --json
-orbitree graph  [path] --json [--limit 200] [--all] [--rev <rev>] [--file <path>] [--hide <ref>]…
+orbitree graph  [path] --json [--limit 200] [--all] [--rev <rev>] [--file <path>] \
+                [--grep <pattern>] [--author <text>] [--since <date>] [--until <date>] [--mine] \
+                [--hide <ref>]…
 orbitree refs   [path] --json
 orbitree worktrees [path] --json
 orbitree remotes [path] --json
@@ -166,6 +168,15 @@ not a commit that changed the path — and `total` counts the same set, so `trun
 window with the history it came from. A path nothing ever touched is an empty history rather than an
 error. Note what the window does **not** have: its pane for this is reached from the working tree's
 file list, so a file with nothing uncommitted has no row to click yet.
+
+`--grep`, `--author`, `--since` and `--until` **narrow the same history** rather than reading another
+one: they are git's own options, they go to the count as well, so `truncated` keeps comparing the window
+with the history it came from. `--mine` is not a git option — it is `--author` with the address in force,
+read from `identity`, and it is a usage error on a repository with no `user.email` anywhere, because there
+is then no name to search by. A bare `YYYY-MM-DD` is expanded to the **whole** of that day: git's own
+parser fills the fields a date leaves out from *now*, so `--since=2026-10-18` at 19:29 would otherwise
+mean "since 19:29 today" — a search for a day that quietly searches for part of one. Anything that is not
+a bare date (an ISO timestamp, `yesterday`, `1.month.ago`) is git's to read and is passed untouched.
 
 `total` is how many commits
 the read history holds (`HEAD`, the revision named by `--rev`, or every ref with `--all`),

@@ -46,6 +46,17 @@ export type GitCommand =
        * same revisions or `total` would stop agreeing with the window it describes.
        */
       readonly also?: readonly string[];
+      /**
+       * Search fields, which narrow the same history the picture draws rather than reading another one.
+       *
+       * `grep` is git's own regular expression over the message; `author` matches the author's name or
+       * email; `since` and `until` are git's own date expressions. "Only mine" is not a field of its own
+       * — it is `author` with the address in force, which the caller reads from `identity`.
+       */
+      readonly grep?: string;
+      readonly author?: string;
+      readonly since?: string;
+      readonly until?: string;
     }
   | {
       readonly op: 'count';
@@ -54,6 +65,11 @@ export type GitCommand =
       readonly also?: readonly string[];
       /** The same path the graph was read with, or `total` would describe another history. */
       readonly path?: string;
+      /** The same search the graph was read with, for the same reason: `total` counts this history. */
+      readonly grep?: string;
+      readonly author?: string;
+      readonly since?: string;
+      readonly until?: string;
     }
   | { readonly op: 'refs' }
   | { readonly op: 'stash-list' }
@@ -357,6 +373,61 @@ function assertSafeName(name: string, what: string): string {
   return name;
 }
 
+/**
+ * The search options a log or a count was asked for.
+ *
+ * Values travel as `--opt=value` rather than `--opt value`, so a value that begins with a dash is the
+ * value and not the next option — there is no `--` to hide behind for these. What is refused is what
+ * cannot be a search term at all: an empty string (a filter that filters nothing, which would look like
+ * a broken one) and control characters, which cannot be typed into a single-line field.
+ */
+function searchArgs(cmd: {
+  readonly grep?: string;
+  readonly author?: string;
+  readonly since?: string;
+  readonly until?: string;
+}): readonly string[] {
+  const args: string[] = [];
+  const add = (option: string, value: string | undefined, isDate: boolean): void => {
+    if (value === undefined) return;
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: a control character in a search term is what is refused, not what is searched for
+    if (value === '' || /[\u0000-\u001f]/.test(value)) {
+      throw new InvalidArgumentError(`refusing an empty or control-character ${option} value`);
+    }
+    args.push(`--${option}=${isDate ? wholeDay(value, option === 'until') : value}`);
+  };
+  add('grep', cmd.grep, false);
+  add('author', cmd.author, false);
+  add('since', cmd.since, true);
+  add('until', cmd.until, true);
+  return args;
+}
+
+const BARE_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * A bare `YYYY-MM-DD` is expanded to the whole of that day.
+ *
+ * git's own date parser fills in the fields a date leaves out from *now*, so `--since=2026-10-18` on the
+ * eighteenth of October at 19:29 means "since 19:29 today" — a search for a day that quietly searches
+ * for the rest of one, which is a wrong answer that looks like a right one. A person who types a date
+ * means that day, so `--since` becomes its midnight and `--until` the midnight after it; anything else
+ * — an ISO timestamp, `yesterday`, `1.month.ago` — is git's to read and is passed through untouched.
+ */
+function wholeDay(value: string, end: boolean): string {
+  const match = BARE_DATE.exec(value);
+  if (match === null) return value;
+  if (!end) return `${value}T00:00:00`;
+  // The next day, by calendar rather than by adding 24 hours: a day is not always that long, and August
+  // is where that shows.
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const next = new Date(Date.UTC(year, month - 1, day + 1));
+  const pad = (part: number): string => String(part).padStart(2, '0');
+  return `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())}T00:00:00`;
+}
+
 /** The `-- <path>` tail of a log or a count, or nothing when no path was named. */
 function pathspec(path: string | undefined): readonly string[] {
   return path === undefined ? [] : ['--', ...assertSafePaths([path])];
@@ -402,6 +473,7 @@ export function toArgv(cmd: GitCommand): string[] {
         `--max-count=${Math.max(1, Math.floor(cmd.limit))}`,
         ...(cmd.all === true ? ['--all'] : [assertSafeRef(cmd.rev ?? 'HEAD')]),
         ...(cmd.also ?? []).map(assertSafeRef),
+        ...searchArgs(cmd),
         `--format=${LOG_FORMAT}`,
         // After `--format=`, and after `--`: a file called `-p` is a path and not a request for a
         // patch, exactly as in `blame`.
@@ -414,6 +486,7 @@ export function toArgv(cmd: GitCommand): string[] {
         '--count',
         ...(cmd.all === true ? ['--all'] : [assertSafeRef(cmd.rev ?? 'HEAD')]),
         ...(cmd.also ?? []).map(assertSafeRef),
+        ...searchArgs(cmd),
         ...pathspec(cmd.path),
       ];
 
