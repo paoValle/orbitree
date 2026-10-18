@@ -123,6 +123,7 @@ orbitree credential [path] --host <host> [--protocol https] --json
 orbitree diff   [path] --json [--rev <rev>] [--cached | --unstaged] [--path <path>]
 orbitree show   [path] --json [--rev <rev>]
 orbitree blame  [path] --file <file> --json [--rev <rev>]
+orbitree compare [path] --left <ref> --right <ref> --json [--limit 500]
 ```
 
 `status` returns the working tree exactly as `readStatus()` does in the app: `head`
@@ -212,6 +213,15 @@ caller that treats every `oid` as a commit to look up has a bug waiting for its 
 line. `--line-porcelain` is what the parser reads, which repeats the metadata per line so a truncated
 read cannot shift the blame of the lines above it. Without `--json`, one line of output per line of the
 file: the abbreviated commit, the date, the author and the text.
+
+`compare` answers "what does each side have that the other does not", in both directions, from **one**
+read of `git log --left-right --cherry-pick A...B`: `onlyLeft` and `onlyRight`, each a list of commits in
+the shape `graph` uses, plus `records` — every commit git marked, with the `side` it was marked as. The
+`--cherry-pick` part is why this is git's answer and not a set difference of two hash lists: a commit
+whose patch is already on the other side is in neither list, so two branches that were rebased or
+cherry-picked onto each other are reported as agreeing about the *work* rather than disagreeing about the
+history. A limit is git's own `--max-count`, so a window that asks for one commit gets one and the lists
+are what was read.
 
 `credential` asks git's own helper whether a credential is stored for a host, and answers with
 `{ available, username, hasPassword, entries, note }`. The **secret is never in the answer**, in
