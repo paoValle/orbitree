@@ -674,7 +674,12 @@ export interface OrbitreeApi {
   readonly forgetLast: (path: string) => Promise<Result<PersistedState>>;
 }
 
-/** A button in the Quick Commands bar. Data, not code, so a user can edit the list. */
+/**
+ * A button in the Quick Commands bar.
+ *
+ * The list itself lives in `renderer/commands.ts`, because the bar and the command palette read **one**
+ * registry: two lists that describe the same actions are two lists that drift.
+ */
 export interface QuickCommand {
   readonly id: string;
   readonly label: string;
@@ -683,31 +688,3 @@ export interface QuickCommand {
   /** Destructive commands ask for a reason before they are allowed to run. */
   readonly danger: boolean;
 }
-
-export const DEFAULT_QUICK_COMMANDS: readonly QuickCommand[] = [
-  { id: 'fetch', label: 'Fetch', hint: 'fetch --prune', command: { op: 'fetch' }, danger: false },
-  { id: 'pull', label: 'Pull', hint: 'pull --ff-only', command: { op: 'pull' }, danger: false },
-  {
-    id: 'push',
-    label: 'Push',
-    hint: 'push the current branch',
-    command: { op: 'push', remote: 'origin', branch: 'HEAD' },
-    danger: false,
-  },
-  { id: 'stash', label: 'Stash', hint: 'stash push', command: { op: 'stash-push' }, danger: false },
-  { id: 'pop', label: 'Unstash', hint: 'stash pop', command: { op: 'stash-pop' }, danger: false },
-  {
-    id: 'clean',
-    label: 'Clean',
-    hint: 'clean -fd (untracked files)',
-    command: { op: 'clean' },
-    danger: true,
-  },
-  {
-    id: 'reset-hard',
-    label: 'Reset --hard',
-    hint: 'discard every uncommitted change',
-    command: { op: 'reset-hard', rev: 'HEAD' },
-    danger: true,
-  },
-];
