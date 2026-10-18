@@ -4,7 +4,10 @@ Each phase ends with an exit criterion that is a **command**, not a feeling. A p
 done when the code compiles; it is done when the command it names produces the output it
 promises. Phases are ordered by what unblocks the next one, not by how interesting they are.
 
-Status: **P0 to P3 are complete**; P3.5 is under way, and everything after it is unstarted.
+Status: **P0 to P3 are complete, and P3.5's exit criterion is met**. One of P3.5's bullets is
+deliberately open — opening a file in a *chosen* editor or a directory in a *chosen* terminal — because
+it needs a decision about a spawn outside the core (see that bullet), and P4 is where the work goes
+next.
 
 ---
 
@@ -447,6 +450,17 @@ any of them. None of this mutates a repository, so none of it needs a confirmati
 **Exit**: given a file and a line, the app names the commit that last changed it and opens the graph
 at that commit; given two branches, it lists the commits in each and not the other, and the lists
 disagree with `git log --left-right --cherry-pick` by nothing.
+
+Met, and by two tests whose names say which half they are. `apps/desktop/test/e2e/blame.spec.ts` blames
+a file written by two authors with a fourth line uncommitted, asserts each line's commit against
+`git blame --porcelain` and `git log`, and asserts that clicking a line selects that commit in the graph —
+that is "names the commit that last changed it and opens the graph at it", with the uncommitted line
+having nowhere to jump because no commit wrote it. `packages/core/test/compare.test.ts` compares two
+branches in both directions and cross-checks each list against `--left-only` and `--right-only` read
+separately, on a fixture that **cherry-picks across the fork**, so a comparison implemented as a set
+difference of hashes would fail it: the lists disagree with git by nothing.
+`apps/desktop/test/e2e/compare.spec.ts` is the window's half of the second part, and
+`history.spec.ts` the file-history half of the first.
 
 ## P4 — Quick commands
 
