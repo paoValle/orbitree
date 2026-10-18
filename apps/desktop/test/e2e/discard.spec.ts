@@ -1,7 +1,16 @@
 import { mkdir, readFile, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { closeApp, commit, git, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
+import {
+  closeApp,
+  commit,
+  EFFECT_TIMEOUT,
+  git,
+  launchApp,
+  mainWindow,
+  makeRepo,
+  writeIn,
+} from './support.ts';
 
 /**
  * Discarding a change is the one action in the working tree that destroys work, so it is the one
@@ -42,7 +51,7 @@ test('a change is discarded only after a reason, and the file goes back to HEAD'
 
     await page.locator('[placeholder=reason]').fill('the change was a mistake');
     await sheet.locator('button.danger').click();
-    await expect.poll(onDisk).toBe('the committed line\n');
+    await expect.poll(onDisk, EFFECT_TIMEOUT).toBe('the committed line\n');
     expect(await git(repo, ['status', '--porcelain=v2'])).not.toContain('base.txt');
 
     // The untracked file: `clean` with the path, through the same sheet, and the file is gone.
@@ -50,7 +59,9 @@ test('a change is discarded only after a reason, and the file goes back to HEAD'
     await expect(sheet).toBeVisible();
     await page.locator('[placeholder=reason]').fill('the file was a mistake too');
     await sheet.locator('button.danger').click();
-    await expect.poll(() => git(repo, ['status', '--porcelain=v2'])).not.toContain('never-added');
+    await expect
+      .poll(() => git(repo, ['status', '--porcelain=v2']), EFFECT_TIMEOUT)
+      .not.toContain('never-added');
 
     // The picture is taken once the *window* says the tree is clean, not once git does: the app's
     // own refresh is two round trips behind a change it just made, and a screenshot taken in
@@ -109,7 +120,7 @@ test('one hunk of a file is discarded, and the other one stays', async () => {
 
     const onDisk = async (): Promise<string[]> =>
       (await readFile(resolve(repo, 'f.txt'), 'utf8')).split('\n');
-    await expect.poll(async () => (await onDisk())[1]).toBe('line 2');
+    await expect.poll(async () => (await onDisk())[1], EFFECT_TIMEOUT).toBe('line 2');
     expect((await onDisk())[25]).toBe('CHANGED 26');
 
     const screenshot = resolve(import.meta.dirname, '..', '..', 'reports', 'discard-hunk.png');

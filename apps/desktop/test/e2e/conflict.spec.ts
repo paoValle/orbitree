@@ -1,7 +1,16 @@
 import { mkdir, readFile, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { closeApp, commit, git, launchApp, mainWindow, makeRepo, writeIn } from './support.ts';
+import {
+  closeApp,
+  commit,
+  EFFECT_TIMEOUT,
+  git,
+  launchApp,
+  mainWindow,
+  makeRepo,
+  writeIn,
+} from './support.ts';
 
 /**
  * The conflict screen: the three versions git is holding for a path, one side taken, and the merge
@@ -126,7 +135,7 @@ test('a conflict is resolved region by region, and the list renumbers as it goes
     await rows.nth(0).locator('[data-testid=region-edit]').click();
     await page.locator('[data-testid=region-text]').fill('the merged line');
     await page.locator('[data-testid=region-save]').click();
-    await expect.poll(async () => (await onDisk())[2]).toBe('the merged line');
+    await expect.poll(async () => (await onDisk())[2], EFFECT_TIMEOUT).toBe('the merged line');
 
     // Resolving one renumbers the rest, so the region that is left is the first one again — which
     // is the assertion a screen that kept its own list would fail.
@@ -134,7 +143,7 @@ test('a conflict is resolved region by region, and the list renumbers as it goes
     await expect(rows.nth(0).locator('[data-testid=region-sides]')).toContainText('theirs at 18');
 
     await rows.nth(0).locator('[data-testid=region-theirs]').click();
-    await expect.poll(async () => (await onDisk())[17]).toBe('theirs at 18');
+    await expect.poll(async () => (await onDisk())[17], EFFECT_TIMEOUT).toBe('theirs at 18');
     await expect(rows).toHaveCount(0);
     expect((await onDisk()).join('\n')).not.toContain('<<<<<<<');
 
@@ -144,7 +153,9 @@ test('a conflict is resolved region by region, and the list renumbers as it goes
       .locator('li', { has: page.locator('[data-testid=entry-item][data-path="f.txt"]') })
       .getByRole('button', { name: 'resolve' })
       .click();
-    await expect.poll(() => git(repo, ['status', '--porcelain=v2'])).not.toContain('u UU');
+    await expect
+      .poll(() => git(repo, ['status', '--porcelain=v2']), EFFECT_TIMEOUT)
+      .not.toContain('u UU');
   } finally {
     await closeApp(handle);
     await rm(repo, { recursive: true, force: true });
@@ -207,7 +218,9 @@ test('resolving a conflict is `git add`, under git’s own word for it', async (
     // The conflicted section's own button says what it does, and the command behind it is `add`.
     await row.getByRole('button', { name: 'resolve' }).click();
 
-    await expect.poll(() => git(repo, ['status', '--porcelain=v2'])).not.toContain('u UU');
+    await expect
+      .poll(() => git(repo, ['status', '--porcelain=v2']), EFFECT_TIMEOUT)
+      .not.toContain('u UU');
     await expect(page.locator('[data-testid=activity-argv]').first()).toContainText(
       'add -- base.txt',
     );
