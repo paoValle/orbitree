@@ -7,6 +7,7 @@
  * from what the core actually accepts.
  */
 import type {
+  Commit,
   CommitData,
   DiffFile,
   GitCommand,
@@ -49,7 +50,7 @@ const PENDING_REFS = ['MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REBASE_HEAD'] as const;
 const PENDING_OPERATIONS = ['merge', 'cherry-pick', 'rebase'] as const;
 
 /** Re-exported for the renderer, which does not import the core at runtime: a type import is erased. */
-export type { Progress };
+export type { Commit, Progress };
 /** One part of the identity: the value in force, and where it was read from. */
 export type IdentityValue = NonNullable<IdentityPayload['identity']['name']>;
 
@@ -518,6 +519,29 @@ export interface BlamePayload {
   }[];
 }
 
+/**
+ * What each side of a fork has, both ways.
+ *
+ * Two lists rather than one list with marks: the question a person has is "what does this branch have
+ * that that one does not", and it is read one side at a time.
+ */
+export interface ComparePayload {
+  readonly root: string;
+  readonly left: string;
+  readonly right: string;
+  readonly onlyLeft: readonly Commit[];
+  readonly onlyRight: readonly Commit[];
+}
+
+export const compareRequestSchema = z.object({
+  path: z.string().min(1),
+  left: z.string().min(1),
+  right: z.string().min(1),
+  limit: z.exactOptional(z.int().min(1)),
+});
+
+export type CompareRequest = z.infer<typeof compareRequestSchema>;
+
 export const blameRequestSchema = z.object({
   path: z.string().min(1),
   file: z.string().min(1),
@@ -609,6 +633,8 @@ export interface OrbitreeApi {
   readonly readRemotes: (path: string) => Promise<Result<RemotesPayload>>;
   /** Who wrote each line of one file, and in which commit. */
   readonly readBlame: (request: BlameRequest) => Promise<Result<BlamePayload>>;
+  /** What each side of a fork has that the other does not. */
+  readonly compare: (request: CompareRequest) => Promise<Result<ComparePayload>>;
   /** One stash's patch, read on demand: a list of stashes is cheap, their patches are not. */
   readonly readStashPatch: (request: {
     readonly path: string;

@@ -79,6 +79,13 @@ export interface LeftPanelProps {
   readonly busy?: boolean;
   readonly onFilter: (revision: string) => void;
   readonly onSwitch: (ref: Ref) => void;
+  /**
+   * Shows what this branch has that the one being read does not, and the other way round.
+   *
+   * Disabled for the branch that is checked out, like `switch`: comparing a branch with itself is an
+   * empty answer rather than a slow one, and a button that does nothing is worse than a disabled one.
+   */
+  readonly onCompare: (ref: Ref) => void;
   readonly onMerge: (ref: Ref) => void;
   readonly onRename: (ref: Ref) => void;
   readonly onDelete: (ref: Ref) => void;
@@ -138,6 +145,7 @@ export function LeftPanel({
   busy,
   onFilter,
   onSwitch,
+  onCompare,
   onMerge,
   onRename,
   onDelete,
@@ -191,6 +199,17 @@ export function LeftPanel({
         </span>
       ) : null}
       {ref.isHead ? <span className="panel-current">current</span> : null}
+      {ref.kind === 'branch' ? (
+        <button
+          type="button"
+          className="stage"
+          data-testid="ref-compare"
+          disabled={busy === true || ref.isHead}
+          onClick={() => onCompare(ref)}
+        >
+          compare
+        </button>
+      ) : null}
       {ref.kind === 'branch' && !ref.isHead ? (
         <button
           type="button"

@@ -8,6 +8,7 @@ import {
   redact,
   readBlame,
   readCommit,
+  readComparison,
   readConflictRegions,
   readConflictSide,
   readDiff,
@@ -37,6 +38,7 @@ import {
 import {
   blameRequestSchema,
   CHANNELS,
+  compareRequestSchema,
   commitReadRequestSchema,
   diffRequestSchema,
   forgetLastRequestSchema,
@@ -141,6 +143,27 @@ function registerHandlers(): void {
         ...(parsed.cached === true ? { cached: true } : {}),
       });
       return { root: repo.root, files };
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.compare, (_event, request: unknown) =>
+    attempt(async () => {
+      const parsed = compareRequestSchema.parse(request);
+      const repo = await openRepo(parsed.path);
+      const comparison = await readComparison(repo, {
+        left: parsed.left,
+        right: parsed.right,
+        ...(parsed.limit === undefined ? {} : { limit: parsed.limit }),
+      });
+      // The two lists and not the marked records: the window shows a list per side, and `records` is
+      // the same data in git's order for a caller that wants it — the CLI's `--json` has both.
+      return {
+        root: repo.root,
+        left: comparison.left,
+        right: comparison.right,
+        onlyLeft: comparison.onlyLeft,
+        onlyRight: comparison.onlyRight,
+      };
     }),
   );
 
