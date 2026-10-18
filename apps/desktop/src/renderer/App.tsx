@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  DEFAULT_QUICK_COMMANDS,
   type DiffFile,
   type GitCommand,
   type Commit,
@@ -18,6 +17,8 @@ import { type CommitAction, GraphPane } from './GraphPane.tsx';
 import { LeftPanel } from './LeftPanel.tsx';
 import { ActivityIcon, BranchIcon, CloseIcon, CopyIcon, quickIcon, StashIcon } from './icons.tsx';
 import { type ScreenState, StateScreen } from './StateScreen.tsx';
+import { quickCommands } from './commands.ts';
+import { Palette } from './Palette.tsx';
 import { describeProgress, type Pending, type RunRecord, recordRun } from './shared.ts';
 import { WorkingTreePanel } from './WorkingTreePanel.tsx';
 
@@ -233,6 +234,8 @@ export function App(): React.ReactElement {
    * checked out at that moment, and a refreshed or switched branch makes it a statement about the past.
    * Clicking the same button again asks again.
    */
+  /** The command palette: open, or not. It reads the registry, so it lists what applies right now. */
+  const [palette, setPalette] = useState(false);
   const [comparison, setComparison] = useState<{
     readonly left: string;
     readonly onlyLeft: readonly Commit[];
@@ -499,6 +502,13 @@ export function App(): React.ReactElement {
       if (key === 'w' && activeId !== null) {
         event.preventDefault();
         closeTab(activeId);
+        return;
+      }
+      // The palette, on the key most editors trained a reader to try. It is a toggle: the same press
+      // that opens it closes it, which is what Escape does too.
+      if (key === 'k') {
+        event.preventDefault();
+        setPalette((open) => !open);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -851,7 +861,7 @@ export function App(): React.ReactElement {
 
       {active !== null && (
         <div className="quickbar">
-          {DEFAULT_QUICK_COMMANDS.map((command) => {
+          {quickCommands().map((command) => {
             const Glyph = quickIcon(command.id);
             return (
               <button
@@ -1422,9 +1432,40 @@ export function App(): React.ReactElement {
         )}
       </main>
 
+      {palette ? (
+        <Palette
+          context={{ selected: active?.selected ?? null }}
+          {...(busy ? { busy } : {})}
+          onClose={() => setPalette(false)}
+          onRun={(entry) => {
+            setPalette(false);
+            // The same path a click takes, danger and all: a destructive command opens the sheet.
+            runGuarded({
+              id: entry.id,
+              label: entry.label,
+              hint: entry.hint,
+              danger: entry.danger,
+              command: entry.command,
+            });
+          }}
+        />
+      ) : null}
+
       {pending !== null && (
         <div className="modal-backdrop">
-          <div className="modal" role="dialog" aria-modal="true">
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            // Escape closes the sheet, like every other modal here: a dialog that ignores it is a
+            // dialog that traps, and the command it was asking about has not run.
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                setPending(null);
+              }
+            }}
+          >
             <h2>{pending.command.label}</h2>
             <p>
               This is a destructive command: <code>{pending.command.hint}</code>. Say why, so the

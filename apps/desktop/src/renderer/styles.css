@@ -1117,6 +1117,79 @@ code {
   margin-left: 6px;
 }
 
+/* The command palette: a modal that is a list, so its own metrics rather than the ask dialog's. */
+.palette {
+  width: min(520px, 90vw);
+  padding: 10px;
+  gap: 6px;
+}
+
+.palette-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  color: var(--text);
+  font: inherit;
+}
+
+.palette-list {
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.palette-item {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* One highlight, moved by the pointer and the arrow keys: Enter runs what is drawn as selected. */
+.palette-item.on {
+  background: var(--bg-raised);
+  outline: 1px solid var(--line);
+}
+
+.palette-label {
+  flex: 0 0 auto;
+}
+
+.palette-hint {
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-group {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.palette-foot {
+  margin: 0;
+  padding: 2px 8px 0;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

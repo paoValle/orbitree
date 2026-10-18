@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { DEFAULT_QUICK_COMMANDS, type QuickCommand, type RepoState } from '../shared/api.ts';
+import type { QuickCommand, RepoState } from '../shared/api.ts';
+import { quickCommands } from './commands.ts';
 import { quickIcon } from './icons.tsx';
 import { type Pending, type RunRecord, recordRun } from './shared.ts';
 
@@ -80,7 +81,7 @@ export function Popup(): React.ReactElement {
       </header>
 
       <div className="popup-commands">
-        {DEFAULT_QUICK_COMMANDS.map((command) => {
+        {quickCommands().map((command) => {
           const Glyph = quickIcon(command.id);
           return (
             <button

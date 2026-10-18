@@ -390,8 +390,19 @@ any of them. None of this mutates a repository, so none of it needs a confirmati
       calendar rather than by adding 24 hours), and `graph.test.ts` pins both directions on the fixtures'
       own pinned commit dates.
 - [ ] Open in editor, open in terminal, reveal in the file manager, each configured once.
-- [ ] A command palette over every action, by name and by keybinding, built from one registry that
-      the quick bar also reads.
+- [x] A command palette over every action, by name and by keybinding, built from one registry that
+      the quick bar also reads. `renderer/commands.ts` is that registry: each entry says whether the bar
+      has room for it and whether it needs the window's state (the selected commit), so the bar's buttons
+      and the palette's list are two readings of one list rather than two lists. `Cmd/Ctrl+K` opens it,
+      ↑↓ and Enter run, Escape closes, and the filter matches the label, the command it would run
+      (`stash` finds Unstash, because Unstash runs `stash pop`) and where it lives. Every entry goes
+      through the same `runGuarded` a click takes, so a destructive one opens the confirmation sheet
+      whichever surface asked — which is also the test's proof that nothing ran. Commands that need a
+      value the registry cannot invent (a branch or tag name) are deliberately absent: they open a
+      dialog, which is a different kind of entry.
+      Two things fell out of it: the confirmation sheet now closes on Escape like every other modal here
+      (a dialog that ignores it is a dialog that traps), and the two destructive quick-bar labels say what
+      they do rather than being `Clean` and `Reset --hard` twice over.
 - [x] Tab shortcuts: `Cmd/Ctrl+1-9` to switch, `Cmd/Ctrl+T` and `+` to open, `Cmd/Ctrl+W` and a
       middle click to close. One modifier, `Cmd` on macOS and `Ctrl` elsewhere, decided by the platform
       and never both; `1`–`8` are the tabs in order and `9` is the last, which is the convention every
