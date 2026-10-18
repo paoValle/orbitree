@@ -378,8 +378,16 @@ any of them. None of this mutates a repository, so none of it needs a confirmati
 - [ ] Open in editor, open in terminal, reveal in the file manager, each configured once.
 - [ ] A command palette over every action, by name and by keybinding, built from one registry that
       the quick bar also reads.
-- [ ] Tab shortcuts: `Cmd/Ctrl+1-9` to switch, `Cmd/Ctrl+T` and `+` to open, `Cmd/Ctrl+W` and a
-      middle click to close.
+- [x] Tab shortcuts: `Cmd/Ctrl+1-9` to switch, `Cmd/Ctrl+T` and `+` to open, `Cmd/Ctrl+W` and a
+      middle click to close. One modifier, `Cmd` on macOS and `Ctrl` elsewhere, decided by the platform
+      and never both; `1`–`8` are the tabs in order and `9` is the last, which is the convention every
+      browser and editor trained a reader to expect. They work while typing, because a commit message is
+      not a place where `Cmd+1` means the digit `1`. The shortcut and the `+` button call one function
+      rather than two that drift, and the middle click prevents Chromium's autoscroll before it closes —
+      a gesture that scrolled the pane on its way out would be a gesture nobody uses twice.
+      `apps/desktop/test/e2e/shortcuts.spec.ts` presses them on the real window, with the modifier named
+      from the platform, and asserts the tab that becomes active by its own class rather than by the
+      address, which a tab can share.
 - [ ] A ghost branch for the selected commit, with a double click to check it out, and an optional
       highlight of a branch's commits on hover.
 
