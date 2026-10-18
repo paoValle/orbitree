@@ -25,6 +25,8 @@ export const CHANNELS = {
   runProgress: 'run:progress',
   commitRead: 'commit:read',
   pickDirectory: 'app:pick-directory',
+  openFile: 'app:open-file',
+  revealFile: 'app:reveal-file',
   stateRead: 'app:state-read',
   stateRemember: 'app:state-remember',
   stateSetHotkey: 'app:state-set-hotkey',

@@ -389,7 +389,21 @@ any of them. None of this mutates a repository, so none of it needs a confirmati
       therefore expanded to the whole day (its midnight for `since`, the next midnight for `until`, by
       calendar rather than by adding 24 hours), and `graph.test.ts` pins both directions on the fixtures'
       own pinned commit dates.
-- [ ] Open in editor, open in terminal, reveal in the file manager, each configured once.
+- [ ] Open in editor, open in terminal, reveal in the file manager, each configured once. In: **open**
+      with whatever the machine uses for that file, and **reveal** in the file manager, on the row of the
+      file they are about, through Electron's `shell` rather than through a process of ours. The path the
+      window sends is resolved against the repository root and **refused when it escapes**, because the
+      renderer is a web page and an action that opens any path on the machine is one a page would find.
+      `open-file.spec.ts` replaces the main process's `shell` with a recorder, so what is asserted is
+      exactly what the product asked the operating system to do — and that a refusal from the machine
+      reaches the banner rather than a button that does nothing.
+      **Not in, and it needs a decision**: *configured once*. Opening a file in a chosen editor, or a
+      directory in a chosen terminal, means running a program the user names — and the front-ends are
+      forbidden from spawning anything, which is I3's structural test and the reason git can only be
+      reached through the core. Doing it as a **vector** of arguments rather than a command line would
+      keep the no-shell rule, but it would still be the first spawn outside the core, so it is a decision
+      for the roadmap rather than for a commit: either the rule admits one named exception, written in
+      `docs/INVARIANTS.md` with the reason, or this stays the machine's default application.
 - [x] A command palette over every action, by name and by keybinding, built from one registry that
       the quick bar also reads. `renderer/commands.ts` is that registry: each entry says whether the bar
       has room for it and whether it needs the window's state (the selected commit), so the bar's buttons

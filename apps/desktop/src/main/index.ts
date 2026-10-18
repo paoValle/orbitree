@@ -1,9 +1,10 @@
-import { join } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import {
   BEFORE_NOTHING,
   ConfirmationRequiredError,
   diagnoseFailure,
   execute,
+  InvalidArgumentError,
   openRepo,
   redact,
   readBlame,
@@ -39,6 +40,7 @@ import {
   blameRequestSchema,
   CHANNELS,
   compareRequestSchema,
+  fileActionSchema,
   commitReadRequestSchema,
   diffRequestSchema,
   forgetLastRequestSchema,
@@ -155,6 +157,44 @@ function registerHandlers(): void {
         ...(parsed.cached === true ? { cached: true } : {}),
       });
       return { root: repo.root, files };
+    }),
+  );
+
+  /**
+   * One file of one repository, resolved against the repository it belongs to.
+   *
+   * The renderer is a web page, so the path it sends is a *file inside the repository* and nothing
+   * else: resolved against the root and refused when it escapes, which is what stops a page from asking
+   * the operating system to open something it was never shown.
+   */
+  const insideRepository = async (request: unknown): Promise<{ root: string; full: string }> => {
+    const parsed = fileActionSchema.parse(request);
+    const repo = await openRepo(parsed.path);
+    const full = resolve(repo.root, parsed.file);
+    if (full !== repo.root && !full.startsWith(repo.root + sep)) {
+      throw new InvalidArgumentError(`${parsed.file} is outside the repository`);
+    }
+    return { root: repo.root, full };
+  };
+
+  ipcMain.handle(CHANNELS.openFile, (_event, request: unknown) =>
+    attempt(async () => {
+      const { full } = await insideRepository(request);
+      // `openPath` answers with the error it hit rather than throwing, which is a string to return or
+      // an empty string for "the machine opened it".
+      const failure = await shell.openPath(full);
+      if (failure !== '') throw new Error(failure);
+      return { file: full };
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.revealFile, (_event, request: unknown) =>
+    attempt(async () => {
+      const { full } = await insideRepository(request);
+      // Shows the file in the machine's file manager, selected. Nothing to wait for and nothing to
+      // report: the window it opens is the machine's, not ours.
+      shell.showItemInFolder(full);
+      return { file: full };
     }),
   );
 

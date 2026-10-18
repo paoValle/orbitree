@@ -80,6 +80,14 @@ export interface WorkingTreePanelProps {
    * that commit did, and the graph is where that is.
    */
   readonly onSelectCommit?: (oid: string) => void;
+  /**
+   * Opens one file with whatever the machine uses for it, or shows it in the file manager.
+   *
+   * The path is the repository's own: the window sends a path relative to the root and the process that
+   * has the operating system's ear checks it stays inside.
+   */
+  readonly onOpenFile?: (path: string) => void;
+  readonly onRevealFile?: (path: string) => void;
   /** Resolves one conflict region of one path, replacing it with a side or with typed text. */
   readonly onResolveRegion?: (
     path: string,
@@ -295,6 +303,8 @@ export function WorkingTreePanel({
   onCommit,
   onCommitAndPush,
   onSelectCommit,
+  onOpenFile,
+  onRevealFile,
 }: WorkingTreePanelProps): React.ReactElement {
   const [message, setMessage] = useState('');
   const [body, setBody] = useState('');
@@ -545,6 +555,32 @@ export function WorkingTreePanel({
                               discard
                             </button>
                           )}
+                        {/* The two that leave the window, on the row they are about. They appear on
+                            hover like `stage`, so the row stays a row of names until it is pointed at. */}
+                        {onOpenFile === undefined ? null : (
+                          <button
+                            type="button"
+                            className="stage"
+                            data-testid="open-file"
+                            disabled={busy === true}
+                            title={`open ${entry.path} with the machine's own application`}
+                            onClick={() => onOpenFile(entry.path)}
+                          >
+                            open
+                          </button>
+                        )}
+                        {onRevealFile === undefined ? null : (
+                          <button
+                            type="button"
+                            className="stage"
+                            data-testid="reveal-file"
+                            disabled={busy === true}
+                            title={`show ${entry.path} in the file manager`}
+                            onClick={() => onRevealFile(entry.path)}
+                          >
+                            reveal
+                          </button>
+                        )}
                         {onUnstage !== undefined && spec.section === 'staged' && (
                           <button
                             type="button"
