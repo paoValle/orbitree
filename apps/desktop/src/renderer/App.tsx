@@ -1127,6 +1127,22 @@ export function App(): React.ReactElement {
                   command: { op: 'unstage', paths: [entryPath] },
                 })
               }
+              onOpenFile={(entryPath) => {
+                void window.orbitree
+                  .openFile({ path: active?.root ?? '', file: entryPath })
+                  .then((result) => {
+                    // The machine's own answer when it could not: a file git knows about and the disk
+                    // does not is a state worth saying out loud rather than a button that does nothing.
+                    if (!result.ok) setError(result.error);
+                  });
+              }}
+              onRevealFile={(entryPath) => {
+                void window.orbitree
+                  .revealFile({ path: active?.root ?? '', file: entryPath })
+                  .then((result) => {
+                    if (!result.ok) setError(result.error);
+                  });
+              }}
               onSelectCommit={(oid) => {
                 // The jump: the graph's selection is per tab, and the pane scrolls the selected row
                 // into view, so naming the commit is the whole of it.

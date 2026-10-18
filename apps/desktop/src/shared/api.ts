@@ -533,6 +533,20 @@ export interface ComparePayload {
   readonly onlyRight: readonly Commit[];
 }
 
+/**
+ * One file of one repository, for the actions that leave the window.
+ *
+ * The path is checked against the repository before anything is handed to the operating system: a
+ * renderer is a web page, and an escape hatch that opens any path on the machine is one a page would
+ * find.
+ */
+export const fileActionSchema = z.object({
+  path: z.string().min(1),
+  file: z.string().min(1),
+});
+
+export type FileAction = z.infer<typeof fileActionSchema>;
+
 export const compareRequestSchema = z.object({
   path: z.string().min(1),
   left: z.string().min(1),
@@ -640,6 +654,10 @@ export interface OrbitreeApi {
   readonly readBlame: (request: BlameRequest) => Promise<Result<BlamePayload>>;
   /** What each side of a fork has that the other does not. */
   readonly compare: (request: CompareRequest) => Promise<Result<ComparePayload>>;
+  /** Opens one file of the repository with whatever the machine uses for it. */
+  readonly openFile: (request: FileAction) => Promise<Result<{ file: string }>>;
+  /** Shows one file of the repository in the machine's file manager. */
+  readonly revealFile: (request: FileAction) => Promise<Result<{ file: string }>>;
   /** One stash's patch, read on demand: a list of stashes is cheap, their patches are not. */
   readonly readStashPatch: (request: {
     readonly path: string;
