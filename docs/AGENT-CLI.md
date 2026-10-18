@@ -114,7 +114,7 @@ destructive needs a confirmation token, or a --dry-run
 
 ```bash
 orbitree status [path] --json
-orbitree graph  [path] --json [--limit 200] [--all] [--rev <rev>] [--hide <ref>]…
+orbitree graph  [path] --json [--limit 200] [--all] [--rev <rev>] [--file <path>] [--hide <ref>]…
 orbitree refs   [path] --json
 orbitree worktrees [path] --json
 orbitree remotes [path] --json
@@ -157,6 +157,14 @@ the layout is laid over what remains and no line goes down to nothing. It is a q
 *picture* — nothing is written, and `total` still describes the history that was read. HEAD is always
 among the visible names, because the commit somebody is standing on must not vanish from their own
 picture.
+
+`graph --file <path>` is the history of one file: only the commits git says touched that path, laid
+out by the same function that lays out the whole repository, so `rows`, `edges` and `laneCount` mean
+what they mean everywhere else. The simplification is git's — a merge whose result matches one side is
+not a commit that changed the path — and `total` counts the same set, so `truncated` still compares the
+window with the history it came from. A path nothing ever touched is an empty history rather than an
+error. Note what the window does **not** have: its pane for this is reached from the working tree's
+file list, so a file with nothing uncommitted has no row to click yet.
 
 `total` is how many commits
 the read history holds (`HEAD`, the revision named by `--rev`, or every ref with `--all`),

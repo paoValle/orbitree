@@ -31,6 +31,13 @@ export type GitCommand =
       readonly all?: boolean;
       readonly rev?: string;
       /**
+       * Only the commits that touched this path: the file's own history.
+       *
+       * Git's own simplification, not this product's: a merge whose result matches one side is not a
+       * commit that changed the path, so it is not in the answer.
+       */
+      readonly path?: string;
+      /**
        * Revisions to read as well as the main one, and to count as well.
        *
        * A stash older than the newest is reachable from nothing but the reflog of `refs/stash`, so
@@ -45,6 +52,8 @@ export type GitCommand =
       readonly all?: boolean;
       readonly rev?: string;
       readonly also?: readonly string[];
+      /** The same path the graph was read with, or `total` would describe another history. */
+      readonly path?: string;
     }
   | { readonly op: 'refs' }
   | { readonly op: 'stash-list' }
@@ -334,6 +343,11 @@ function assertSafeName(name: string, what: string): string {
   return name;
 }
 
+/** The `-- <path>` tail of a log or a count, or nothing when no path was named. */
+function pathspec(path: string | undefined): readonly string[] {
+  return path === undefined ? [] : ['--', ...assertSafePaths([path])];
+}
+
 /**
  * A remote URL, refused when git would read it as an option.
  *
@@ -375,6 +389,9 @@ export function toArgv(cmd: GitCommand): string[] {
         ...(cmd.all === true ? ['--all'] : [assertSafeRef(cmd.rev ?? 'HEAD')]),
         ...(cmd.also ?? []).map(assertSafeRef),
         `--format=${LOG_FORMAT}`,
+        // After `--format=`, and after `--`: a file called `-p` is a path and not a request for a
+        // patch, exactly as in `blame`.
+        ...pathspec(cmd.path),
       ];
 
     case 'count':
@@ -383,6 +400,7 @@ export function toArgv(cmd: GitCommand): string[] {
         '--count',
         ...(cmd.all === true ? ['--all'] : [assertSafeRef(cmd.rev ?? 'HEAD')]),
         ...(cmd.also ?? []).map(assertSafeRef),
+        ...pathspec(cmd.path),
       ];
 
     case 'refs':

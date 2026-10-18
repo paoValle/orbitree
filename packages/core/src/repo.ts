@@ -452,6 +452,14 @@ export interface GraphRequest {
   readonly rev?: string;
   /** Names whose exclusive commits are left out of the picture. Nothing is written. */
   readonly hide?: readonly string[];
+  /**
+   * One path, for the history of one file.
+   *
+   * The commits git says touched it, drawn by the same `layoutGraph` as any other picture: a file's
+   * history is the same shape of question as the repository's, which is why this is a field and not a
+   * second read that would drift from the first.
+   */
+  readonly path?: string;
 }
 
 export async function readGraph(
@@ -476,6 +484,7 @@ export async function readGraph(
         limit,
         ...(request.all === true ? { all: true } : {}),
         ...(request.rev === undefined ? {} : { rev: request.rev }),
+        ...(request.path === undefined ? {} : { path: request.path }),
         ...also,
       },
       { cwd: repo.root, ...options },
@@ -488,6 +497,7 @@ export async function readGraph(
         op: 'count',
         ...(request.all === true ? { all: true } : {}),
         ...(request.rev === undefined ? {} : { rev: request.rev }),
+        ...(request.path === undefined ? {} : { path: request.path }),
         ...also,
       },
       { cwd: repo.root, ...options },
