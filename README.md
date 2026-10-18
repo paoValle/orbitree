@@ -79,6 +79,7 @@ made.
 | `orbitree worktrees [path] --json` | every working directory this repository has checked out, the one you asked from marked |
 | `orbitree diff [path] --json [--rev <rev>] [--path <path>]` | the patch against `HEAD` (or `--rev`), as files and hunks; without `--json`, the raw patch |
 | `orbitree show [path] --json [--rev <rev>]` | one commit: its metadata and the patch it introduced, with `against` saying what the patch is measured against |
+| `orbitree blame [path] --file <file> --json [--rev <rev>]` | who wrote each line of one file, and in which commit |
 | `orbitree ops --json` | every operation, its risk level, and the argv it produces |
 | `orbitree run --op <op> [--dry-run] [--confirm <reason>]` | the guarded way to change a repository, with a remote command reporting its progress as it goes |
 | `orbitree doctor --json` | platform, node, git version, repository root |

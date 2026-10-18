@@ -55,6 +55,13 @@ export type GitCommand =
       readonly path?: string;
     }
   | { readonly op: 'commit-detail'; readonly rev: string }
+  /**
+   * Who wrote each line of one file, and in which commit.
+   *
+   * `--line-porcelain`: the metadata is repeated per line, so a block is complete on its own and a
+   * truncated read cannot shift the blame of the lines above it.
+   */
+  | { readonly op: 'blame'; readonly path: string; readonly rev?: string }
   | { readonly op: 'commit-patch'; readonly rev: string }
   /** One of the pending-operation refs. See `toArgv` for why it is three commands. */
   | { readonly op: 'pending-operation'; readonly ref: PendingRef }
@@ -221,6 +228,7 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'diff':
     case 'commit-detail':
     case 'commit-patch':
+    case 'blame':
     case 'pending-operation':
     case 'stash-show':
     case 'conflict-side':
@@ -406,6 +414,17 @@ export function toArgv(cmd: GitCommand): string[] {
 
     case 'commit-detail':
       return ['log', '-z', '--max-count=1', `--format=${DETAIL_FORMAT}`, assertSafeRef(cmd.rev)];
+
+    // The path is after `--`, like every other path in this file: a file called `-p` is a filename and
+    // not a request for a patch. The revision, when there is one, is what blame walks from.
+    case 'blame':
+      return [
+        'blame',
+        '--line-porcelain',
+        ...(cmd.rev === undefined ? [] : [assertSafeRef(cmd.rev)]),
+        '--',
+        ...assertSafePaths([cmd.path]),
+      ];
 
     // `--format=` suppresses the commit header so the output is the plain patch `parseDiff`
     // reads. Plain `git show` prints no patch for a merge, and `-m` alone prints one per

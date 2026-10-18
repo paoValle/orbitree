@@ -27,10 +27,12 @@ import {
   meetsMinimumGitVersion,
   NotARepositoryError,
   openRepo,
+  type BlameLine,
   type Ref,
   type RepoHandle,
   type Progress,
   type RepoState,
+  readBlame,
   readCommit,
   readDiff,
   readGraph,
@@ -296,6 +298,30 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
       const identity = await readIdentity(repo);
       emit(io, opts.json === true, 'identity', { root: repo.root, identity }, (data) =>
         describeIdentity(data.identity),
+      );
+    });
+
+  program
+    .command('blame')
+    .description('who wrote each line of one file, and in which commit')
+    .argument('[path]', 'a path inside the repository', '.')
+    // `--file` rather than a second positional: `orbitree blame <path> <file>` cannot tell a file from
+    // a path when only one of them is given, and a command that guesses is worse than one that asks.
+    .requiredOption('--file <path>', 'the file to blame, relative to the repository root')
+    .option('--rev <rev>', 'blame the file as it was at this revision', undefined)
+    .option('--json', 'one JSON object on stdout')
+    .action(async (path: string, opts: { file: string; rev?: string; json?: boolean }) => {
+      const repo = await openRepo(path);
+      const lines = await readBlame(repo, {
+        path: opts.file,
+        ...(opts.rev === undefined ? {} : { rev: opts.rev }),
+      });
+      emit(
+        io,
+        opts.json === true,
+        'blame',
+        { root: repo.root, file: opts.file, rev: opts.rev ?? null, lines },
+        (data) => describeBlame(data.lines),
       );
     });
 
@@ -574,6 +600,7 @@ export const OP_EXAMPLES: readonly GitCommand[] = [
   { op: 'refs' },
   { op: 'diff', rev: 'HEAD' },
   { op: 'commit-detail', rev: 'HEAD' },
+  { op: 'blame', path: 'packages/core/src/index.ts' },
   { op: 'commit-patch', rev: 'HEAD' },
   { op: 'pending-operation', ref: 'MERGE_HEAD' },
   { op: 'add', paths: ['file.txt'] },
@@ -826,6 +853,13 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
       return { op: 'diff', rev: args[0] ?? 'HEAD' };
     case 'commit-detail':
       return { op: 'commit-detail', rev: args[0] ?? 'HEAD' };
+    case 'blame': {
+      const file = args[0];
+      if (file === undefined || file === '') {
+        throw new InvalidArgumentError('blame needs a file: --arg <path> [--arg <rev>]');
+      }
+      return { op: 'blame', path: file, ...(args[1] === undefined ? {} : { rev: args[1] }) };
+    }
     case 'commit-patch':
       return { op: 'commit-patch', rev: args[0] ?? 'HEAD' };
     case 'tag-create':
@@ -993,6 +1027,24 @@ function describeWorktrees(worktrees: readonly Worktree[], here: string): string
       const mark = worktree.path === here ? '*' : ' ';
       const where = worktree.bare ? 'bare' : (worktree.branch ?? 'detached');
       return `${mark} ${(worktree.head ?? '').slice(0, 8).padEnd(8)} ${where.padEnd(20)} ${worktree.path}`;
+    })
+    .join('\n');
+}
+
+/**
+ * Blame, one line of the file per line of output: the commit, who wrote it, when, and what the line
+ * says. The date is UTC rather than local, because it is a fact about the commit and the same output
+ * from two machines is worth more than a date that moves with the reader.
+ */
+function describeBlame(lines: readonly BlameLine[]): string {
+  return lines
+    .map((line) => {
+      const date = new Date(line.authorTime * 1000).toISOString().slice(0, 10);
+      // The author is padded and never truncated: "Not Committed Ye" reads like a typo, and a long
+      // name pushing the column is the reader's problem to solve with their next `--json` call.
+      return `${line.oid.slice(0, 8)} ${date} ${line.author.padEnd(20)} ${String(
+        line.line,
+      ).padStart(4)}  ${line.content}`;
     })
     .join('\n');
 }

@@ -127,6 +127,7 @@ export function reverseOf(cmd: GitCommand, before: BeforeState): GitCommand | nu
     case 'reset-soft':
     case 'regenerate-conflict':
     case 'worktree-list':
+    case 'blame':
       return null;
     // Adding a worktree adds a directory; removing one takes it away, and putting it back is
     // adding it again — with the branch it was on, which is where the care goes.

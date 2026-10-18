@@ -331,7 +331,12 @@ through the same executor this test does.
 The read-only half of developer support: understanding a line, a file and a branch, without touching
 any of them. None of this mutates a repository, so none of it needs a confirmation.
 
-- [ ] Blame, per line, with the commit it came from and a jump into the graph at it.
+- [ ] Blame, per line, with the commit it came from and a jump into the graph at it. Read and
+      printed: `blame` is a guarded operation, `parseBlame` reads `--line-porcelain` — which repeats the
+      metadata per line, so a truncated read cannot shift the blame of the lines above it — and
+      `orbitree blame --file <file> --json` names the commit, the author and the date for every line.
+      Not yet **shown**, and no jump yet: the window has no pane for it, so the second half of the
+      bullet is still open.
 - [ ] File history: the commits that touched one path, in the graph's own shape.
 - [ ] Branch comparison in both directions: what this branch has that that one does not, and back.
 - [ ] Commit search: message, author, date range, path, and "only mine", applied to the graph as a

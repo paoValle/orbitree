@@ -392,6 +392,50 @@ describe('the CLI and the app are the same program', () => {
     }
   });
 
+  it('[I5] `blame` names the commit each line came from, and says when one is not committed', async () => {
+    // `a.txt` is committed as `one` and then rewritten in the working tree as `two`, so the same file
+    // has both answers at once: what is on disk, and what the commit holds.
+    const head = (
+      await execFileAsync('git', ['log', '--format=%H', '-1'], { cwd: root })
+    ).stdout.trim();
+    const result = await cli(['blame', root, '--file', 'a.txt', '--json']);
+    expect(result.code).toBe(EXIT.ok);
+    const printed = JSON.parse(result.lines[0] as string) as {
+      data: { lines: { oid: string; content: string; line: number; boundary: boolean }[] };
+    };
+    expect(printed.data.lines).toHaveLength(1);
+    expect(printed.data.lines[0]?.content).toBe('two');
+    expect(printed.data.lines[0]?.line).toBe(1);
+    // The line that is only in the working tree is not blamed on a commit, and git says so with an
+    // all-zero sha: a window has to show that as "not committed yet" rather than as a jump.
+    expect(printed.data.lines[0]?.oid).toBe('0'.repeat(40));
+
+    // At the commit itself the file is one line, which is the other direction of the same question.
+    const at = await cli(['blame', root, '--file', 'a.txt', '--rev', 'HEAD', '--json']);
+    const committed = JSON.parse(at.lines[0] as string) as {
+      data: { lines: { oid: string; content: string; boundary: boolean }[] };
+    };
+    expect(committed.data.lines).toHaveLength(1);
+    expect(committed.data.lines[0]?.content).toBe('one');
+    expect(committed.data.lines[0]?.oid).toBe(head);
+    // The first commit of the repository is a boundary: git has nowhere earlier to walk, and saying so
+    // is what stops a reader looking for a line's origin in a commit that does not exist.
+    expect(committed.data.lines[0]?.boundary).toBe(true);
+
+    // The text form names the commit abbreviated, the date, the author and the line — and says
+    // `Not Committed Yet`, in git's own words, for the line that is only in the working tree.
+    const text = await cli(['blame', root, '--file', 'a.txt']);
+    expect(text.lines.join('\n')).toContain('Not Committed Yet');
+    expect(text.lines.join('\n')).toContain('two');
+
+    const committedText = await cli(['blame', root, '--file', 'a.txt', '--rev', 'HEAD']);
+    expect(committedText.lines.join('\n')).toContain(head.slice(0, 8));
+    expect(committedText.lines.join('\n')).toContain('one');
+    // Abbreviated on purpose: eight characters is what a person can hold in their head, and the whole
+    // sha is in `--json` for whoever needs to paste it.
+    expect(committedText.lines.join('\n')).not.toContain(head);
+  });
+
   it('[I3] every operation the CLI publishes is reachable through `run --op`', async () => {
     // The claim of the doc and of the roadmap item: `ops` lists what `run` accepts. Two lists that
     // can drift, so one of them — the published one — is what the test walks, and an operation that
@@ -411,6 +455,7 @@ describe('the CLI and the app are the same program', () => {
       'stash-list': [],
       diff: [],
       'commit-detail': [],
+      blame: ['a.txt'],
       'commit-patch': [],
       'pending-operation': ['MERGE_HEAD'],
       add: ['file.txt'],
