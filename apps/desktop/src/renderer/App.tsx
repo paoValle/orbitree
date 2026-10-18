@@ -446,6 +446,49 @@ export function App(): React.ReactElement {
     [activeId, tabs],
   );
 
+  /** A tab with nothing in it yet, which is what `+` has always been: the header browses from there. */
+  const openEmptyTab = useCallback((): void => {
+    if (tabs.length >= MAX_TABS) return;
+    const id = nextId.current;
+    nextId.current += 1;
+    setTabs((previous) => [...previous, EMPTY_TAB(id)]);
+    setActiveId(id);
+  }, [tabs.length]);
+
+  /**
+   * The tab shortcuts, on one modifier: `Cmd` on macOS and `Ctrl` elsewhere, whichever the platform
+   * uses, and never both.
+   *
+   * `1`–`8` are the tabs in order and `9` is the last one, which is the convention every browser and
+   * editor trained a reader to expect, and the reason a ninth tab needs no tenth shortcut. They work
+   * while typing as well: a commit message is not a place where `Cmd+1` means the digit.
+   */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key >= '1' && key <= '9') {
+        const index = key === '9' ? tabs.length - 1 : Number(key) - 1;
+        const tab = tabs[index];
+        if (tab === undefined) return;
+        event.preventDefault();
+        setActiveId(tab.id);
+        return;
+      }
+      if (key === 't') {
+        event.preventDefault();
+        openEmptyTab();
+        return;
+      }
+      if (key === 'w' && activeId !== null) {
+        event.preventDefault();
+        closeTab(activeId);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [tabs, activeId, closeTab, openEmptyTab]);
+
   /** Asks git what each side has, and shows it. The read is cheap; the answer is a card. */
   const compareWith = useCallback(
     async (ref: string): Promise<void> => {
@@ -751,6 +794,16 @@ export function App(): React.ReactElement {
               data-testid="tab"
               data-tab-id={String(tab.id)}
               onClick={() => setActiveId(tab.id)}
+              // A middle click closes, which is what the gesture means on every tab strip. The
+              // `mousedown` is prevented so Chromium does not start its autoscroll on the way.
+              onMouseDown={(event) => {
+                if (event.button === 1) event.preventDefault();
+              }}
+              onAuxClick={(event) => {
+                if (event.button !== 1) return;
+                event.preventDefault();
+                closeTab(tab.id);
+              }}
             >
               <span className="tab-name">{tab.root === null ? tab.path : nameOf(tab.root)}</span>
               <button
@@ -766,19 +819,7 @@ export function App(): React.ReactElement {
               </button>
             </button>
           ))}
-          <button
-            type="button"
-            className="tab new"
-            data-testid="tab-new"
-            onClick={() => {
-              if (tabs.length < MAX_TABS) {
-                const id = nextId.current;
-                nextId.current += 1;
-                setTabs((previous) => [...previous, EMPTY_TAB(id)]);
-                setActiveId(id);
-              }
-            }}
-          >
+          <button type="button" className="tab new" data-testid="tab-new" onClick={openEmptyTab}>
             +
           </button>
         </div>
