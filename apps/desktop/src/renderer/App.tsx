@@ -3,6 +3,7 @@ import {
   DEFAULT_QUICK_COMMANDS,
   type DiffFile,
   type GitCommand,
+  type Commit,
   type GraphData,
   type IdentityPayload,
   type Progress,
@@ -15,7 +16,7 @@ import { CommitPanel } from './CommitPanel.tsx';
 import { DiffView } from './DiffView.tsx';
 import { type CommitAction, GraphPane } from './GraphPane.tsx';
 import { LeftPanel } from './LeftPanel.tsx';
-import { ActivityIcon, CloseIcon, CopyIcon, quickIcon, StashIcon } from './icons.tsx';
+import { ActivityIcon, BranchIcon, CloseIcon, CopyIcon, quickIcon, StashIcon } from './icons.tsx';
 import { type ScreenState, StateScreen } from './StateScreen.tsx';
 import { describeProgress, type Pending, type RunRecord, recordRun } from './shared.ts';
 import { WorkingTreePanel } from './WorkingTreePanel.tsx';
@@ -76,6 +77,56 @@ const EMPTY_TAB = (id: number): Tab => ({
   remotes: [],
   gone: null,
 });
+
+/**
+ * One side of a comparison: the commits only this side has, each a jump into the graph.
+ *
+ * A list rather than a picture, because the graph is the repository's and this is the difference
+ * between two readings of it: what a reader wants is the commits, and where each of them sits in the
+ * graph is one click away.
+ */
+function CompareList({
+  side,
+  name,
+  commits,
+  onSelectCommit,
+}: {
+  readonly side: 'left' | 'right';
+  readonly name: string;
+  readonly commits: readonly Commit[];
+  readonly onSelectCommit: (oid: string) => void;
+}): React.ReactElement {
+  return (
+    <ul className="compare-list" data-testid="compare-list" data-side={side}>
+      {commits.length === 0 ? (
+        <li className="empty" data-testid="compare-none">
+          nothing
+        </li>
+      ) : (
+        commits.map((commit) => (
+          <li
+            key={commit.hash}
+            className="compare-row"
+            data-testid="compare-row"
+            data-hash={commit.hash}
+          >
+            <button
+              type="button"
+              className="compare-link"
+              data-testid="compare-jump"
+              title={`on ${name} only: ${commit.subject}`}
+              onClick={() => onSelectCommit(commit.hash)}
+            >
+              <code className="compare-oid">{commit.hash.slice(0, 8)}</code>
+              <span className="compare-subject">{commit.subject}</span>
+              <span className="compare-author">{commit.author.name}</span>
+            </button>
+          </li>
+        ))
+      )}
+    </ul>
+  );
+}
 
 /**
  * The graph is read one window at a time: a 200,000-commit repository must not cross IPC
@@ -161,6 +212,19 @@ export function App(): React.ReactElement {
    * the next command starts, which is when it stops being about anything that just happened.
    */
   const [progress, setProgress] = useState<Progress | null>(null);
+  /**
+   * A comparison somebody asked for from the panel, or `null`.
+   *
+   * Not per tab and not stored: it is an answer to a question that was asked about the branch that was
+   * checked out at that moment, and a refreshed or switched branch makes it a statement about the past.
+   * Clicking the same button again asks again.
+   */
+  const [comparison, setComparison] = useState<{
+    readonly left: string;
+    readonly onlyLeft: readonly Commit[];
+    readonly right: string;
+    readonly onlyRight: readonly Commit[];
+  } | null>(null);
   /** Bumped by every operation that ran, so a pane holding a diff knows to read it again. */
   const [revision, setRevision] = useState(0);
   /** The working tree's own card, so the WIP node can point at it without searching the document. */
@@ -380,6 +444,33 @@ export function App(): React.ReactElement {
       if (id === activeId) setActiveId(remaining[remaining.length - 1]?.id ?? null);
     },
     [activeId, tabs],
+  );
+
+  /** Asks git what each side has, and shows it. The read is cheap; the answer is a card. */
+  const compareWith = useCallback(
+    async (ref: string): Promise<void> => {
+      if (active === null || active.root === null) return;
+      const head = active.status?.head;
+      const mine = head?.kind === 'branch' ? head.name : 'HEAD';
+      setBusy(true);
+      const result = await window.orbitree.compare({
+        path: active.root,
+        left: mine,
+        right: ref,
+      });
+      setBusy(false);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setComparison({
+        left: result.value.left,
+        onlyLeft: result.value.onlyLeft,
+        right: result.value.right,
+        onlyRight: result.value.onlyRight,
+      });
+    },
+    [active],
   );
 
   const runCommand = useCallback(
@@ -785,6 +876,7 @@ export function App(): React.ReactElement {
                 void refresh(active.root ?? '', active.id, active.filter, active.limit, hidden);
               }}
               onFilter={(revision) => void changeFilter(revision)}
+              onCompare={(ref) => void compareWith(ref.shortName)}
               onSwitch={(ref) =>
                 runGuarded({
                   id: 'checkout',
@@ -1110,6 +1202,35 @@ export function App(): React.ReactElement {
                 apply and pop put the work back; drop destroys it, so it asks for a reason first
               </p>
             </div>
+
+            {comparison === null ? null : (
+              <div className="card" data-testid="compare-card">
+                <h2>
+                  <BranchIcon size={13} />
+                  Compare
+                </h2>
+                <p className="empty" data-testid="compare-summary">
+                  only on <code>{comparison.left}</code> ({comparison.onlyLeft.length}) · only on{' '}
+                  <code>{comparison.right}</code> ({comparison.onlyRight.length})
+                </p>
+                <CompareList
+                  side="left"
+                  name={comparison.left}
+                  commits={comparison.onlyLeft}
+                  onSelectCommit={(oid) => {
+                    if (active !== null) patchTab(active.id, { selected: oid });
+                  }}
+                />
+                <CompareList
+                  side="right"
+                  name={comparison.right}
+                  commits={comparison.onlyRight}
+                  onSelectCommit={(oid) => {
+                    if (active !== null) patchTab(active.id, { selected: oid });
+                  }}
+                />
+              </div>
+            )}
 
             <div className="card">
               <h2>

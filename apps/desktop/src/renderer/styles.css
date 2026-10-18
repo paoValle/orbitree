@@ -222,6 +222,50 @@ button.danger,
   padding: 6px 10px 0;
 }
 
+/* One side of a comparison: a list of commits, each a jump into the graph. */
+.compare-list {
+  margin: 0;
+  padding: 0 0 6px;
+  list-style: none;
+}
+
+.compare-row:hover {
+  background: var(--bg-raised);
+}
+
+.compare-link {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  width: 100%;
+  padding: 2px 10px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.compare-oid {
+  flex: 0 0 8ch;
+  color: var(--accent);
+  font-family: var(--mono);
+}
+
+.compare-subject {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compare-author {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+}
+
 .history {
   margin: 0;
   padding: 4px 0 12px;

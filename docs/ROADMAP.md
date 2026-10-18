@@ -363,12 +363,16 @@ any of them. None of this mutates a repository, so none of it needs a confirmati
       parser's rules about a hash, a parent list and a subject instead of a second set of them.
       `orbitree compare . --left main --right next --json` prints `onlyLeft` and `onlyRight` beside every
       record in git's order.
-      **The limits, stated rather than discovered**: there is no window surface yet, so this is the one
-      P3.5 bullet whose product half is missing — the answer is a read and a CLI one; and the read is a
-      window (`--limit`, 500 by default) that neither the text nor the JSON marks as truncated, so a
-      caller that needs to know whether more commits exist asks again with a larger limit. The check the
-      P3.5 exit criterion names is `compare.test.ts`: the fixture forks and then cherry-picks one side's
-      work across, so a comparison that were a set difference of hashes would fail it.
+      The window has it too: every branch row in the panel carries **compare**, which reads that branch
+      against the one that is checked out and shows the two lists in a card — one row per commit, each a
+      jump into the graph, the same jump blame and history offer. Comparing the checked-out branch with
+      itself is an empty answer, so its own button is disabled rather than slow.
+      **The limit, stated rather than discovered**: `--limit` (500 by default) is a window that neither
+      the text nor the JSON marks as truncated, so a caller that needs to know whether more commits exist
+      asks again with a larger limit. The check the P3.5 exit criterion names is `compare.test.ts`: the
+      fixture forks and then cherry-picks one side's work across, so a comparison implemented as a set
+      difference of hashes would fail it, and `compare.spec.ts` asserts the card against `--left-only`
+      and `--right-only` read separately.
 - [ ] Commit search: message, author, date range, path, and "only mine", applied to the graph as a
       filter rather than as a separate list.
 - [ ] Open in editor, open in terminal, reveal in the file manager, each configured once.

@@ -19,6 +19,7 @@ export const CHANNELS = {
   conflictRegions: 'conflict:regions',
   diff: 'repo:diff',
   blame: 'repo:blame',
+  compare: 'repo:compare',
   run: 'repo:run',
   /** Main to renderer, while a remote command runs: one line of git's progress. */
   runProgress: 'run:progress',

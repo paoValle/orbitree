@@ -20,6 +20,7 @@ const api: OrbitreeApi = {
   readConflictRegions: (request) => ipcRenderer.invoke(CHANNELS.conflictRegions, request),
   diff: (path, request) => ipcRenderer.invoke(CHANNELS.diff, { path, ...request }),
   readBlame: (request) => ipcRenderer.invoke(CHANNELS.blame, request),
+  compare: (request) => ipcRenderer.invoke(CHANNELS.compare, request),
   readCommit: (path, rev) => ipcRenderer.invoke(CHANNELS.commitRead, { path, rev }),
   run: (request: RunRequest) => ipcRenderer.invoke(CHANNELS.run, request),
   pickDirectory: () => ipcRenderer.invoke(CHANNELS.pickDirectory),
