@@ -373,8 +373,22 @@ any of them. None of this mutates a repository, so none of it needs a confirmati
       fixture forks and then cherry-picks one side's work across, so a comparison implemented as a set
       difference of hashes would fail it, and `compare.spec.ts` asserts the card against `--left-only`
       and `--right-only` read separately.
-- [ ] Commit search: message, author, date range, path, and "only mine", applied to the graph as a
-      filter rather than as a separate list.
+- [x] Commit search: message, author, date range, path, and "only mine", applied to the graph as a
+      filter rather than as a separate list. The fields are the graph's own (`grep`, `author`, `since`,
+      `until` beside the `path` that file history already used), they go to the **count** as well so
+      `truncated` keeps comparing like with like, and `orbitree graph` takes them as options. The window
+      has a **Search** section in the panel — submitted rather than typed live, because a search on every
+      keystroke is a git call per letter — and the graph's header says `searching`, since a filter narrows
+      the total too and "3 of 3 commits" would otherwise read as a repository with three commits in it.
+      "Only mine" is a checkbox, not a fifth text field: it is the address the repository is configured
+      with, read from the identity card the panel already shows, and a repository with no `user.email`
+      anywhere makes it a usage error rather than a search for nothing.
+      **The finding**: git's date parser fills the fields a date leaves out from **now**, so
+      `--since=2026-10-18` on the eighteenth at 19:29 means "since 19:29 today" — a day-long search
+      reported as empty, which is a wrong answer that looks like a right one. A bare `YYYY-MM-DD` is
+      therefore expanded to the whole day (its midnight for `since`, the next midnight for `until`, by
+      calendar rather than by adding 24 hours), and `graph.test.ts` pins both directions on the fixtures'
+      own pinned commit dates.
 - [ ] Open in editor, open in terminal, reveal in the file manager, each configured once.
 - [ ] A command palette over every action, by name and by keybinding, built from one registry that
       the quick bar also reads.

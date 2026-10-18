@@ -109,6 +109,13 @@ export interface GraphPaneProps {
    * something the pane edits.
    */
   readonly filter: string;
+  /**
+   * Whether the picture is a search of the history rather than all of it.
+   *
+   * The header has to say so: a search narrows the count *and* the total, so "3 of 3 commits" would
+   * otherwise read as a repository with three commits in it.
+   */
+  readonly searching: boolean;
   /** One page of history; the load-more button asks for one more. */
   readonly pageSize: number;
   readonly onLoadMore: () => void;
@@ -141,6 +148,7 @@ export function GraphPane({
   selected,
   onSelect,
   filter,
+  searching,
   pageSize,
   onLoadMore,
   onCommitAction,
@@ -428,6 +436,11 @@ export function GraphPane({
             hiding {graph.hidden.length}
           </span>
         )}
+        {searching ? (
+          <span className="graph-history" data-testid="graph-search">
+            searching
+          </span>
+        ) : null}
         {graph.truncated && (
           <button type="button" data-testid="load-more" onClick={onLoadMore}>
             Load {pageSize} more

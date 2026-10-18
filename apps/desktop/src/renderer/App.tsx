@@ -47,6 +47,19 @@ interface Tab {
   /** The other working directories of this repository, read with everything else. */
   /** Who commits will be authored as, read with everything else. */
   readonly identity: IdentityPayload['identity'] | null;
+  /**
+   * What the graph is being searched for, or `{}`.
+   *
+   * A filter of the *picture*, like `hidden` and `filter`: nothing is written, and the read asks git for
+   * a narrower history rather than filtering a list the window already has — because the window holds a
+   * page of it, and searching a page is not searching the repository.
+   */
+  readonly search: {
+    readonly grep?: string;
+    readonly author?: string;
+    readonly since?: string;
+    readonly until?: string;
+  };
   /** The remotes the config holds: a name and the two URLs it points at. */
   readonly remotes: RemotesPayload['remotes'];
   readonly worktrees: readonly {
@@ -74,6 +87,7 @@ const EMPTY_TAB = (id: number): Tab => ({
   hidden: [],
   worktrees: [],
   identity: null,
+  search: {},
   remotes: [],
   gone: null,
 });
@@ -308,6 +322,7 @@ export function App(): React.ReactElement {
       selection: string,
       requested: number,
       hidden: readonly string[] = [],
+      search: Tab['search'] = {},
     ): Promise<GraphData | null> => {
       setBusy(true);
       setError(null);
@@ -364,6 +379,7 @@ export function App(): React.ReactElement {
         limit: requested,
         ...(selection === '*' ? { all: true } : { rev: selection }),
         ...(hidden.length === 0 ? {} : { hide: hidden }),
+        ...search,
       });
       if (!graphResult.ok) {
         setError(graphResult.error);
@@ -522,6 +538,7 @@ export function App(): React.ReactElement {
       const target = active.root;
       const selection = active.filter;
       const requested = active.limit;
+      const { hidden: hiddenNames, search: activeSearch } = active;
       setBusy(true);
       setProgress(null);
       const result = await window.orbitree.run({
@@ -541,7 +558,7 @@ export function App(): React.ReactElement {
       }
       setRuns((previous) => [recordRun(result.value), ...previous].slice(0, 8));
       setRevision((previous) => previous + 1);
-      await refresh(target, active.id, selection, requested);
+      await refresh(target, active.id, selection, requested, hiddenNames, activeSearch);
       return true;
     },
     [active, refresh],
@@ -718,7 +735,14 @@ export function App(): React.ReactElement {
       if (active === null || active.root === null) return;
       const target = active.root;
       patchTab(active.id, { filter: selection, limit: GRAPH_LIMIT, selected: null });
-      const data = await refresh(target, active.id, selection, GRAPH_LIMIT);
+      const data = await refresh(
+        target,
+        active.id,
+        selection,
+        GRAPH_LIMIT,
+        active.hidden,
+        active.search,
+      );
       patchTab(active.id, { selected: data?.commits[0]?.hash ?? null });
     },
     [active, patchTab, refresh],
@@ -730,7 +754,7 @@ export function App(): React.ReactElement {
     const next = active.limit + GRAPH_LIMIT;
     patchTab(active.id, { limit: next });
     // The selected hash is untouched: the larger window still contains it.
-    void refresh(target, active.id, active.filter, next);
+    void refresh(target, active.id, active.filter, next, active.hidden, active.search);
   }, [active, patchTab, refresh]);
 
   const screen: { state: ScreenState; detail: string | undefined } | null =
@@ -852,7 +876,16 @@ export function App(): React.ReactElement {
           <button
             type="button"
             className="quick"
-            onClick={() => void refresh(active.root ?? '', active.id, active.filter, active.limit)}
+            onClick={() =>
+              void refresh(
+                active.root ?? '',
+                active.id,
+                active.filter,
+                active.limit,
+                active.hidden,
+                active.search,
+              )
+            }
             disabled={busy}
           >
             Refresh
@@ -914,10 +947,42 @@ export function App(): React.ReactElement {
                   ? active.hidden.filter((name) => name !== ref.shortName)
                   : [...active.hidden, ref.shortName];
                 patchTab(active.id, { hidden });
-                void refresh(active.root ?? '', active.id, active.filter, active.limit, hidden);
+                void refresh(
+                  active.root ?? '',
+                  active.id,
+                  active.filter,
+                  active.limit,
+                  hidden,
+                  active.search,
+                );
               }}
               onFilter={(revision) => void changeFilter(revision)}
               onCompare={(ref) => void compareWith(ref.shortName)}
+              search={active?.search ?? {}}
+              onSearch={(form) => {
+                if (active === null) return;
+                // "Only mine" is the address in force, read from the identity card rather than typed a
+                // second time: one place knows who is committing, and it is the one the panel shows.
+                const email = active.identity?.email?.value;
+                const author = form.mine === true ? email : form.author;
+                // Empty fields are left out rather than sent as empty strings, which the core refuses
+                // and which would mean "filter by nothing".
+                const fields: Tab['search'] = {
+                  ...(form.grep === undefined || form.grep === '' ? {} : { grep: form.grep }),
+                  ...(author === undefined || author === '' ? {} : { author }),
+                  ...(form.since === undefined || form.since === '' ? {} : { since: form.since }),
+                  ...(form.until === undefined || form.until === '' ? {} : { until: form.until }),
+                };
+                patchTab(active.id, { search: fields });
+                void refresh(
+                  active.root ?? '',
+                  active.id,
+                  active.filter,
+                  active.limit,
+                  active.hidden,
+                  fields,
+                );
+              }}
               onSwitch={(ref) =>
                 runGuarded({
                   id: 'checkout',
@@ -1008,6 +1073,7 @@ export function App(): React.ReactElement {
                   selected={active.selected}
                   onSelect={(hash) => patchTab(active.id, { selected: hash })}
                   filter={active.filter}
+                  searching={Object.keys(active.search).length > 0}
                   pageSize={GRAPH_LIMIT}
                   onLoadMore={loadMore}
                   onWipClick={() => {

@@ -86,6 +86,26 @@ export interface LeftPanelProps {
    * empty answer rather than a slow one, and a button that does nothing is worse than a disabled one.
    */
   readonly onCompare: (ref: Ref) => void;
+  /**
+   * What the graph is being searched for, and the handler that narrows it.
+   *
+   * A search of the *repository*, not of the list the window holds: the graph carries a page of the
+   * history, and searching a page is not searching the history. Nothing is written — it is a question
+   * about the picture, like the filter and the hidden names beside it.
+   */
+  readonly search: {
+    readonly grep?: string;
+    readonly author?: string;
+    readonly since?: string;
+    readonly until?: string;
+  };
+  readonly onSearch: (search: {
+    readonly grep?: string;
+    readonly author?: string;
+    readonly since?: string;
+    readonly until?: string;
+    readonly mine?: boolean;
+  }) => void;
   readonly onMerge: (ref: Ref) => void;
   readonly onRename: (ref: Ref) => void;
   readonly onDelete: (ref: Ref) => void;
@@ -128,6 +148,123 @@ const IDENTITY_PARTS = [
   { key: 'signing key', label: 'sign' },
 ] as const;
 
+/**
+ * The search form: four fields and a checkbox, submitted rather than typed live.
+ *
+ * Submitted on purpose — a search that ran on every keystroke would be a git call per letter, and on a
+ * large repository that is a picture that never settles. `only mine` is a checkbox and not a fifth
+ * field because it is not a string somebody remembers: it is the address the repository is configured
+ * with, and the app reads it from the identity card.
+ */
+function SearchSection({
+  search,
+  onSearch,
+  busy,
+}: {
+  readonly search: {
+    readonly grep?: string;
+    readonly author?: string;
+    readonly since?: string;
+    readonly until?: string;
+  };
+  readonly onSearch: (search: {
+    readonly grep?: string;
+    readonly author?: string;
+    readonly since?: string;
+    readonly until?: string;
+    readonly mine?: boolean;
+  }) => void;
+  readonly busy?: boolean;
+}): React.ReactElement {
+  const [grep, setGrep] = useState(search.grep ?? '');
+  const [author, setAuthor] = useState(search.author ?? '');
+  const [since, setSince] = useState(search.since ?? '');
+  const [until, setUntil] = useState(search.until ?? '');
+  const [mine, setMine] = useState(false);
+  const active =
+    search.grep !== undefined ||
+    search.author !== undefined ||
+    search.since !== undefined ||
+    search.until !== undefined;
+
+  const submit = (): void => {
+    onSearch({ grep, author, since, until, mine });
+  };
+
+  return (
+    <details className="panel-section" data-testid="panel-section" data-section="Search" open>
+      <summary>
+        <ChevronDownIcon size={12} />
+        <span className="panel-title">Search</span>
+        {active ? <span className="panel-count">on</span> : null}
+      </summary>
+      {(
+        [
+          { key: 'grep', label: 'message', value: grep, set: setGrep },
+          { key: 'author', label: 'author', value: author, set: setAuthor },
+          { key: 'since', label: 'since', value: since, set: setSince },
+          { key: 'until', label: 'until', value: until, set: setUntil },
+        ] as const
+      ).map((field) => (
+        <input
+          key={field.key}
+          type="search"
+          className="panel-search"
+          data-testid={`search-${field.key}`}
+          placeholder={field.label}
+          aria-label={`Search by ${field.label}`}
+          value={field.value}
+          onChange={(event) => field.set(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              submit();
+            }
+          }}
+        />
+      ))}
+      <label className="panel-row search-mine">
+        <input
+          type="checkbox"
+          data-testid="search-mine"
+          checked={mine}
+          onChange={(event) => setMine(event.currentTarget.checked)}
+        />
+        only mine
+      </label>
+      <div className="panel-row">
+        <button
+          type="button"
+          className="stage"
+          data-testid="search-apply"
+          disabled={busy === true}
+          onClick={submit}
+        >
+          search
+        </button>
+        {active ? (
+          <button
+            type="button"
+            className="stage"
+            data-testid="search-clear"
+            disabled={busy === true}
+            onClick={() => {
+              setGrep('');
+              setAuthor('');
+              setSince('');
+              setUntil('');
+              setMine(false);
+              onSearch({});
+            }}
+          >
+            clear
+          </button>
+        ) : null}
+      </div>
+    </details>
+  );
+}
+
 export function LeftPanel({
   refs,
   worktrees,
@@ -146,6 +283,8 @@ export function LeftPanel({
   onFilter,
   onSwitch,
   onCompare,
+  search,
+  onSearch,
   onMerge,
   onRename,
   onDelete,
@@ -285,6 +424,12 @@ export function LeftPanel({
         aria-label="Filter branches, remotes, tags and submodules"
         value={query}
         onChange={(event) => setQuery(event.currentTarget.value)}
+      />
+
+      <SearchSection
+        search={search}
+        onSearch={onSearch}
+        {...(busy === undefined ? {} : { busy })}
       />
 
       <Section

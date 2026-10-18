@@ -488,6 +488,26 @@ function againstParents(parentCount: number): CommitAgainst {
   return 'first-parent';
 }
 
+/** The search fields of a request, as the command wants them: only the ones that were given. */
+function searchOf(request: {
+  readonly grep?: string;
+  readonly author?: string;
+  readonly since?: string;
+  readonly until?: string;
+}): {
+  readonly grep?: string;
+  readonly author?: string;
+  readonly since?: string;
+  readonly until?: string;
+} {
+  return {
+    ...(request.grep === undefined ? {} : { grep: request.grep }),
+    ...(request.author === undefined ? {} : { author: request.author }),
+    ...(request.since === undefined ? {} : { since: request.since }),
+    ...(request.until === undefined ? {} : { until: request.until }),
+  };
+}
+
 export interface GraphRequest {
   readonly limit?: number;
   readonly all?: boolean;
@@ -502,6 +522,17 @@ export interface GraphRequest {
    * second read that would drift from the first.
    */
   readonly path?: string;
+  /**
+   * Search fields, applied to the same history the picture draws.
+   *
+   * They narrow the *graph*, not a separate list: the same `graph` op with the same `layoutGraph`, so a
+   * filtered picture is still a picture of the repository. The `count` names the same fields, because a
+   * `total` from a wider history would make `truncated` compare two different things.
+   */
+  readonly grep?: string;
+  readonly author?: string;
+  readonly since?: string;
+  readonly until?: string;
 }
 
 export async function readGraph(
@@ -527,6 +558,7 @@ export async function readGraph(
         ...(request.all === true ? { all: true } : {}),
         ...(request.rev === undefined ? {} : { rev: request.rev }),
         ...(request.path === undefined ? {} : { path: request.path }),
+        ...searchOf(request),
         ...also,
       },
       { cwd: repo.root, ...options },
@@ -540,6 +572,7 @@ export async function readGraph(
         ...(request.all === true ? { all: true } : {}),
         ...(request.rev === undefined ? {} : { rev: request.rev }),
         ...(request.path === undefined ? {} : { path: request.path }),
+        ...searchOf(request),
         ...also,
       },
       { cwd: repo.root, ...options },

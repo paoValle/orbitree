@@ -170,6 +170,11 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
     // The history of one file, in the graph's own shape: the commits git says touched it, laid out
     // by the same function that lays out the whole repository.
     .option('--file <path>', 'only the commits that touched this path')
+    .option('--grep <pattern>', 'only the commits whose message matches this regular expression')
+    .option('--author <text>', 'only the commits authored by a name or address matching this')
+    .option('--since <date>', 'only the commits after this date, as git reads a date')
+    .option('--until <date>', 'only the commits before this date')
+    .option('--mine', 'only the commits authored by the identity in force')
     .option('--refs', 'include the ref list in the output (implied by --json)')
     .option(
       '--hide <ref>',
@@ -186,17 +191,39 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
           all?: boolean;
           rev?: string;
           file?: string;
+          grep?: string;
+          author?: string;
+          since?: string;
+          until?: string;
+          mine?: boolean;
           refs?: boolean;
           hide?: string[];
         },
       ) => {
         const limit = Number.parseInt(opts.limit, 10);
         const repo = await openRepo(path);
+        // "Only mine" is not a git option: it is `--author` with the address in force, which is the
+        // same identity card the window shows. A repository nobody configured a name in has no address
+        // to search by, and saying so is better than silently searching for nothing.
+        let author = opts.author;
+        if (opts.mine === true) {
+          const identity = await readIdentity(repo);
+          if (identity.email === null) {
+            throw new InvalidArgumentError(
+              '--mine needs an identity: this repository has no user.email in force',
+            );
+          }
+          author = identity.email.value;
+        }
         const graph = await readGraph(repo, {
           limit,
           ...(opts.all === true ? { all: true } : {}),
           ...(opts.rev === undefined ? {} : { rev: opts.rev }),
           ...(opts.file === undefined ? {} : { path: opts.file }),
+          ...(opts.grep === undefined ? {} : { grep: opts.grep }),
+          ...(author === undefined ? {} : { author }),
+          ...(opts.since === undefined ? {} : { since: opts.since }),
+          ...(opts.until === undefined ? {} : { until: opts.until }),
           ...(opts.hide === undefined || opts.hide.length === 0 ? {} : { hide: opts.hide }),
         });
         const includeRefs = opts.json === true || opts.refs === true;

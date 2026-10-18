@@ -615,6 +615,11 @@ export interface OrbitreeApi {
       rev?: string;
       /** One file, for its own history: the commits that touched it, in the graph's own shape. */
       file?: string;
+      /** Search fields, which narrow the same history rather than reading another one. */
+      grep?: string;
+      author?: string;
+      since?: string;
+      until?: string;
       hide?: readonly string[];
     },
   ) => Promise<Result<GraphPayload>>;
