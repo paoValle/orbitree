@@ -75,6 +75,14 @@ export interface GraphData {
   /** `commits.length < total`: the window cut the history, and that must be visible. */
   readonly truncated: boolean;
   /**
+   * For each commit in this window, the names that can reach it — empty unless the read asked.
+   *
+   * The same `visibleCommits` reachability that hiding a name uses, read the other way round: a window
+   * that highlights "the commits of this branch" is asking a question this product already answers in
+   * one place, and a second implementation of it would be a second answer.
+   */
+  readonly reachableByCommit: Readonly<Record<string, readonly string[]>>;
+  /**
    * The working tree, which is the row above the first commit rather than a row of the layout.
    * Read here as well, and not only by the status call the window already makes, so that a
    * `graph` read answers the whole question on its own.
@@ -488,6 +496,29 @@ function againstParents(parentCount: number): CommitAgainst {
   return 'first-parent';
 }
 
+/**
+ * Which names can reach each of these commits.
+ *
+ * Per name, the commits a walk from its target reaches — inside the window only, because a commit the
+ * page does not hold cannot be highlighted — and then turned around so the answer is one lookup per
+ * row. Two names reaching the same commit both appear, which is the truth of a fork.
+ */
+function reachableByCommit(
+  commits: readonly Commit[],
+  refs: readonly Ref[],
+): Readonly<Record<string, readonly string[]>> {
+  const byCommit: Record<string, string[]> = {};
+  for (const ref of refs) {
+    if (ref.kind === 'other') continue;
+    for (const commit of visibleCommits(commits, [ref.target])) {
+      const names = byCommit[commit.hash] ?? [];
+      if (!names.includes(ref.shortName)) names.push(ref.shortName);
+      byCommit[commit.hash] = names;
+    }
+  }
+  return byCommit;
+}
+
 /** The search fields of a request, as the command wants them: only the ones that were given. */
 function searchOf(request: {
   readonly grep?: string;
@@ -533,6 +564,15 @@ export interface GraphRequest {
   readonly author?: string;
   readonly since?: string;
   readonly until?: string;
+  /**
+   * Whether to work out which names can reach each commit in the window.
+   *
+   * Off unless asked: it is what a window needs to highlight the commits of a name the pointer is over,
+   * and a caller reading the history for its own sake has no use for it. The answer is compact — per
+   * commit, the names that reach it — rather than a list of the commits under each name, which for a
+   * window with twenty names would be twenty times the size.
+   */
+  readonly reachable?: boolean;
 }
 
 export async function readGraph(
@@ -599,6 +639,7 @@ export async function readGraph(
   return {
     commits: kept,
     layout: layoutGraph(kept),
+    reachableByCommit: request.reachable === true ? reachableByCommit(kept, refs) : {},
     refs,
     // `refs/stash` names only the newest entry and says less than its selector does, so when the
     // stashes are in the reading the badge comes from the entry and not from the ref. The list

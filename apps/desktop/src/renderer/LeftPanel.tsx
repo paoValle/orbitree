@@ -87,6 +87,13 @@ export interface LeftPanelProps {
    */
   readonly onCompare: (ref: Ref) => void;
   /**
+   * The name the pointer is over, or `null` when it leaves.
+   *
+   * A question about the picture: the graph draws that name's commits highlighted, nothing is read and
+   * nothing is written, and moving away takes it back.
+   */
+  readonly onHover: (ref: Ref | null) => void;
+  /**
    * What the graph is being searched for, and the handler that narrows it.
    *
    * A search of the *repository*, not of the list the window holds: the graph carries a page of the
@@ -283,6 +290,7 @@ export function LeftPanel({
   onFilter,
   onSwitch,
   onCompare,
+  onHover,
   search,
   onSearch,
   onMerge,
@@ -319,7 +327,14 @@ export function LeftPanel({
     );
 
   const row = (ref: Ref): React.ReactElement => (
-    <li key={ref.name} className="panel-row" data-testid="ref-row" data-ref={ref.shortName}>
+    <li
+      key={ref.name}
+      className="panel-row"
+      data-testid="ref-row"
+      data-ref={ref.shortName}
+      onMouseEnter={() => onHover(ref)}
+      onMouseLeave={() => onHover(null)}
+    >
       <button
         type="button"
         className={filter === ref.shortName ? 'panel-name selected' : 'panel-name'}

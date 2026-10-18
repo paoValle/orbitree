@@ -427,8 +427,22 @@ any of them. None of this mutates a repository, so none of it needs a confirmati
       `apps/desktop/test/e2e/shortcuts.spec.ts` presses them on the real window, with the modifier named
       from the platform, and asserts the tab that becomes active by its own class rather than by the
       address, which a tab can share.
-- [ ] A ghost branch for the selected commit, with a double click to check it out, and an optional
-      highlight of a branch's commits on hover.
+- [x] A ghost branch for the selected commit, with a double click to check it out, and an optional
+      highlight of a branch's commits on hover. The ghost is the **move drawn before it is made**: a
+      dashed badge on the selected row with the commit a double click would go to, and a dashed line
+      through the commits between the checked-out one and the selection, along **first parents**. That
+      walk is the rule and the limit: a selection off that line gets no ghost rather than a path through a
+      merge this window would have to guess at, and a commit the page does not hold cannot be drawn. The
+      double click runs the same guarded `checkout --detach` the commit menu does, from a gesture instead
+      of a menu.
+      The highlight is a question about the picture: hovering a name in the panel marks the rows it can
+      reach, computed where the history was read (`reachableByCommit`, the same `visibleCommits`
+      reachability that hiding a name already uses, turned around so it is one lookup per row) rather than
+      a second walk in the renderer — the renderer does not import the core's runtime, so a walk there
+      would be a second implementation of the same rule. Nothing is read for a hover and nothing is
+      written, and moving away takes the highlight back.
+      `ghost.spec.ts` asserts both against git: the head that moved and has no branch to name, the rows the
+      ghost covers and the commit it stops at, and which rows a hovered name reaches.
 
 **Exit**: given a file and a line, the app names the commit that last changed it and opens the graph
 at that commit; given two branches, it lists the commits in each and not the other, and the lists

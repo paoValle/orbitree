@@ -121,6 +121,9 @@ function registerHandlers(): void {
       const data = await readGraph(repo, {
         limit,
         all: parsed.all === true,
+        // The window draws a name's commits under the pointer, so it is the caller that needs this and
+        // not the CLI: the map is off unless a caller asks for it.
+        reachable: true,
         ...(typeof parsed.rev === 'string' && parsed.rev !== '' ? { rev: parsed.rev } : {}),
         ...(typeof parsed.file === 'string' && parsed.file !== '' ? { path: parsed.file } : {}),
         // Search fields, checked one by one like every other value from a web page: a non-string is
