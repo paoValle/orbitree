@@ -70,8 +70,11 @@ describe('a credential, asked of the helper', () => {
     expect(answer.available).toBe(false);
     expect(answer.username).toBeNull();
     expect(answer.hasPassword).toBe(false);
-    // Git exits non-zero, and the message is the useful half: it says *why* there is none.
-    expect(answer.note).toContain('terminal prompts disabled');
+    // Git exits non-zero, and the message is the useful half: it says *why* there is none. The
+    // wording is git's own and changes with it — "terminal prompts disabled" up to 2.4x, "unable to
+    // get password from user" on 2.54 (Apple Git-157) — so only the fact that the note is git's
+    // complaint, and not one of ours, is pinned.
+    expect(answer.note).toMatch(/terminal prompts disabled|unable to get password from user/);
     expect(answer.entries).toEqual([]);
   });
 
