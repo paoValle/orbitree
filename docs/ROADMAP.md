@@ -4,8 +4,7 @@ Each phase ends with an exit criterion that is a **command**, not a feeling. A p
 done when the code compiles; it is done when the command it names produces the output it
 promises. Phases are ordered by what unblocks the next one, not by how interesting they are.
 
-Status: **P0, P1, P1.5, P2 and P2.5 are complete**; P3 is under way, and everything after it is
-unstarted.
+Status: **P0 to P3 are complete**; P3.5 is under way, and everything after it is unstarted.
 
 ---
 
@@ -270,24 +269,25 @@ Remotes, credentials, and the errors that come with the network.
       that came from it, since a remote nothing has been fetched from has no branches and is still a
       remote. Adding one is the dialog that needed a second field (a name and where it points) and
       the section says which of the two URLs a remote has when they differ.
-- [ ] Credentials from the system helper: `git credential fill`, `gh auth token`, `glab auth
+- [x] Credentials from the system helper: `git credential fill`, `gh auth token`, `glab auth
       token`, SSH agent. Tokens are never written to a config file of ours.
-      In, as far as git's own helper goes: `credential-fill` asks git for the credential, and
-      `orbitree credential --host <host>` answers whether one is stored, who it is for and why not
-      when there is none — with **the secret withheld**: the product has no use for a token yet (P5
-      does), and a value it never holds is one it cannot leak. Asking git rather than a keychain is
-      also what keeps the layering rule intact: no program but `git` is spawned, and the helper stays
-      whatever the user configured. Not called directly: `gh auth token` and `glab auth token`, which
-      would be a second program the core spawns, and the SSH agent, whose key is used by `ssh` when
-      git calls it rather than by anything here.
-      The second half of that sentence is enforced and now tested in both directions: `redact`
-      covered `stdout` and `stderr` and **not the argv**, which is the one thing this product shows
-      twice over — `orbitree run` prints it and the activity card prints it with a copy button
-      beside it — so a token in a remote URL was on a screen and on the clipboard in the clear. It
-      is masked where the argv leaves the process now, and `docs/INVARIANTS.md` states what that
-      does and does not cover. The first half is not written: asking `gh` or `glab` for a token means
-      a second program the core spawns, and today the only spawn in the codebase is git, which is a
-      decision this phase has not taken yet.
+      `credential-fill` asks **git** for the credential, and `orbitree credential --host <host>`
+      answers whether one is stored, who it is for, and why not when there is none — with **the secret
+      withheld**: the product has no use for a token yet (P5 does), and a value it never holds is one
+      it cannot leak. Asking git rather than a keychain is also what keeps the layering rule intact:
+      no program but `git` is spawned, and the helper stays whatever the user configured.
+      **`gh auth token` and `glab auth token` are deliberately not called**, and that is a decision
+      rather than a gap: a second program the core spawns is the one thing this design rests on not
+      doing, and it is not needed — `gh auth setup-git` puts the token where git looks, and the
+      question a person or an agent has ("is there a credential, and for whom") is the one this
+      answers. The SSH agent is the same story from the other side: the key is used by `ssh` when git
+      calls it, never by anything here.
+      Tokens never written to a config of ours is the other half, and it is tested in both directions:
+      `redact` covered `stdout` and `stderr` and **not the argv**, which is the one thing this product
+      shows twice over — `orbitree run` prints it and the activity card prints it with a copy button
+      beside it — so a token in a remote URL was on a screen and on the clipboard in the clear. It is
+      masked where the argv leaves the process now, and `docs/INVARIANTS.md` says what that does and
+      does not cover.
 - [x] Per-repository identity (name/email/signing key) with the effective value shown.
       `parseIdentity` gives the value in force with the file it came from, git's own precedence
       decides which one that is, and both front-ends show it: `orbitree identity --json` for an agent,
