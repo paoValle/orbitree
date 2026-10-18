@@ -436,6 +436,75 @@ describe('the CLI and the app are the same program', () => {
     expect(committedText.lines.join('\n')).not.toContain(head);
   });
 
+  it('[I5] `compare` names what each side has, and git agrees', async () => {
+    // A fork of its own, so the two sides really have different commits: the shared fixture is one
+    // branch, and comparing a branch with itself would prove nothing.
+    const beside = await mkdtemp(join(tmpdir(), 'orbitree-cli-compare-'));
+    const fork = join(beside, 'fork');
+    const at = (args: string[]): Promise<{ stdout: string }> =>
+      execFileAsync('git', args, { cwd: fork }) as Promise<{ stdout: string }>;
+    await execFileAsync('git', ['init', '-b', 'main', '--quiet', fork]);
+    await execFileAsync('git', ['config', 'user.name', 'CLI Compare'], { cwd: fork });
+    await execFileAsync('git', ['config', 'user.email', 'compare@example.invalid'], { cwd: fork });
+    await writeFile(join(fork, 'base.txt'), 'the base\n', 'utf8');
+    await at(['add', '-A']);
+    await at(['commit', '--quiet', '-m', 'the base']);
+    await at(['checkout', '--quiet', '-b', 'left']);
+    await writeFile(join(fork, 'left.txt'), 'left\n', 'utf8');
+    await at(['add', '-A']);
+    await at(['commit', '--quiet', '-m', 'only on the left']);
+    await at(['checkout', '--quiet', 'main']);
+    await at(['checkout', '--quiet', '-b', 'right']);
+    await writeFile(join(fork, 'right.txt'), 'right\n', 'utf8');
+    await at(['add', '-A']);
+    await at(['commit', '--quiet', '-m', 'only on the right']);
+
+    try {
+      const result = await cli(['compare', fork, '--left', 'left', '--right', 'right', '--json']);
+      expect(result.code).toBe(EXIT.ok);
+      const printed = JSON.parse(result.lines[0] as string) as {
+        data: {
+          left: string;
+          right: string;
+          onlyLeft: { hash: string; subject: string }[];
+          onlyRight: { hash: string; subject: string }[];
+        };
+      };
+      expect(printed.data.left).toBe('left');
+      expect(printed.data.onlyLeft.map((commit) => commit.subject)).toEqual(['only on the left']);
+      expect(printed.data.onlyRight.map((commit) => commit.subject)).toEqual(['only on the right']);
+
+      // git's own answer, read a second way: the same two lists, one flag apart.
+      const leftOnly = await at([
+        'log',
+        '--left-only',
+        '--cherry-pick',
+        '--format=%H',
+        'left...right',
+      ]);
+      const rightOnly = await at([
+        'log',
+        '--right-only',
+        '--cherry-pick',
+        '--format=%H',
+        'left...right',
+      ]);
+      expect(printed.data.onlyLeft.map((commit) => commit.hash)).toEqual(
+        leftOnly.stdout.split('\n').filter((line) => line !== ''),
+      );
+      expect(printed.data.onlyRight.map((commit) => commit.hash)).toEqual(
+        rightOnly.stdout.split('\n').filter((line) => line !== ''),
+      );
+
+      // The text form says which side each list is: the question is read one side at a time.
+      const text = await cli(['compare', fork, '--left', 'left', '--right', 'right']);
+      expect(text.lines.join('\n')).toContain('only on left (1)');
+      expect(text.lines.join('\n')).toContain('only on right (1)');
+    } finally {
+      await rm(beside, { recursive: true, force: true });
+    }
+  });
+
   it('[I3] every operation the CLI publishes is reachable through `run --op`', async () => {
     // The claim of the doc and of the roadmap item: `ops` lists what `run` accepts. Two lists that
     // can drift, so one of them — the published one — is what the test walks, and an operation that
@@ -456,6 +525,7 @@ describe('the CLI and the app are the same program', () => {
       diff: [],
       'commit-detail': [],
       blame: ['a.txt'],
+      compare: ['main', 'next'],
       'commit-patch': [],
       'pending-operation': ['MERGE_HEAD'],
       add: ['file.txt'],

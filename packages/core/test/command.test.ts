@@ -29,6 +29,7 @@ const EXAMPLE: Record<GitOp, GitCommand> = {
   diff: { op: 'diff', rev: 'HEAD' },
   'commit-detail': { op: 'commit-detail', rev: 'HEAD' },
   blame: { op: 'blame', path: 'file.txt' },
+  compare: { op: 'compare', left: 'main', right: 'feature', limit: 50 },
   'commit-patch': { op: 'commit-patch', rev: 'HEAD' },
   'pending-operation': { op: 'pending-operation', ref: 'MERGE_HEAD' },
   add: { op: 'add', paths: ['file.txt'] },

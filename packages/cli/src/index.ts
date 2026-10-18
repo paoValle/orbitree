@@ -28,12 +28,15 @@ import {
   NotARepositoryError,
   openRepo,
   type BlameLine,
+  type Commit,
+  type Comparison,
   type Ref,
   type RepoHandle,
   type Progress,
   type RepoState,
   readBlame,
   readCommit,
+  readComparison,
   readDiff,
   readGraph,
   readRefs,
@@ -305,6 +308,31 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
         describeIdentity(data.identity),
       );
     });
+
+  program
+    .command('compare')
+    .description('what each side of a fork has that the other does not')
+    .argument('[path]', 'a path inside the repository', '.')
+    .requiredOption('--left <ref>', 'the first revision')
+    .requiredOption('--right <ref>', 'the second one')
+    .option('--limit <n>', 'how many commits to read', '500')
+    .option('--json', 'one JSON object on stdout')
+    .action(
+      async (
+        path: string,
+        opts: { left: string; right: string; limit: string; json?: boolean },
+      ) => {
+        const repo = await openRepo(path);
+        const comparison = await readComparison(repo, {
+          left: opts.left,
+          right: opts.right,
+          limit: Number.parseInt(opts.limit, 10),
+        });
+        emit(io, opts.json === true, 'compare', { root: repo.root, ...comparison }, (data) =>
+          describeComparison(data),
+        );
+      },
+    );
 
   program
     .command('blame')
@@ -606,6 +634,7 @@ export const OP_EXAMPLES: readonly GitCommand[] = [
   { op: 'diff', rev: 'HEAD' },
   { op: 'commit-detail', rev: 'HEAD' },
   { op: 'blame', path: 'packages/core/src/index.ts' },
+  { op: 'compare', left: 'main', right: 'next', limit: 100 },
   { op: 'commit-patch', rev: 'HEAD' },
   { op: 'pending-operation', ref: 'MERGE_HEAD' },
   { op: 'add', paths: ['file.txt'] },
@@ -862,6 +891,18 @@ function commandFrom(op: string, args: readonly string[], message: string): GitC
       return { op: 'diff', rev: args[0] ?? 'HEAD' };
     case 'commit-detail':
       return { op: 'commit-detail', rev: args[0] ?? 'HEAD' };
+    case 'compare': {
+      const [left, right] = args;
+      if (left === undefined || right === undefined) {
+        throw new InvalidArgumentError('compare needs two revisions: --arg main --arg feature');
+      }
+      return {
+        op: 'compare',
+        left,
+        right,
+        limit: args[2] === undefined ? 500 : Number.parseInt(args[2], 10),
+      };
+    }
     case 'blame': {
       const file = args[0];
       if (file === undefined || file === '') {
@@ -1038,6 +1079,28 @@ function describeWorktrees(worktrees: readonly Worktree[], here: string): string
       return `${mark} ${(worktree.head ?? '').slice(0, 8).padEnd(8)} ${where.padEnd(20)} ${worktree.path}`;
     })
     .join('\n');
+}
+
+/**
+ * What each side has, under a heading that names it: two lists rather than one list with marks,
+ * because the question a reader has is "what does this branch have that that one does not", and the
+ * answer is read one side at a time.
+ */
+function describeComparison(comparison: Comparison): string {
+  const list = (title: string, commits: readonly Commit[]): string =>
+    [
+      `${title} (${commits.length})`,
+      ...commits.map(
+        (commit) =>
+          `  ${commit.hash.slice(0, 8)} ${new Date(commit.authoredAt * 1000)
+            .toISOString()
+            .slice(0, 10)} ${commit.author.name.padEnd(20)} ${commit.subject}`,
+      ),
+    ].join('\n');
+  return [
+    list(`only on ${comparison.left}`, comparison.onlyLeft),
+    list(`only on ${comparison.right}`, comparison.onlyRight),
+  ].join('\n');
 }
 
 /**
