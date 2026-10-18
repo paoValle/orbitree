@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { DiffFile, RepoState, StatusEntry } from '../shared/api.ts';
+import type { BlamePayload, DiffFile, RepoState, StatusEntry } from '../shared/api.ts';
 import { ConflictPanel } from './ConflictPanel.tsx';
 import { DiffView } from './DiffView.tsx';
 import { type FileKind, fileKind } from './fileKind.ts';
@@ -66,6 +66,13 @@ export interface WorkingTreePanelProps {
   readonly onAbortMerge?: () => void;
   /** Writes one conflicted path out with the text an editor produced. */
   readonly onSaveConflict?: (path: string, content: string) => void;
+  /**
+   * Goes to a commit in the graph.
+   *
+   * The jump the blame pane exists for: a line's commit is only useful if a reader can see what else
+   * that commit did, and the graph is where that is.
+   */
+  readonly onSelectCommit?: (oid: string) => void;
   /** Resolves one conflict region of one path, replacing it with a side or with typed text. */
   readonly onResolveRegion?: (
     path: string,
@@ -132,6 +139,76 @@ function entriesFor(state: RepoState, section: WorkingTreeSection): readonly Sta
   }
 }
 
+/**
+ * The blame of one file, as a list a reader can jump from.
+ *
+ * A line that is only in the working tree has no commit behind it — git reports it against the
+ * all-zero sha and calls its author `Not Committed Yet` — so it is rendered as a line with nowhere to
+ * go rather than as a button that would select a commit that does not exist.
+ */
+function BlameView({
+  path,
+  loaded,
+  onSelectCommit,
+}: {
+  readonly path: string;
+  readonly loaded: {
+    readonly lines: readonly BlamePayload['lines'][number][] | null;
+    readonly error: string | null;
+  } | null;
+  readonly onSelectCommit?: (oid: string) => void;
+}): React.ReactElement {
+  if (loaded === null) return <p className="empty">loading…</p>;
+  if (loaded.error !== null) return <p className="empty">{loaded.error}</p>;
+  if (loaded.lines === null || loaded.lines.length === 0) {
+    return <p className="empty">no lines in {path}</p>;
+  }
+  return (
+    <ol className="blame" data-testid="blame">
+      {loaded.lines.map((line) => {
+        const committed = !/^0+$/.test(line.oid);
+        const date = new Date(line.authorTime * 1000).toISOString().slice(0, 10);
+        const head = committed ? (
+          <>
+            <code className="blame-oid">{line.oid.slice(0, 8)}</code>
+            <span className="blame-author">{line.author}</span>
+            <span className="blame-date">{date}</span>
+          </>
+        ) : (
+          // git's own words for a line that is not in any commit, which is the honest thing to show:
+          // the line exists, and no commit can be blamed for it yet.
+          <span className="blame-author" data-testid="blame-not-committed">
+            Not Committed Yet
+          </span>
+        );
+        return (
+          <li
+            key={`${line.line}:${line.oid}`}
+            className="blame-line"
+            data-testid="blame-line"
+            data-oid={line.oid}
+          >
+            {committed && onSelectCommit !== undefined ? (
+              <button
+                type="button"
+                className="blame-link"
+                data-testid="blame-jump"
+                title={`${line.summary} — show this commit in the graph`}
+                onClick={() => onSelectCommit(line.oid)}
+              >
+                {head}
+              </button>
+            ) : (
+              <span className="blame-link">{head}</span>
+            )}
+            <code className="blame-content">{line.content}</code>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export function WorkingTreePanel({
   cardRef,
   root,
@@ -148,6 +225,7 @@ export function WorkingTreePanel({
   revision,
   onCommit,
   onCommitAndPush,
+  onSelectCommit,
 }: WorkingTreePanelProps): React.ReactElement {
   const [message, setMessage] = useState('');
   const [body, setBody] = useState('');
@@ -156,6 +234,19 @@ export function WorkingTreePanel({
   const [selected, setSelected] = useState<{
     readonly section: WorkingTreeSection;
     readonly path: string;
+  } | null>(null);
+  /**
+   * The diff or the blame, for the file that is selected.
+   *
+   * A toggle rather than a second pane: the file is already on screen, and the two views are two
+   * questions about the same file. It goes back to the diff when another file is clicked, because a
+   * mode that follows you to the next file is a mode you forget you are in.
+   */
+  const [view, setView] = useState<'diff' | 'blame'>('diff');
+  const [blame, setBlame] = useState<{
+    readonly key: string;
+    readonly lines: readonly BlamePayload['lines'][number][] | null;
+    readonly error: string | null;
   } | null>(null);
   // The files are tagged with the selection they were read for. Without the tag, the previous
   // selection's whole-repo diff would be looked up by the new path before the new read lands,
@@ -169,6 +260,29 @@ export function WorkingTreePanel({
   const section = selected?.section ?? null;
   const path = selected?.path ?? null;
   const key = section === null || path === null ? null : `${section}:${path}`;
+
+  // Read on demand, tagged with the key it was read for: the same shape as the diff above, for the
+  // same reason — an answer that arrives after the reader has clicked another file must not be shown
+  // as if it were about that one.
+  useEffect(() => {
+    // `revision` is a trigger rather than a value, exactly as in the diff effect below: an operation
+    // that just ran changes what the blame of the working tree says.
+    void revision;
+    if (root === null || path === null || key === null) return;
+    if (view !== 'blame') return;
+    let cancelled = false;
+    void window.orbitree.readBlame({ path: root, file: path }).then((result) => {
+      if (cancelled) return;
+      setBlame(
+        result.ok
+          ? { key, lines: result.value.lines, error: null }
+          : { key, lines: null, error: result.error },
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [root, path, key, view, revision]);
 
   useEffect(() => {
     // `revision` is a trigger rather than a value: nothing here reads it, and the effect has to
@@ -436,43 +550,77 @@ export function WorkingTreePanel({
         </>
       )}
       <div className="wt-diff" data-testid="wt-diff">
-        {section === 'conflicted' && onAbortMerge !== undefined ? (
-          <ConflictPanel
-            root={root}
+        {/* Untracked files have no blame to offer: they are in no commit, so every line would come
+            back as "not committed yet" and the button would be a promise the pane cannot keep. */}
+        {path === null || section === 'untracked' ? null : (
+          /* Two buttons that say what they do: `role="group"` here would only be a promise that the
+             two belong together, which the labels already say. */
+          <div className="wt-view">
+            <button
+              type="button"
+              className={view === 'diff' ? 'wt-view-button on' : 'wt-view-button'}
+              data-testid="view-diff"
+              onClick={() => setView('diff')}
+            >
+              diff
+            </button>
+            <button
+              type="button"
+              className={view === 'blame' ? 'wt-view-button on' : 'wt-view-button'}
+              data-testid="view-blame"
+              onClick={() => setView('blame')}
+            >
+              blame
+            </button>
+          </div>
+        )}
+        {view === 'blame' && path !== null && section !== 'untracked' ? (
+          <BlameView
             path={path}
-            {...(busy === undefined ? {} : { busy })}
-            {...(revision === undefined ? {} : { revision })}
-            onResolve={(region, take, content) =>
-              onResolveRegion?.(path ?? '', region, take, content)
-            }
-            onSave={(content) => onSaveConflict?.(path ?? '', content)}
-            onAbort={onAbortMerge}
-          />
-        ) : null}
-        {/* The file's own diff still renders below, conflict markers and all: the panel is the
-            versions git holds, and the diff is what the file itself says. P1 asked for the markers
-            to be visible, and a screen that replaced them would be a regression wearing a feature's
-            clothes. */}
-        {section === 'untracked' ? (
-          <p className="empty">
-            {path} is untracked: it is in neither the index nor any commit, so there is no diff to
-            show yet. Stage it to start tracking it.
-          </p>
-        ) : path === null ? (
-          <p className="empty">Select a file to see its diff.</p>
-        ) : current === null ? (
-          <p className="empty">loading…</p>
-        ) : current.error !== null ? (
-          <p className="empty">{current.error}</p>
-        ) : file !== null ? (
-          <DiffView
-            file={file}
-            {...(onDiscardHunk === undefined
-              ? {}
-              : { onDiscardHunk: (hunk: number) => onDiscardHunk(path ?? '', hunk) })}
+            loaded={blame !== null && blame.key === key ? blame : null}
+            {...(onSelectCommit === undefined ? {} : { onSelectCommit })}
           />
         ) : (
-          <p className="empty">no diff for {path}</p>
+          <>
+            {section === 'conflicted' && onAbortMerge !== undefined ? (
+              <ConflictPanel
+                root={root}
+                path={path}
+                {...(busy === undefined ? {} : { busy })}
+                {...(revision === undefined ? {} : { revision })}
+                onResolve={(region, take, content) =>
+                  onResolveRegion?.(path ?? '', region, take, content)
+                }
+                onSave={(content) => onSaveConflict?.(path ?? '', content)}
+                onAbort={onAbortMerge}
+              />
+            ) : null}
+            {/* The file's own diff still renders below, conflict markers and all: the panel is the
+                versions git holds, and the diff is what the file itself says. P1 asked for the markers
+                to be visible, and a screen that replaced them would be a regression wearing a feature's
+                clothes. */}
+            {section === 'untracked' ? (
+              <p className="empty">
+                {path} is untracked: it is in neither the index nor any commit, so there is no diff
+                to show yet. Stage it to start tracking it.
+              </p>
+            ) : path === null ? (
+              <p className="empty">Select a file to see its diff.</p>
+            ) : current === null ? (
+              <p className="empty">loading…</p>
+            ) : current.error !== null ? (
+              <p className="empty">{current.error}</p>
+            ) : file !== null ? (
+              <DiffView
+                file={file}
+                {...(onDiscardHunk === undefined
+                  ? {}
+                  : { onDiscardHunk: (hunk: number) => onDiscardHunk(path ?? '', hunk) })}
+              />
+            ) : (
+              <p className="empty">no diff for {path}</p>
+            )}
+          </>
         )}
       </div>
     </div>

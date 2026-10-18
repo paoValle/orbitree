@@ -489,6 +489,38 @@ export interface DiffPayload {
 }
 
 /**
+ * The blame of one file: one record per line, in the file's own order.
+ *
+ * The lines are the file's, not the commits': a line that is only in the working tree comes back
+ * against the all-zero sha with `Not Committed Yet` as its author, and the pane shows that as a line
+ * with nowhere to jump rather than as a commit that does not exist.
+ */
+export interface BlamePayload {
+  readonly root: string;
+  readonly file: string;
+  readonly lines: readonly {
+    readonly line: number;
+    readonly originalLine: number;
+    readonly oid: string;
+    readonly summary: string;
+    readonly author: string;
+    readonly authorMail: string;
+    readonly authorTime: number;
+    readonly content: string;
+    readonly boundary: boolean;
+    readonly previous: string | null;
+  }[];
+}
+
+export const blameRequestSchema = z.object({
+  path: z.string().min(1),
+  file: z.string().min(1),
+  rev: z.exactOptional(z.string().min(1)),
+});
+
+export type BlameRequest = z.infer<typeof blameRequestSchema>;
+
+/**
  * A working-tree diff is one of three questions. `cached` picks the index-as-base form, and
  * leaving `rev` out picks the index-as-other-side form; both booleans and the revision are
  * validated here even though the caller controls the flag, because the renderer is a web page.
@@ -562,6 +594,8 @@ export interface OrbitreeApi {
   readonly readIdentity: (path: string) => Promise<Result<IdentityPayload>>;
   /** The remotes this repository is configured with, as the config has them. */
   readonly readRemotes: (path: string) => Promise<Result<RemotesPayload>>;
+  /** Who wrote each line of one file, and in which commit. */
+  readonly readBlame: (request: BlameRequest) => Promise<Result<BlamePayload>>;
   /** One stash's patch, read on demand: a list of stashes is cheap, their patches are not. */
   readonly readStashPatch: (request: {
     readonly path: string;

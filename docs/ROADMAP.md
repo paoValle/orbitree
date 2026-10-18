@@ -331,12 +331,18 @@ through the same executor this test does.
 The read-only half of developer support: understanding a line, a file and a branch, without touching
 any of them. None of this mutates a repository, so none of it needs a confirmation.
 
-- [ ] Blame, per line, with the commit it came from and a jump into the graph at it. Read and
-      printed: `blame` is a guarded operation, `parseBlame` reads `--line-porcelain` — which repeats the
-      metadata per line, so a truncated read cannot shift the blame of the lines above it — and
-      `orbitree blame --file <file> --json` names the commit, the author and the date for every line.
-      Not yet **shown**, and no jump yet: the window has no pane for it, so the second half of the
-      bullet is still open.
+- [x] Blame, per line, with the commit it came from and a jump into the graph at it. `blame` is a
+      guarded operation, `parseBlame` reads `--line-porcelain` — which repeats the metadata per line, so
+      a truncated read cannot shift the blame of the lines above it — and `orbitree blame --file <file>
+      --json` names the commit, the author and the date for every line. The window has it in the pane
+      the file is already in, behind a **diff / blame** toggle rather than in a column of its own: the
+      two views are two questions about the same file. Clicking a line selects its commit in the graph,
+      which is the jump; a line that is only in the working tree has no commit behind it, so it is
+      rendered with git's own `Not Committed Yet` and nowhere to jump — the case that would otherwise
+      send a reader looking for a commit that does not exist. A file git has never tracked is not
+      offered at all, since every line of it would come back as uncommitted.
+      `apps/desktop/test/e2e/blame.spec.ts` asserts the pane against `git blame --porcelain` and
+      `git log`, and asserts that the jump really moved the graph.
 - [ ] File history: the commits that touched one path, in the graph's own shape.
 - [ ] Branch comparison in both directions: what this branch has that that one does not, and back.
 - [ ] Commit search: message, author, date range, path, and "only mine", applied to the graph as a

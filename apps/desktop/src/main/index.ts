@@ -6,6 +6,7 @@ import {
   execute,
   openRepo,
   redact,
+  readBlame,
   readCommit,
   readConflictRegions,
   readConflictSide,
@@ -34,6 +35,7 @@ import {
   Tray,
 } from 'electron';
 import {
+  blameRequestSchema,
   CHANNELS,
   commitReadRequestSchema,
   diffRequestSchema,
@@ -136,6 +138,18 @@ function registerHandlers(): void {
         ...(parsed.cached === true ? { cached: true } : {}),
       });
       return { root: repo.root, files };
+    }),
+  );
+
+  ipcMain.handle(CHANNELS.blame, (_event, request: unknown) =>
+    attempt(async () => {
+      const parsed = blameRequestSchema.parse(request);
+      const repo = await openRepo(parsed.path);
+      const lines = await readBlame(repo, {
+        path: parsed.file,
+        ...(parsed.rev === undefined ? {} : { rev: parsed.rev }),
+      });
+      return { root: repo.root, file: parsed.file, lines };
     }),
   );
 
