@@ -7,6 +7,7 @@
  */
 export const APP_NAME = 'orbitree';
 
+export * from './git/blame.ts';
 export * from './git/command.ts';
 export * from './git/count.ts';
 export * from './git/conflict.ts';

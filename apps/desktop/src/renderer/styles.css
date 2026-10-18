@@ -196,6 +196,83 @@ button.danger,
   font-size: 11px;
 }
 
+/* The diff-or-blame toggle. Its own class rather than `.stage`, because a row's `.stage` buttons
+   appear on hover and this one is the only way back to the diff: a control nobody can see is a
+   control nobody has. */
+.wt-view-button {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.wt-view-button.on {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* The diff-or-blame toggle above the pane, and the blame list itself: one row per line of the file,
+   with the commit on the left and the line's own text in monospace. */
+.wt-view {
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px 0;
+}
+
+.blame {
+  margin: 0;
+  padding: 4px 0 12px;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.blame-line {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 0 10px;
+}
+
+.blame-line:hover {
+  background: var(--bg-raised);
+}
+
+.blame-link {
+  display: flex;
+  flex: 0 0 17ch;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.blame-oid {
+  color: var(--accent);
+  font: inherit;
+}
+
+.blame-author,
+.blame-date {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.blame-content {
+  flex: 1 1 auto;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 .identity-row {
   gap: 6px;
   align-items: baseline;

@@ -918,6 +918,11 @@ export function App(): React.ReactElement {
                   command: { op: 'unstage', paths: [entryPath] },
                 })
               }
+              onSelectCommit={(oid) => {
+                // The jump: the graph's selection is per tab, and the pane scrolls the selected row
+                // into view, so naming the commit is the whole of it.
+                if (active !== null) patchTab(active.id, { selected: oid });
+              }}
               onCommitAndPush={async (message, body, amend) => {
                 const committed = await runCommand({
                   id: 'commit',

@@ -122,6 +122,7 @@ orbitree identity [path] --json
 orbitree credential [path] --host <host> [--protocol https] --json
 orbitree diff   [path] --json [--rev <rev>] [--cached | --unstaged] [--path <path>]
 orbitree show   [path] --json [--rev <rev>]
+orbitree blame  [path] --file <file> --json [--rev <rev>]
 ```
 
 `status` returns the working tree exactly as `readStatus()` does in the app: `head`
@@ -193,6 +194,16 @@ prints that raw patch, which is what a terminal wants.
 caller's guess. A merge is shown as one diff against its **first parent**, never as an empty
 patch and never as one diff per parent. Without `--json`, the command prints the metadata
 (hash, author, date, subject, body) followed by the raw patch.
+
+`blame` returns `lines`, one per line of the file: `line` (the number in the file as it is),
+`originalLine` (the number in the commit that wrote it), `oid`, `summary`, `author`, `authorMail`,
+`authorTime`, `content`, `boundary` (git reached the edge of the history it was asked about) and
+`previous`. Without `--rev` the file is the one on disk, so a line that is not committed yet is
+reported against the **all-zero** sha with git's own words, `Not Committed Yet`, as its author: a
+caller that treats every `oid` as a commit to look up has a bug waiting for its first uncommitted
+line. `--line-porcelain` is what the parser reads, which repeats the metadata per line so a truncated
+read cannot shift the blame of the lines above it. Without `--json`, one line of output per line of the
+file: the abbreviated commit, the date, the author and the text.
 
 `credential` asks git's own helper whether a credential is stored for a host, and answers with
 `{ available, username, hasPassword, entries, note }`. The **secret is never in the answer**, in

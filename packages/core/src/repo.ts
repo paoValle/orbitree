@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { PendingRef } from './git/command.ts';
 import { type GitCommand, InvalidArgumentError } from './git/command.ts';
+import { type BlameLine, parseBlame } from './git/blame.ts';
 import { parseCommitCount } from './git/count.ts';
 import { type ConflictRegion, linesOf, parseConflictRegions } from './git/conflict.ts';
 import { visibleCommits } from './graph/visible.ts';
@@ -356,6 +357,31 @@ export async function readIdentity(
   }
   const parsed = parseIdentity(result.stdout);
   if (!parsed.ok) throw new RepositoryParseError('the identity', parsed.error, parsed.record);
+  return parsed.value;
+}
+
+/**
+ * Who wrote each line of one file, and in which commit.
+ *
+ * A read of the file *as it is* unless a revision is named: blame answers "where did this line come
+ * from", so the numbering is the numbering of the file on screen unless a caller asked about an older
+ * one.
+ */
+export async function readBlame(
+  repo: RepoHandle,
+  request: { readonly path: string; readonly rev?: string },
+  options: Partial<ExecuteOptions> = {},
+): Promise<readonly BlameLine[]> {
+  const { stdout } = await executeOrThrow(
+    {
+      op: 'blame',
+      path: request.path,
+      ...(request.rev === undefined ? {} : { rev: request.rev }),
+    },
+    { cwd: repo.root, ...options },
+  );
+  const parsed = parseBlame(stdout);
+  if (!parsed.ok) throw new RepositoryParseError('the blame', parsed.error, parsed.record);
   return parsed.value;
 }
 
