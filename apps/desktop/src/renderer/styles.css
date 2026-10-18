@@ -196,6 +196,20 @@ button.danger,
   font-size: 11px;
 }
 
+/* The commits of the name the pointer is over: a mark on the row, not a colour on the text, so it reads
+   as "these rows belong to that name" rather than as a different kind of commit. */
+.row.highlighted {
+  background: linear-gradient(90deg, rgb(106 169 255 / 14%), transparent 45%);
+}
+
+/* The ghost branch: a name the selected commit does not have yet. Dashed, because it does not exist —
+   and it disappears the moment the commit is named by something real. */
+.badge.ghost {
+  border: 1px dashed var(--line);
+  background: none;
+  color: var(--text-dim);
+}
+
 /* The diff-or-blame toggle. Its own class rather than `.stage`, because a row's `.stage` buttons
    appear on hover and this one is the only way back to the diff: a control nobody can see is a
    control nobody has. */

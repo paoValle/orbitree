@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type DiffFile,
   type GitCommand,
@@ -61,6 +61,14 @@ interface Tab {
     readonly since?: string;
     readonly until?: string;
   };
+  /**
+   * The name the pointer is over in the panel, whose commits the graph draws highlighted.
+   *
+   * A question about the picture and nothing else: nothing is written, no read is made, and leaving the
+   * row takes it back. Hovering a name is how a reader asks "which of these are yours" without
+   * clicking anything.
+   */
+  readonly hoveredRef: string | null;
   /** The remotes the config holds: a name and the two URLs it points at. */
   readonly remotes: RemotesPayload['remotes'];
   readonly worktrees: readonly {
@@ -89,6 +97,7 @@ const EMPTY_TAB = (id: number): Tab => ({
   worktrees: [],
   identity: null,
   search: {},
+  hoveredRef: null,
   remotes: [],
   gone: null,
 });
@@ -656,6 +665,25 @@ export function App(): React.ReactElement {
    * The commit menu's actions. Everything that mutates goes through `runCommand`, the path
    * the quick bar already uses, so there is still one place that reaches git.
    */
+  /**
+   * The commits the hovered name can reach, out of the ones the window holds.
+   *
+   * `visibleCommits` is the same pure reachability that hiding a name uses, so "the commits of this
+   * branch" means one thing in this window rather than two. Only the loaded page can be highlighted:
+   * the rest of the history is not in the tab to draw.
+   */
+  const highlighted = useMemo(() => {
+    const tab = tabs.find((candidate) => candidate.id === activeId) ?? null;
+    const name = tab?.hoveredRef ?? null;
+    if (name === null || tab?.graph == null) return new Set<string>();
+    // Which names reach which commit was worked out where the history was read, not here: the window
+    // draws the answer, and the walking lives in the core where hiding a name already walks it.
+    const hashes = Object.entries(tab.graph.reachableByCommit)
+      .filter(([, names]) => names.includes(name))
+      .map(([hash]) => hash);
+    return new Set(hashes);
+  }, [tabs, activeId]);
+
   const onCommitAction = useCallback(
     (action: CommitAction, commit: { readonly hash: string; readonly subject: string }): void => {
       switch (action) {
@@ -967,6 +995,10 @@ export function App(): React.ReactElement {
                 );
               }}
               onFilter={(revision) => void changeFilter(revision)}
+              onHover={(ref) => {
+                if (active === null) return;
+                patchTab(active.id, { hoveredRef: ref?.shortName ?? null });
+              }}
               onCompare={(ref) => void compareWith(ref.shortName)}
               search={active?.search ?? {}}
               onSearch={(form) => {
@@ -1093,6 +1125,17 @@ export function App(): React.ReactElement {
                     workingTreeCard.current?.focus();
                   }}
                   onCommitAction={onCommitAction}
+                  onCheckout={(hash) => {
+                    // The same guarded checkout the commit menu runs, from a gesture instead of a menu.
+                    runGuarded({
+                      id: 'checkout',
+                      label: `Check out ${hash.slice(0, 7)}`,
+                      hint: `checkout --detach ${hash.slice(0, 7)}`,
+                      danger: false,
+                      command: { op: 'checkout', ref: hash, detach: true },
+                    });
+                  }}
+                  highlighted={highlighted}
                 />
               )}
             </>

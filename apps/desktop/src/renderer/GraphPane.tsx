@@ -125,6 +125,20 @@ export interface GraphPaneProps {
    */
   readonly onCommitAction: (action: CommitAction, commit: CommitTarget) => void;
   /**
+   * Checks out one commit, which is what a double click on a row does.
+   *
+   * Its own callback rather than a menu action, because it is a gesture: the row already says which
+   * commit it is, and the app turns this into the same guarded `checkout` a menu item would run.
+   */
+  readonly onCheckout: (hash: string) => void;
+  /**
+   * The commits a hovered name can reach, which the pane draws as highlighted rows.
+   *
+   * A set of hashes rather than a name: the app decides what "this branch's commits" means (the same
+   * pure reachability the hiding of a name uses), and the pane only draws it.
+   */
+  readonly highlighted: ReadonlySet<string>;
+  /**
    * What the working-tree node does when it is clicked.
    *
    * In a layout where the staging area is a contextual panel, the node switches that panel to it; in
@@ -152,6 +166,8 @@ export function GraphPane({
   pageSize,
   onLoadMore,
   onCommitAction,
+  onCheckout,
+  highlighted,
   onWipClick,
 }: GraphPaneProps): React.ReactElement {
   const rows = graph.layout.rows;
@@ -170,6 +186,29 @@ export function GraphPane({
   const offset = wipShown ? 1 : 0;
   const commitCount = rows.length;
   const total = commitCount + offset;
+
+  /**
+   * The commits between the checked-out commit and the selection, along the first-parent line.
+   *
+   * That is what the ghost is: the move a double click would make, drawn before it is made. It is a walk
+   * rather than a reachability question — from the head, down first parents, until the selection — so a
+   * selection off that line gets no ghost instead of a path through a merge this window would have to
+   * guess at. Pure, and over the rows the window holds: a commit the page does not have cannot be drawn.
+   */
+  const ghost = useMemo(() => {
+    const hashes = new Set<string>();
+    if (selected === null || graph.wip.on === null || graph.wip.on === selected) return hashes;
+    const byHash = new Map(rows.map((row) => [row.commit.hash, row.commit]));
+    let cursor = byHash.get(graph.wip.on);
+    for (let step = 0; cursor !== undefined && step <= rows.length; step += 1) {
+      hashes.add(cursor.hash);
+      if (cursor.hash === selected) return hashes;
+      const first = cursor.parents[0];
+      cursor = first === undefined ? undefined : byHash.get(first);
+    }
+    // The walk left the window, or reached a root, without meeting the selection: no path, no ghost.
+    return new Set<string>();
+  }, [rows, selected, graph.wip.on]);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -345,6 +384,23 @@ export function GraphPane({
       context.stroke();
     }
 
+    // The ghost, under the nodes and over the edges: a dashed line through the commits between the
+    // checked-out one and the selection, which is the move a double click would make.
+    const ghostPath = rows.filter((row) => ghost.has(row.commit.hash));
+    if (ghostPath.length > 1) {
+      context.save();
+      context.setLineDash([3, 3]);
+      context.strokeStyle = laneColor(ghostPath[0]?.lane ?? 0);
+      context.beginPath();
+      for (const [index, row] of ghostPath.entries()) {
+        const at = { x: x(row.lane), y: y(row.row + offset) };
+        if (index === 0) context.moveTo(at.x, at.y);
+        else context.lineTo(at.x, at.y);
+      }
+      context.stroke();
+      context.restore();
+    }
+
     for (const row of windowRows) {
       const isSelected = row.commit.hash === selected;
       const radius = isSelected ? 6 : 4.5;
@@ -392,6 +448,9 @@ export function GraphPane({
     headLane,
     wipShown,
     stashOf,
+    // The ghost is drawn on the canvas as a dashed path, so a new selection or a hovered name redraws it.
+    ghost,
+    rows,
   ]);
 
   const keepInView = useCallback((index: number) => {
@@ -499,13 +558,24 @@ export function GraphPane({
                 type="button"
                 data-testid="commit-row"
                 data-hash={row.commit.hash}
-                className={isSelected ? 'row selected' : 'row'}
+                className={[
+                  'row',
+                  isSelected ? 'selected' : '',
+                  highlighted.has(row.commit.hash) ? 'highlighted' : '',
+                ]
+                  .filter((name) => name !== '')
+                  .join(' ')}
+                data-highlighted={highlighted.has(row.commit.hash) ? 'yes' : 'no'}
+                data-ghost={ghost.has(row.commit.hash) ? 'yes' : 'no'}
                 style={{
                   top: (row.row + offset) * ROW_HEIGHT,
                   height: ROW_HEIGHT,
                   paddingLeft: laneCount * LANE_WIDTH + LANE_WIDTH + TEXT_GUTTER,
                 }}
                 onClick={() => onSelect(row.commit.hash)}
+                // The ghost branch: a double click goes to the commit, which is what the badge on the
+                // selected row is for. A single click still only selects.
+                onDoubleClick={() => onCheckout(row.commit.hash)}
                 onContextMenu={(event) => {
                   event.preventDefault();
                   onSelect(row.commit.hash);
@@ -548,6 +618,17 @@ export function GraphPane({
                     {badge.shortName}
                   </span>
                 ))}
+                {/* The ghost: where a double click would go, drawn as a dashed badge on the selected row
+                    — a name this commit does not have, because it is the *selection* and not a ref. */}
+                {isSelected ? (
+                  <span
+                    className="badge ghost"
+                    data-testid="ghost-badge"
+                    title="double-click this row to check this commit out"
+                  >
+                    {row.commit.hash.slice(0, 7)}
+                  </span>
+                ) : null}
                 <span className="subject">{row.commit.subject}</span>
                 <span className="meta">
                   {row.commit.author.name} · {row.commit.hash.slice(0, 7)}
