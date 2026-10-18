@@ -354,7 +354,21 @@ any of them. None of this mutates a repository, so none of it needs a confirmati
       list, so a file with nothing uncommitted has no row to click and its history is only available
       through the CLI. Blame has the same limit. Both want the same answer — a way to look at a file
       the working tree is not already showing — and neither has it yet.
-- [ ] Branch comparison in both directions: what this branch has that that one does not, and back.
+- [x] Branch comparison in both directions: what this branch has that that one does not, and back.
+      It is one read, `git log --left-right --cherry-pick A...B`: the mark `%m` prints says which side a
+      commit is only on, and `--cherry-pick` leaves out the commits whose patch is already on the other
+      side — the difference between two branches having different *commits* and different *work*, which
+      is why this is git's answer rather than a set difference of two hash lists. One parser reads it:
+      `parseComparison` strips the mark and hands the record to `parseLog`, so a comparison obeys the log
+      parser's rules about a hash, a parent list and a subject instead of a second set of them.
+      `orbitree compare . --left main --right next --json` prints `onlyLeft` and `onlyRight` beside every
+      record in git's order.
+      **The limits, stated rather than discovered**: there is no window surface yet, so this is the one
+      P3.5 bullet whose product half is missing — the answer is a read and a CLI one; and the read is a
+      window (`--limit`, 500 by default) that neither the text nor the JSON marks as truncated, so a
+      caller that needs to know whether more commits exist asks again with a larger limit. The check the
+      P3.5 exit criterion names is `compare.test.ts`: the fixture forks and then cherry-picks one side's
+      work across, so a comparison that were a set difference of hashes would fail it.
 - [ ] Commit search: message, author, date range, path, and "only mine", applied to the graph as a
       filter rather than as a separate list.
 - [ ] Open in editor, open in terminal, reveal in the file manager, each configured once.

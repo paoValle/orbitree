@@ -65,6 +65,19 @@ export type GitCommand =
     }
   | { readonly op: 'commit-detail'; readonly rev: string }
   /**
+   * The commits one side of a fork has and the other does not, in one read.
+   *
+   * `--left-right --cherry-pick A...B`: git marks each commit with the side it is only on, and drops
+   * the ones whose patch is already on the other side, which is the difference between "these branches
+   * have different commits" and "these branches have different *work*".
+   */
+  | {
+      readonly op: 'compare';
+      readonly left: string;
+      readonly right: string;
+      readonly limit: number;
+    }
+  /**
    * Who wrote each line of one file, and in which commit.
    *
    * `--line-porcelain`: the metadata is repeated per line, so a block is complete on its own and a
@@ -238,6 +251,7 @@ export function riskOf(cmd: GitCommand): Risk {
     case 'commit-detail':
     case 'commit-patch':
     case 'blame':
+    case 'compare':
     case 'pending-operation':
     case 'stash-show':
     case 'conflict-side':
@@ -432,6 +446,20 @@ export function toArgv(cmd: GitCommand): string[] {
 
     case 'commit-detail':
       return ['log', '-z', '--max-count=1', `--format=${DETAIL_FORMAT}`, assertSafeRef(cmd.rev)];
+
+    // `%m` first, so every record says which side it is only on: the mark is the whole answer, and it
+    // is one character of the format rather than a second read that could disagree with the first.
+    case 'compare':
+      return [
+        'log',
+        '-z',
+        '--topo-order',
+        '--left-right',
+        '--cherry-pick',
+        `--max-count=${Math.max(1, Math.floor(cmd.limit))}`,
+        `--format=${COMPARE_FORMAT}`,
+        `${assertSafeRef(cmd.left)}...${assertSafeRef(cmd.right)}`,
+      ];
 
     // The path is after `--`, like every other path in this file: a file called `-p` is a filename and
     // not a request for a patch. The revision, when there is one, is what blame walks from.
@@ -708,7 +736,18 @@ export const LOG_FORMAT = `%H${FIELD_SEP}%P${FIELD_SEP}%an${FIELD_SEP}%ae${FIELD
  * first, and only the head is split on `FIELD_SEP`.
  */
 export const DETAIL_SEP = '\u001d';
+
 export const DETAIL_FORMAT = `%H${FIELD_SEP}%P${FIELD_SEP}%an${FIELD_SEP}%ae${FIELD_SEP}%at${FIELD_SEP}%ct${FIELD_SEP}%s${DETAIL_SEP}%b`;
+
+/**
+ * The log format with the side mark in front of it.
+ *
+ * `%m` is git's own left/right/boundary mark — `<`, `>` or `-` — and putting it in the format rather
+ * than parsing the default output is what keeps one parser reading both: the mark is one character of
+ * one field, and `parseComparison` strips it and hands the rest to `parseLog`.
+ */
+export const COMPARE_FORMAT = `%m${LOG_FORMAT}`;
+
 export const REF_FORMAT = `%(refname)${FIELD_SEP}%(objectname)${FIELD_SEP}%(objecttype)${FIELD_SEP}%(HEAD)${FIELD_SEP}%(upstream)${FIELD_SEP}%(symref)`;
 
 /**

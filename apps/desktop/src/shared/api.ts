@@ -78,6 +78,12 @@ export const gitCommandSchema = z.discriminatedUnion('op', [
   }),
   z.object({ op: literal('commit-detail'), rev: z.string() }),
   z.object({
+    op: literal('compare'),
+    left: z.string().min(1),
+    right: z.string().min(1),
+    limit: z.int().min(1),
+  }),
+  z.object({
     op: literal('blame'),
     path: z.string().min(1),
     rev: z.exactOptional(z.string().min(1)),

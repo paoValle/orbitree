@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import type { PendingRef } from './git/command.ts';
 import { type GitCommand, InvalidArgumentError } from './git/command.ts';
 import { type BlameLine, parseBlame } from './git/blame.ts';
+import { type Comparison, parseComparison } from './git/compare.ts';
 import { parseCommitCount } from './git/count.ts';
 import { type ConflictRegion, linesOf, parseConflictRegions } from './git/conflict.ts';
 import { visibleCommits } from './graph/visible.ts';
@@ -358,6 +359,47 @@ export async function readIdentity(
   const parsed = parseIdentity(result.stdout);
   if (!parsed.ok) throw new RepositoryParseError('the identity', parsed.error, parsed.record);
   return parsed.value;
+}
+
+/**
+ * What each side of a fork has that the other does not.
+ *
+ * One read of `--left-right --cherry-pick A...B`, which is also the reason this is not a set difference
+ * of two log reads: `--cherry-pick` leaves out the commits whose patch is already on the other side, so
+ * two branches that were rebased or cherry-picked onto each other are reported as agreeing about the
+ * work rather than disagreeing about the history.
+ */
+export async function readComparison(
+  repo: RepoHandle,
+  request: { readonly left: string; readonly right: string; readonly limit?: number },
+  options: Partial<ExecuteOptions> = {},
+): Promise<Comparison> {
+  const { stdout } = await executeOrThrow(
+    {
+      op: 'compare',
+      left: request.left,
+      right: request.right,
+      limit: request.limit ?? 500,
+    },
+    { cwd: repo.root, ...options },
+  );
+  const parsed = parseComparison(stdout);
+  if (!parsed.ok) {
+    throw new RepositoryParseError('the comparison', parsed.error, parsed.record);
+  }
+  const onlyLeft: Commit[] = [];
+  const onlyRight: Commit[] = [];
+  for (const marked of parsed.value) {
+    if (marked.side === 'left') onlyLeft.push(marked.commit);
+    if (marked.side === 'right') onlyRight.push(marked.commit);
+  }
+  return {
+    left: request.left,
+    right: request.right,
+    onlyLeft,
+    onlyRight,
+    records: parsed.value,
+  };
 }
 
 /**
