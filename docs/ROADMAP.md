@@ -4,10 +4,9 @@ Each phase ends with an exit criterion that is a **command**, not a feeling. A p
 done when the code compiles; it is done when the command it names produces the output it
 promises. Phases are ordered by what unblocks the next one, not by how interesting they are.
 
-Status: **P0 to P3 are complete, and P3.5's exit criterion is met**. One of P3.5's bullets is
-deliberately open — opening a file in a *chosen* editor or a directory in a *chosen* terminal — because
-it needs a decision about a spawn outside the core (see that bullet), and P4 is where the work goes
-next.
+Status: **P0 to P4 are complete**. One of P3.5's bullets is deliberately open — opening a file in a
+*chosen* editor or a directory in a *chosen* terminal — because it needs a decision about a spawn outside
+the core (see that bullet), and P5 is where the work goes next.
 
 ---
 
@@ -532,6 +531,12 @@ The requested centrepiece, finished.
 
 **Exit**: `orbitree run --op <op> --dry-run --json` and the GUI's confirmation sheet print the
 same argv for the same button — asserted against the shipped preset list.
+
+Met, and asserted twice: against a **configured** button (`quick-commands.spec.ts` writes a file whose reset
+button is the user's own, and compares the sheet's line with `orbitree run --op reset-hard --dry-run
+--json`), and against the **shipped** list — the same comparison for the quick bar's own button, which is
+what a person who has written no file sees. Both are one line, because the sheet asks the same executor the
+CLI does for a dry run; there is no second way to resolve a command to an argv.
 
 ## P5 — Forges
 
