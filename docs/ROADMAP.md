@@ -504,7 +504,20 @@ The requested centrepiece, finished.
       two: the sheet's line for a button and `orbitree run --op <op> --dry-run --json`'s argv for the same
       command are asserted equal, not inspected.
 - [ ] Command palettes: the same commands from a keyboard, and from the CLI by id.
-- [ ] Sharing: a quick-command preset is a JSON file someone can commit to their dotfiles.
+- [ ] Sharing: a quick-command preset is a JSON file someone can commit to their dotfiles. The file is
+      there: `$XDG_CONFIG_HOME/orbitree/commands.json` (or `~/.config/orbitree/commands.json`), which is
+      where a person's dotfiles can hold it, and **one rule** for where it is — `presetPath` in the core —
+      because the window and the CLI have to agree about which file "my commands" means, and Electron's own
+      userData directory is not a place dotfiles can reach. The commands moved out of `state.json` for the
+      same reason: that file is about *this machine* (which repositories were open, which key opens the
+      popup) and this one is about the commands somebody wants everywhere.
+      The envelope is `{ "commands": [ … ] }` and each entry is checked **on its own**: a schema over the
+      whole array would refuse the file because one entry in it is wrong, which turns a typo in the sixth
+      command into a bar with none of them. Nothing is written back — the broken entry stays in the file for
+      its author to fix, and `quick-commands.spec.ts` asserts exactly that.
+      **Not in**: the CLI reading it by id, which is the other half of the bullet above and the next slice;
+      and a documented example preset for a dotfiles repository, which is worth writing once the CLI can run
+      one.
 
 **Exit**: `orbitree run --op <op> --dry-run --json` and the GUI's confirmation sheet print the
 same argv for the same button — asserted against the shipped preset list.

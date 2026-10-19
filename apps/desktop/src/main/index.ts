@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 import {
   BEFORE_NOTHING,
@@ -5,6 +6,7 @@ import {
   diagnoseFailure,
   execute,
   InvalidArgumentError,
+  presetPath,
   openRepo,
   redact,
   readBlame,
@@ -47,9 +49,11 @@ import {
   forgetLastRequestSchema,
   type Result,
   rememberRequestSchema,
+  presetSchema,
+  quickCommandSchema,
+  type QuickCommand,
   runRequestSchema,
   setHotkeyRequestSchema,
-  statePayload,
   conflictRegionRequestSchema,
   conflictSideRequestSchema,
   stashPatchRequestSchema,
@@ -378,7 +382,41 @@ function registerHandlers(): void {
 
   // Every handler that answers with the state sends it through `statePayload`: the file's commands are
   // the user's own text, and what a renderer gets is the ones that parse.
-  ipcMain.handle(CHANNELS.stateRead, () => attempt(async () => statePayload(await readState())));
+  ipcMain.handle(CHANNELS.stateRead, () => attempt(() => readState()));
+
+  /**
+   * The preset file: the user's own commands, read from where their dotfiles can hold them.
+   *
+   * Validated on the way out with the same schema the IPC uses, and an entry that does not parse is left
+   * out of the answer rather than deleted from the file — a config this app rewrote is a config whose next
+   * edit is made blind.
+   */
+  ipcMain.handle(CHANNELS.preset, () =>
+    attempt(async () => {
+      let text: string;
+      try {
+        text = await readFile(presetPath(), 'utf8');
+      } catch {
+        // No file is a decision like any other: the commands this product ships with.
+        return { commands: null };
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        return { commands: null };
+      }
+      const read = presetSchema.safeParse(parsed);
+      if (!read.success) return { commands: null };
+      // Each entry on its own, so one typo costs one button rather than the whole bar.
+      const commands: QuickCommand[] = [];
+      for (const entry of read.data.commands) {
+        const checked = quickCommandSchema.safeParse(entry);
+        if (checked.success) commands.push(checked.data);
+      }
+      return { commands };
+    }),
+  );
 
   /**
    * Opening something is what puts it in the recents and makes it the one to reopen: one
@@ -393,11 +431,10 @@ function registerHandlers(): void {
   ipcMain.handle(CHANNELS.stateRemember, (_event, request: unknown) =>
     attempt(async () => {
       const { path } = rememberRequestSchema.parse(request);
-      const next = await mutateState((state) => {
+      return mutateState((state) => {
         const recents = [path, ...state.recents.filter((entry) => entry !== path)].slice(0, 12);
         return { ...state, recents, last: path };
       });
-      return statePayload(next);
     }),
   );
 
@@ -408,10 +445,7 @@ function registerHandlers(): void {
       // is not a repository that has gone for good, and a list that forgets is a list nobody can
       // trust. What is cleared is what the app would reopen by itself, which would fail again on
       // every launch.
-      const next = await mutateState((state) =>
-        state.last === path ? { ...state, last: null } : state,
-      );
-      return statePayload(next);
+      return mutateState((state) => (state.last === path ? { ...state, last: null } : state));
     }),
   );
 
@@ -420,7 +454,7 @@ function registerHandlers(): void {
       const { hotkey } = setHotkeyRequestSchema.parse(request);
       const next = await mutateState((state) => ({ ...state, hotkey }));
       await registerHotkey(next);
-      return statePayload(next);
+      return next;
     }),
   );
 

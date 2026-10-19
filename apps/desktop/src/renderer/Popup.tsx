@@ -39,7 +39,8 @@ export function Popup(): React.ReactElement {
       const remembered = await window.orbitree.readState();
       if (!remembered.ok) return;
       setHotkey(remembered.value.hotkey);
-      setCommands(remembered.value.quickCommands);
+      const preset = await window.orbitree.readPreset();
+      if (preset.ok) setCommands(preset.value.commands);
       const last = remembered.value.last;
       if (last === null) {
         setPath('');

@@ -15,6 +15,7 @@ import {
   readStatus,
   run,
 } from '../src/index.ts';
+import { presetPath } from '../src/config.ts';
 import { type FixtureSet, git, makeFixtures } from './support/fixtures.ts';
 import { parseNumstat } from './support/patch-crosscheck.ts';
 
@@ -43,6 +44,32 @@ function fixtureRoot(name: string): string {
   if (fixture === undefined) throw new Error(`the ${name} fixture is missing`);
   return fixture.root;
 }
+
+describe('where the quick commands live', () => {
+  it('[I3] the file is the same one for both front-ends, wherever the machine keeps its config', () => {
+    // One rule rather than two: the window and the CLI have to agree about which file "my commands"
+    // means, and Electron's userData directory is not a place a person's dotfiles can reach.
+    //
+    // The expectations are built with `join`, because the separator is the platform's: a test that writes
+    // the slashes out passes here and fails on the Windows runner, which is where this one did.
+    expect(presetPath({ XDG_CONFIG_HOME: join('tmp', 'config') })).toBe(
+      join('tmp', 'config', 'orbitree', 'commands.json'),
+    );
+    expect(presetPath({ HOME: join('home', 'someone') })).toBe(
+      join('home', 'someone', '.config', 'orbitree', 'commands.json'),
+    );
+    // Windows has no `HOME`, and a rule that put `commands.json` at the root there would be a file nobody
+    // could find.
+    expect(presetPath({ USERPROFILE: join('C:', 'Users', 'someone') })).toBe(
+      join('C:', 'Users', 'someone', '.config', 'orbitree', 'commands.json'),
+    );
+    // An empty XDG_CONFIG_HOME is unset, which is what the specification says and what a shell that
+    // exported an empty variable means.
+    expect(presetPath({ XDG_CONFIG_HOME: '', HOME: join('home', 'someone') })).toBe(
+      join('home', 'someone', '.config', 'orbitree', 'commands.json'),
+    );
+  });
+});
 
 describe('opening a repository', () => {
   it('[I3] the root is the work tree root, even when asked from a subdirectory', async () => {
