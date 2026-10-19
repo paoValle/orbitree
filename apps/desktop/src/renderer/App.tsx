@@ -17,7 +17,7 @@ import { type CommitAction, GraphPane } from './GraphPane.tsx';
 import { LeftPanel } from './LeftPanel.tsx';
 import { ActivityIcon, BranchIcon, CloseIcon, CopyIcon, quickIcon, StashIcon } from './icons.tsx';
 import { type ScreenState, StateScreen } from './StateScreen.tsx';
-import { quickCommands } from './commands.ts';
+import { fill, missing, quickCommands } from './commands.ts';
 import { Palette } from './Palette.tsx';
 import { describeProgress, type Pending, type RunRecord, recordRun } from './shared.ts';
 import { WorkingTreePanel } from './WorkingTreePanel.tsx';
@@ -61,6 +61,8 @@ interface Tab {
     readonly since?: string;
     readonly until?: string;
   };
+  /** The file selected in the working tree, for a configured command that names `{path}`. */
+  readonly selectedFile: string | null;
   /**
    * The name the pointer is over in the panel, whose commits the graph draws highlighted.
    *
@@ -97,6 +99,7 @@ const EMPTY_TAB = (id: number): Tab => ({
   worktrees: [],
   identity: null,
   search: {},
+  selectedFile: null,
   hoveredRef: null,
   remotes: [],
   gone: null,
@@ -697,6 +700,22 @@ export function App(): React.ReactElement {
    * the quick bar already uses, so there is still one place that reaches git.
    */
   /**
+   * What a configured command's placeholders point at, as the window is now.
+   *
+   * `selected` is the commit selected in the graph, `branch` the one that is checked out, and `path` the
+   * file selected in the working tree. Each is `null` when there is nothing to point at, and a command
+   * that names a `null` one is not offered rather than run with an empty argument.
+   */
+  const runtime = useMemo(
+    () => ({
+      selected: active?.selected ?? null,
+      branch: active?.status?.head.kind === 'branch' ? active.status.head.name : null,
+      path: active?.selectedFile ?? null,
+    }),
+    [active?.selected, active?.status?.head, active?.selectedFile],
+  );
+
+  /**
    * The commits the hovered name can reach, out of the ones the window holds.
    *
    * `visibleCommits` is the same pure reachability that hiding a name uses, so "the commits of this
@@ -922,14 +941,22 @@ export function App(): React.ReactElement {
         <div className="quickbar">
           {(configuredCommands ?? quickCommands()).map((command) => {
             const Glyph = quickIcon(command.id);
+            // A placeholder with nothing to point at: the button stays where it is and says what to
+            // select, which is better than disappearing and better than running with an empty argument.
+            const empty = missing(command.command, runtime);
             return (
               <button
                 key={command.id}
                 type="button"
-                title={command.hint}
+                title={
+                  empty.length === 0
+                    ? command.hint
+                    : `select something to point at: ${empty.map((name) => `{${name}}`).join(', ')}`
+                }
                 className={command.danger ? 'quick danger' : 'quick'}
-                disabled={busy}
-                onClick={() => runGuarded(command)}
+                data-testid="quick-command"
+                disabled={busy || empty.length > 0}
+                onClick={() => runGuarded({ ...command, command: fill(command.command, runtime) })}
               >
                 {Glyph === null ? null : <Glyph />}
                 <span>{command.label}</span>
@@ -1201,6 +1228,9 @@ export function App(): React.ReactElement {
                   command: { op: 'unstage', paths: [entryPath] },
                 })
               }
+              onSelectFile={(entryPath) => {
+                if (active !== null) patchTab(active.id, { selectedFile: entryPath });
+              }}
               onOpenFile={(entryPath) => {
                 void window.orbitree
                   .openFile({ path: active?.root ?? '', file: entryPath })
@@ -1524,7 +1554,7 @@ export function App(): React.ReactElement {
 
       {palette ? (
         <Palette
-          context={{ selected: active?.selected ?? null }}
+          context={{ selected: active?.selected ?? null, runtime }}
           configured={configuredCommands}
           {...(busy ? { busy } : {})}
           onClose={() => setPalette(false)}

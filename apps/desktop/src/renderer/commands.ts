@@ -16,6 +16,75 @@ import type { GitCommand, QuickCommand } from '../shared/api.ts';
 export interface CommandContext {
   /** The commit selected in the graph, or `null`. */
   readonly selected: string | null;
+  /**
+   * What a configured command's placeholders are filled from.
+   *
+   * `{selected}`, `{branch}` and `{path}` are the three things a window can point at: a commit, the branch
+   * that is checked out, and the file selected in the working tree. A command may name them in any string
+   * field of the operation, which is what makes one configured command useful in contexts the author did
+   * not know when they wrote it.
+   */
+  readonly runtime: Runtime;
+}
+
+export interface Runtime {
+  readonly selected: string | null;
+  readonly branch: string | null;
+  readonly path: string | null;
+}
+
+/** The names a configured command can refer to. */
+export const PLACEHOLDERS = ['selected', 'branch', 'path'] as const;
+
+/** What is still `{name}` in this command, with no value to put there. */
+export function missing(command: GitCommand, runtime: Runtime): readonly string[] {
+  const values: Record<string, string | null> = {
+    selected: runtime.selected,
+    branch: runtime.branch,
+    path: runtime.path,
+  };
+  const missing: string[] = [];
+  for (const text of stringsOf(command)) {
+    for (const name of PLACEHOLDERS) {
+      if (text.includes(`{${name}}`) && values[name] === null && !missing.includes(name)) {
+        missing.push(name);
+      }
+    }
+  }
+  return missing;
+}
+
+/** The command with its placeholders filled in, or the same command when it has none. */
+export function fill(command: GitCommand, runtime: Runtime): GitCommand {
+  const values: Record<string, string> = {
+    selected: runtime.selected ?? '',
+    branch: runtime.branch ?? '',
+    path: runtime.path ?? '',
+  };
+  return mapStrings(command, (text) =>
+    text.replace(/\{(selected|branch|path)\}/g, (_match, name: string) => values[name] ?? ''),
+  ) as GitCommand;
+}
+
+/** Every string in a command, however deep: paths are arrays, and the fields differ per operation. */
+function stringsOf(command: GitCommand): readonly string[] {
+  const collected: string[] = [];
+  mapStrings(command, (text) => {
+    collected.push(text);
+    return text;
+  });
+  return collected;
+}
+
+function mapStrings(value: unknown, change: (text: string) => string): unknown {
+  if (typeof value === 'string') return change(value);
+  if (Array.isArray(value)) return value.map((entry) => mapStrings(entry, change));
+  if (value !== null && typeof value === 'object') {
+    const mapped: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value)) mapped[key] = mapStrings(entry, change);
+    return mapped;
+  }
+  return value;
 }
 
 interface Common {
@@ -175,13 +244,16 @@ export function availableCommands(
 ): readonly AvailableCommand[] {
   const available: AvailableCommand[] = [];
   for (const entry of configured ?? []) {
+    // A command whose placeholder has nothing to point at is not offered: a button that runs
+    // `checkout --detach` with nothing after it is a button that fails, not one that waits.
+    if (missing(entry.command, context.runtime).length > 0) continue;
     available.push({
       id: entry.id,
       label: entry.label,
       hint: entry.hint,
       group: 'yours',
       danger: entry.danger,
-      command: entry.command,
+      command: fill(entry.command, context.runtime),
     });
   }
   for (const entry of COMMANDS) {
