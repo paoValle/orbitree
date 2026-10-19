@@ -503,7 +503,16 @@ The requested centrepiece, finished.
       `apps/desktop/test/e2e/quick-commands.spec.ts` asserts the phase's exit criterion by comparing the
       two: the sheet's line for a button and `orbitree run --op <op> --dry-run --json`'s argv for the same
       command are asserted equal, not inspected.
-- [ ] Command palettes: the same commands from a keyboard, and from the CLI by id.
+- [x] Command palettes: the same commands from a keyboard, and from the CLI by id. The keyboard is
+      `Cmd/Ctrl+K`; the CLI is `orbitree quick --id <id>`, which reads the same file (`presetPath`), fills
+      the placeholders from `--set name=value`, and runs the command through the **same** runner `run --op`
+      uses — one implementation, because the two are ways of *choosing* a command and not two ways of
+      running one, and the phase's exit criterion is exactly that they agree. There is no second schema on
+      this side of the wire on purpose: the window validates with the shape its IPC uses, and the CLI asks
+      the **core** to build the argv (`isRunnableCommand`), which refuses an operation it does not know and
+      an argument that is not a string — so a file with `{ "op": "teleport" }` in it produces a refusal
+      naming the id instead of a spawn. An id that is not there lists the ones that are, and how many
+      entries were refused.
 - [ ] Sharing: a quick-command preset is a JSON file someone can commit to their dotfiles. The file is
       there: `$XDG_CONFIG_HOME/orbitree/commands.json` (or `~/.config/orbitree/commands.json`), which is
       where a person's dotfiles can hold it, and **one rule** for where it is — `presetPath` in the core —
@@ -515,9 +524,9 @@ The requested centrepiece, finished.
       whole array would refuse the file because one entry in it is wrong, which turns a typo in the sixth
       command into a bar with none of them. Nothing is written back — the broken entry stays in the file for
       its author to fix, and `quick-commands.spec.ts` asserts exactly that.
-      **Not in**: the CLI reading it by id, which is the other half of the bullet above and the next slice;
-      and a documented example preset for a dotfiles repository, which is worth writing once the CLI can run
-      one.
+      `orbitree quick --id <id>` reads it by id (see the bullet above), so the file a person commits to their
+      dotfiles is the same file the window draws its buttons from. **Not in**: a documented example preset
+      worth copying, which is a small thing to write and belongs with the README rather than here.
 
 **Exit**: `orbitree run --op <op> --dry-run --json` and the GUI's confirmation sheet print the
 same argv for the same button — asserted against the shipped preset list.
