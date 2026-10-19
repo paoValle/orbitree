@@ -41,6 +41,7 @@ import {
   CHANNELS,
   compareRequestSchema,
   fileActionSchema,
+  previewRequestSchema,
   commitReadRequestSchema,
   diffRequestSchema,
   forgetLastRequestSchema,
@@ -48,6 +49,7 @@ import {
   rememberRequestSchema,
   runRequestSchema,
   setHotkeyRequestSchema,
+  statePayload,
   conflictRegionRequestSchema,
   conflictSideRequestSchema,
   stashPatchRequestSchema,
@@ -363,7 +365,20 @@ function registerHandlers(): void {
     }),
   );
 
-  ipcMain.handle(CHANNELS.stateRead, () => attempt(() => readState()));
+  ipcMain.handle(CHANNELS.preview, (_event, request: unknown) =>
+    attempt(async () => {
+      const parsed = previewRequestSchema.parse(request);
+      const repo = await openRepo(parsed.path);
+      // A dry run resolves the argv and spawns nothing: it is the one path that gets to answer *what*
+      // would run before anybody is asked to confirm it.
+      const result = await execute(parsed.command, { cwd: repo.root, dryRun: true });
+      return { argv: result.argv };
+    }),
+  );
+
+  // Every handler that answers with the state sends it through `statePayload`: the file's commands are
+  // the user's own text, and what a renderer gets is the ones that parse.
+  ipcMain.handle(CHANNELS.stateRead, () => attempt(async () => statePayload(await readState())));
 
   /**
    * Opening something is what puts it in the recents and makes it the one to reopen: one
@@ -378,10 +393,11 @@ function registerHandlers(): void {
   ipcMain.handle(CHANNELS.stateRemember, (_event, request: unknown) =>
     attempt(async () => {
       const { path } = rememberRequestSchema.parse(request);
-      return mutateState((state) => {
+      const next = await mutateState((state) => {
         const recents = [path, ...state.recents.filter((entry) => entry !== path)].slice(0, 12);
         return { ...state, recents, last: path };
       });
+      return statePayload(next);
     }),
   );
 
@@ -392,7 +408,10 @@ function registerHandlers(): void {
       // is not a repository that has gone for good, and a list that forgets is a list nobody can
       // trust. What is cleared is what the app would reopen by itself, which would fail again on
       // every launch.
-      return mutateState((state) => (state.last === path ? { ...state, last: null } : state));
+      const next = await mutateState((state) =>
+        state.last === path ? { ...state, last: null } : state,
+      );
+      return statePayload(next);
     }),
   );
 
@@ -401,7 +420,7 @@ function registerHandlers(): void {
       const { hotkey } = setHotkeyRequestSchema.parse(request);
       const next = await mutateState((state) => ({ ...state, hotkey }));
       await registerHotkey(next);
-      return next;
+      return statePayload(next);
     }),
   );
 

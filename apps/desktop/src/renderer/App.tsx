@@ -237,6 +237,23 @@ export function App(): React.ReactElement {
    */
   const [progress, setProgress] = useState<Progress | null>(null);
   /**
+   * The bar's buttons when the user has written their own, or `null` for the ones we ship.
+   *
+   * Read once at launch and not on every render: this is a file somebody edits and relaunches, and a
+   * read per render would be a git call per keystroke's worth of work for a list that does not change.
+   */
+  const [configuredCommands, setConfiguredCommands] = useState<readonly QuickCommand[] | null>(
+    null,
+  );
+  /**
+   * The exact argv of the command the sheet is asking about, resolved by a dry run.
+   *
+   * The sheet shows what would run, so it asks the core rather than printing the label's own wording: a
+   * hand-written hint is a second description of a command, and the one the phase promises is the line
+   * the CLI would print.
+   */
+  const [pendingArgv, setPendingArgv] = useState<readonly string[] | null>(null);
+  /**
    * A comparison somebody asked for from the panel, or `null`.
    *
    * Not per tab and not stored: it is an answer to a question that was asked about the branch that was
@@ -282,6 +299,26 @@ export function App(): React.ReactElement {
   }, []);
 
   const active = tabs.find((tab) => tab.id === activeId) ?? null;
+
+  // Resolved when the sheet opens rather than when it is confirmed: the point of the sheet is to show
+  // the command *before* a reason is given.
+  useEffect(() => {
+    if (pending === null || active?.root == null) {
+      setPendingArgv(null);
+      return;
+    }
+    const root = active.root;
+    let cancelled = false;
+    void window.orbitree
+      .previewArgv({ path: root, command: pending.command.command })
+      .then((result) => {
+        if (cancelled) return;
+        setPendingArgv(result.ok ? result.value.argv : null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pending, active?.root]);
 
   /**
    * Patching a tab by its id rather than by "whichever is active".
@@ -428,31 +465,25 @@ export function App(): React.ReactElement {
   // callback's identity changes every time a tab is opened, and an effect depending on it would
   // re-run and open the same repository a second time on the next tab.
   useEffect(() => {
-    const fromArgv = new URLSearchParams(window.location.search).get('repo');
-    if (fromArgv !== null) {
+    // What the file remembers is read once, whatever the launch argument says: the bar's buttons are the
+    // user's own and have nothing to do with which repository is opened.
+    void window.orbitree.readState().then((state) => {
+      if (state.ok) {
+        setRecents(state.value.recents);
+        setConfiguredCommands(state.value.quickCommands);
+      }
+      const fromArgv = new URLSearchParams(window.location.search).get('repo');
+      const path = fromArgv ?? (state.ok ? state.value.last : null);
+      if (path === null) return;
       const id = nextId.current;
       nextId.current += 1;
       setTabs([EMPTY_TAB(id)]);
       setActiveId(id);
-      // A repository named on the command line is still the repository being opened: what
-      // you launch into is what you are in, so the quick window and the recents see it too.
-      void window.orbitree.remember(fromArgv);
-      void refresh(fromArgv, id, '*', GRAPH_LIMIT);
-      return;
-    }
-    void (async () => {
-      const state = await window.orbitree.readState();
-      if (!state.ok) return;
-      setRecents(state.value.recents);
-      const last = state.value.last;
-      if (last === null) return;
-      const id = nextId.current;
-      nextId.current += 1;
-      setTabs([EMPTY_TAB(id)]);
-      setActiveId(id);
-      void window.orbitree.remember(last);
-      void refresh(last, id, '*', GRAPH_LIMIT);
-    })();
+      // A repository named on the command line is still the repository being opened: what you launch
+      // into is what you are in, so the quick window and the recents see it too.
+      void window.orbitree.remember(path);
+      void refresh(path, id, '*', GRAPH_LIMIT);
+    });
   }, [refresh]);
 
   /**
@@ -889,7 +920,7 @@ export function App(): React.ReactElement {
 
       {active !== null && (
         <div className="quickbar">
-          {quickCommands().map((command) => {
+          {(configuredCommands ?? quickCommands()).map((command) => {
             const Glyph = quickIcon(command.id);
             return (
               <button
@@ -1494,6 +1525,7 @@ export function App(): React.ReactElement {
       {palette ? (
         <Palette
           context={{ selected: active?.selected ?? null }}
+          configured={configuredCommands}
           {...(busy ? { busy } : {})}
           onClose={() => setPalette(false)}
           onRun={(entry) => {
@@ -1527,8 +1559,12 @@ export function App(): React.ReactElement {
           >
             <h2>{pending.command.label}</h2>
             <p>
-              This is a destructive command: <code>{pending.command.hint}</code>. Say why, so the
-              reason is on the record.
+              This is a destructive command:{' '}
+              {/* The argv the core would build, not the button's own words: `pendingArgv` is a dry run. */}
+              <code data-testid="sheet-argv">
+                {pendingArgv === null ? pending.command.hint : `git ${pendingArgv.join(' ')}`}
+              </code>
+              . Say why, so the reason is on the record.
             </p>
             <input
               ref={reasonInput}
