@@ -21,6 +21,7 @@ export const CHANNELS = {
   blame: 'repo:blame',
   compare: 'repo:compare',
   run: 'repo:run',
+  preview: 'repo:preview',
   /** Main to renderer, while a remote command runs: one line of git's progress. */
   runProgress: 'run:progress',
   commitRead: 'commit:read',

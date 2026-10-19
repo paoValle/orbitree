@@ -16,6 +16,9 @@ export function Popup(): React.ReactElement {
   const [path, setPath] = useState('');
   const [state, setState] = useState<RepoState | null>(null);
   const [hotkey, setHotkey] = useState<string | null>(null);
+  // The user's own buttons, or null for the ones this product ships: read with the rest of the state
+  // every time the window is shown, so a file edited while the app runs needs no restart to be seen.
+  const [commands, setCommands] = useState<readonly QuickCommand[] | null>(null);
   const [runs, setRuns] = useState<readonly RunRecord[]>([]);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
@@ -36,6 +39,7 @@ export function Popup(): React.ReactElement {
       const remembered = await window.orbitree.readState();
       if (!remembered.ok) return;
       setHotkey(remembered.value.hotkey);
+      setCommands(remembered.value.quickCommands);
       const last = remembered.value.last;
       if (last === null) {
         setPath('');
@@ -81,7 +85,7 @@ export function Popup(): React.ReactElement {
       </header>
 
       <div className="popup-commands">
-        {quickCommands().map((command) => {
+        {(commands ?? quickCommands()).map((command) => {
           const Glyph = quickIcon(command.id);
           return (
             <button

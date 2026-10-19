@@ -466,12 +466,24 @@ difference of hashes would fail it: the lists disagree with git by nothing.
 
 The requested centrepiece, finished.
 
-- [ ] Commands are data: `quickCommands` in the user's config, each with `{ id, label, hint,
-      command, danger }` validated by the same schema the IPC uses.
+- [x] Commands are data: `quickCommands` in the user's config, each with `{ id, label, hint,
+      command, danger }` validated by the same schema the IPC uses. The state file carries them beside the
+      recents and the hotkey; `null` means "the ones this product ships" and an empty list means a bar with
+      no buttons, because those are two different decisions. An entry that does not parse costs **a button
+      and not the app**, and — the harder half — it is **not deleted from the file**: the user's lines are
+      validated on the way *out* to the renderer (`statePayload`), so a config this app rewrote is not a
+      config whose next edit is made blind. The bar, the palette and the quick window all read the same
+      list, so a command written in a file is a button, an entry in `Cmd/Ctrl+K` and a row in the popup at
+      once.
 - [ ] A command can take arguments (a branch, a path) and a message, and can be run against a
       selection in the graph or the working tree.
-- [ ] The confirmation sheet shows the exact `git` argv (from `--dry-run`) before asking for a
-      reason.
+- [x] The confirmation sheet shows the exact `git` argv (from `--dry-run`) before asking for a
+      reason. The sheet asks the main process for a preview — the core's `toArgv` through the same executor
+      `orbitree run --dry-run` uses — rather than printing the button's own hint, which was a second
+      description of the command waiting to disagree with the first.
+      `apps/desktop/test/e2e/quick-commands.spec.ts` asserts the phase's exit criterion by comparing the
+      two: the sheet's line for a button and `orbitree run --op <op> --dry-run --json`'s argv for the same
+      command are asserted equal, not inspected.
 - [ ] Command palettes: the same commands from a keyboard, and from the CLI by id.
 - [ ] Sharing: a quick-command preset is a JSON file someone can commit to their dotfiles.
 

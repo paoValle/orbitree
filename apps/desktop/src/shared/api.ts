@@ -454,20 +454,71 @@ export interface StashPayload {
 }
 
 /**
- * What the app remembers between runs. Three fields, all of them decisions a person made by
- * opening something or setting a hotkey; nothing is stored that they did not do.
+ * One button of the Quick Commands bar, as data.
+ *
+ * The same shape the registry in `renderer/commands.ts` writes, because a configured command and a
+ * shipped one have to be the same kind of thing: the bar, the palette and the confirmation sheet must
+ * not care where a button came from.
+ */
+export const quickCommandSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  hint: z.string(),
+  command: gitCommandSchema,
+  danger: z.boolean(),
+});
+
+/**
+ * What the app remembers between runs. Four fields, all of them decisions a person made by opening
+ * something, setting a hotkey or writing their own commands; nothing is stored that they did not do.
  */
 export interface PersistedState {
   readonly recents: readonly string[];
   readonly last: string | null;
   readonly hotkey: string | null;
+  /**
+   * The bar's buttons, or `null` for the ones this product ships with.
+   *
+   * An empty list is a decision — a bar with no buttons — and `null` is "nobody has said", which is why
+   * the two are different values rather than one empty one.
+   */
+  readonly quickCommands: readonly z.infer<typeof quickCommandSchema>[] | null;
 }
 
 export const persistedStateSchema = z.object({
   recents: z.array(z.string()),
   last: z.string().nullable(),
   hotkey: z.string().nullable(),
+  quickCommands: z.array(quickCommandSchema).nullable(),
 });
+
+/**
+ * The state as the renderer gets it, with the user's commands validated on the way out.
+ *
+ * Validated here rather than where the file is read, which is the difference between fixing somebody's
+ * config and rewriting it: an entry that does not parse is not a button, and it is still in the file for
+ * them to fix. The file is theirs; the payload is ours.
+ */
+export function statePayload(state: {
+  readonly recents: readonly string[];
+  readonly last: string | null;
+  readonly hotkey: string | null;
+  readonly quickCommands: unknown;
+}): PersistedState {
+  const commands: QuickCommand[] = [];
+  if (Array.isArray(state.quickCommands)) {
+    for (const entry of state.quickCommands) {
+      const parsed = quickCommandSchema.safeParse(entry);
+      if (parsed.success) commands.push(parsed.data);
+    }
+  }
+  return {
+    recents: [...state.recents],
+    last: state.last,
+    hotkey: state.hotkey,
+    quickCommands: state.quickCommands === null ? null : commands,
+  };
+}
 
 export const rememberRequestSchema = z.object({ path: z.string().min(1) });
 
@@ -546,6 +597,20 @@ export const fileActionSchema = z.object({
 });
 
 export type FileAction = z.infer<typeof fileActionSchema>;
+
+/**
+ * The argv a command would produce, resolved without running anything.
+ *
+ * The same resolution `orbitree run --dry-run` does — the core's `toArgv`, through the same executor —
+ * because the phase's exit criterion is that the sheet and the CLI print the same line for the same
+ * button, and two ways of resolving one command would be two lines waiting to disagree.
+ */
+export const previewRequestSchema = z.object({
+  path: z.string().min(1),
+  command: gitCommandSchema,
+});
+
+export type PreviewRequest = z.infer<typeof previewRequestSchema>;
 
 export const compareRequestSchema = z.object({
   path: z.string().min(1),
@@ -654,6 +719,8 @@ export interface OrbitreeApi {
   readonly readBlame: (request: BlameRequest) => Promise<Result<BlamePayload>>;
   /** What each side of a fork has that the other does not. */
   readonly compare: (request: CompareRequest) => Promise<Result<ComparePayload>>;
+  /** The exact argv a command would run, resolved by a dry run. */
+  readonly previewArgv: (request: PreviewRequest) => Promise<Result<{ argv: readonly string[] }>>;
   /** Opens one file of the repository with whatever the machine uses for it. */
   readonly openFile: (request: FileAction) => Promise<Result<{ file: string }>>;
   /** Shows one file of the repository in the machine's file manager. */

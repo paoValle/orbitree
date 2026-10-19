@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { availableCommands, type CommandContext, type AvailableCommand } from './commands.ts';
-import type { GitCommand } from '../shared/api.ts';
+import type { GitCommand, QuickCommand } from '../shared/api.ts';
 
 /**
  * Every command the window can run, filtered by typing.
@@ -15,12 +15,20 @@ import type { GitCommand } from '../shared/api.ts';
  */
 export interface PaletteProps {
   readonly context: CommandContext;
+  /** The user's own buttons, or `null` for the ones this product ships. */
+  readonly configured?: readonly QuickCommand[] | null;
   readonly busy?: boolean;
   readonly onRun: (entry: AvailableCommand) => void;
   readonly onClose: () => void;
 }
 
-export function Palette({ context, busy, onRun, onClose }: PaletteProps): React.ReactElement {
+export function Palette({
+  context,
+  configured = null,
+  busy,
+  onRun,
+  onClose,
+}: PaletteProps): React.ReactElement {
   const [query, setQuery] = useState('');
   const [highlighted, setHighlighted] = useState(0);
   // The field is the dialog's first control and the only one that takes text, so focus is what makes the
@@ -31,7 +39,7 @@ export function Palette({ context, busy, onRun, onClose }: PaletteProps): React.
     field.current?.focus();
   }, []);
 
-  const commands = useMemo(() => availableCommands(context), [context]);
+  const commands = useMemo(() => availableCommands(context, configured), [context, configured]);
   const needle = query.trim().toLowerCase();
   const matching = useMemo(
     () =>

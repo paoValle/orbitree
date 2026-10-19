@@ -16,9 +16,19 @@ export interface Persisted {
   readonly last: string | null;
   /** The global hotkey for the popup window, or null to use the default. */
   readonly hotkey: string | null;
+  /**
+   * The Quick Commands bar's own buttons, as the file has them, or null for the ones this product ships
+   * with.
+   *
+   * **Raw on purpose.** These are the user's own lines and this module is not the one that judges them:
+   * validating here would mean writing back a file with somebody's typo deleted out of it, and a config
+   * the app silently rewrites is a config whose next edit is made blind. The schema is applied in
+   * `statePayload`, on the way to the renderer, so a broken entry costs a button and not the app.
+   */
+  readonly quickCommands: readonly unknown[] | null;
 }
 
-const DEFAULT: Persisted = { recents: [], last: null, hotkey: null };
+const DEFAULT: Persisted = { recents: [], last: null, hotkey: null, quickCommands: null };
 
 const FILE = 'state.json';
 
@@ -49,6 +59,7 @@ export async function readState(): Promise<Persisted> {
         : [],
       last: typeof raw.last === 'string' ? raw.last : null,
       hotkey: typeof raw.hotkey === 'string' ? raw.hotkey : null,
+      quickCommands: Array.isArray(raw.quickCommands) ? raw.quickCommands : null,
     };
   } catch {
     return DEFAULT;

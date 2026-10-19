@@ -161,9 +161,33 @@ export interface AvailableCommand {
   readonly command: GitCommand;
 }
 
-export function availableCommands(context: CommandContext): readonly AvailableCommand[] {
+/**
+ * What the palette shows: every command that applies to the window as it is now.
+ *
+ * The user's own buttons come first when they have written any, because those are the commands they
+ * chose to have within reach; the contextual entries follow, since a command about the selected commit
+ * is not something a config file can be about. Both are the same shape, which is the point of the
+ * registry: a button from a file and a button from this list are indistinguishable to the palette.
+ */
+export function availableCommands(
+  context: CommandContext,
+  configured: readonly QuickCommand[] | null = null,
+): readonly AvailableCommand[] {
   const available: AvailableCommand[] = [];
+  for (const entry of configured ?? []) {
+    available.push({
+      id: entry.id,
+      label: entry.label,
+      hint: entry.hint,
+      group: 'yours',
+      danger: entry.danger,
+      command: entry.command,
+    });
+  }
   for (const entry of COMMANDS) {
+    // With a file of their own, the bar's commands are theirs: the shipped ones that are also buttons
+    // would be a second copy of the same thing under a different name.
+    if (configured !== null && entry.quick) continue;
     const command = entry.quick ? entry.command : entry.command(context);
     if (command === null) continue;
     available.push({

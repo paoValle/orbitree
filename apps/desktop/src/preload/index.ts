@@ -25,6 +25,7 @@ const api: OrbitreeApi = {
   revealFile: (request) => ipcRenderer.invoke(CHANNELS.revealFile, request),
   readCommit: (path, rev) => ipcRenderer.invoke(CHANNELS.commitRead, { path, rev }),
   run: (request: RunRequest) => ipcRenderer.invoke(CHANNELS.run, request),
+  previewArgv: (request) => ipcRenderer.invoke(CHANNELS.preview, request),
   pickDirectory: () => ipcRenderer.invoke(CHANNELS.pickDirectory),
   togglePopup: () => ipcRenderer.invoke(CHANNELS.togglePopup),
   // The main process says when the quick window appears, because the repository it is about
