@@ -408,7 +408,11 @@ any of them. None of this mutates a repository, so none of it needs a confirmati
       for the roadmap rather than for a commit: either the rule admits one named exception, written in
       `docs/INVARIANTS.md` with the reason, or this stays the machine's default application.
 - [x] A command palette over every action, by name and by keybinding, built from one registry that
-      the quick bar also reads. `renderer/commands.ts` is that registry: each entry says whether the bar
+      the quick bar also reads. **By name, not by keybinding**: no command carries a shortcut of its own
+      yet — the palette has `Cmd/Ctrl+K` and the tabs have theirs, and a key nobody could guess is worse
+      than a name somebody can type, so the entries show the command they would run instead. A key per
+      command belongs with the config: it is a field of the same entry, and it is written down here so it
+      is a leftover rather than an oversight. `renderer/commands.ts` is that registry: each entry says whether the bar
       has room for it and whether it needs the window's state (the selected commit), so the bar's buttons
       and the palette's list are two readings of one list rather than two lists. `Cmd/Ctrl+K` opens it,
       ↑↓ and Enter run, Escape closes, and the filter matches the label, the command it would run
@@ -476,7 +480,19 @@ The requested centrepiece, finished.
       list, so a command written in a file is a button, an entry in `Cmd/Ctrl+K` and a row in the popup at
       once.
 - [ ] A command can take arguments (a branch, a path) and a message, and can be run against a
-      selection in the graph or the working tree.
+      selection in the graph or the working tree. In: the **arguments from the selection**. A configured
+      command may name `{selected}`, `{branch}` or `{path}` in any string field of its operation, and the
+      window fills them from what is selected — the commit in the graph, the branch that is checked out,
+      the file in the working tree — so one command written once is useful in contexts its author did not
+      know about. A placeholder with nothing to point at leaves the button **where it is, disabled, saying
+      what to select**: a button that would fail is worse than one that explains itself. The palette
+      leaves such an entry out, because a list of what you can run now is not a list of what you could run
+      if you clicked somewhere first.
+      **The message half is not in**: a command that takes a message needs a prompt before it runs, which
+      is the ask dialog this window already has for a branch or a tag name — a third kind of question for
+      the same dialog, and the next slice rather than this one.
+      `apps/desktop/test/e2e/quick-commands.spec.ts` drives both: a command that checks out `{selected}`
+      (asserted detached at that commit) and one that stages `{path}` (asserted with `status`).
 - [x] The confirmation sheet shows the exact `git` argv (from `--dry-run`) before asking for a
       reason. The sheet asks the main process for a preview — the core's `toArgv` through the same executor
       `orbitree run --dry-run` uses — rather than printing the button's own hint, which was a second

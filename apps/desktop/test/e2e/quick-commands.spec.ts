@@ -3,12 +3,14 @@ import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
   closeApp,
+  git,
   launchApp,
   mainWindow,
   makeRepo,
   makeRunDir,
   orbitree,
   readStateFile,
+  writeIn,
 } from './support.ts';
 
 /**
@@ -136,6 +138,78 @@ test('a file with nothing in it means the commands this product ships', async ()
     // rather than as a copy of what this product ships, which would freeze the defaults into a file.
     const written = await readFile(join(userDataDir, 'state.json'), 'utf8');
     expect(JSON.parse(written)).toMatchObject({ quickCommands: null });
+  } finally {
+    await closeApp(handle);
+  }
+});
+
+/**
+ * A configured command can point at what is selected.
+ *
+ * `{selected}`, `{branch}` and `{path}` are the three things a window can point at, and a command that
+ * names one of them with nothing to point at is **disabled with a reason** rather than run with an empty
+ * argument — a button that would fail is worse than a button that says what to select.
+ */
+test('a configured command runs against the selection, in the graph and in the working tree', async () => {
+  const repo = await makeRepo({ base: 'the base\n' });
+  await writeIn(repo, 'changed.txt', 'a change\n');
+  const userDataDir = await makeRunDir('userdata-');
+  await writeFile(
+    join(userDataDir, 'state.json'),
+    `${JSON.stringify({
+      recents: [],
+      last: repo,
+      hotkey: null,
+      quickCommands: [
+        {
+          id: 'checkout-selected',
+          label: 'Go to the selected commit',
+          hint: 'checkout --detach {selected}',
+          command: { op: 'checkout', ref: '{selected}', detach: true },
+          danger: false,
+        },
+        {
+          id: 'stage-selected',
+          label: 'Stage the selected file',
+          hint: 'add -- {path}',
+          command: { op: 'add', paths: ['{path}'] },
+          danger: false,
+        },
+      ],
+    })}\n`,
+    'utf8',
+  );
+
+  const handle = await launchApp(repo, { userDataDir });
+  try {
+    const page = await mainWindow(handle.app);
+    const buttons = page.locator('[data-testid=quick-command]');
+    await expect(buttons).toHaveCount(2);
+    // Nothing is selected yet, so neither can point at anything — and the title says what to do.
+    await expect(buttons.nth(0)).toBeDisabled();
+    await expect(buttons.nth(0)).toHaveAttribute(
+      'title',
+      /select something to point at: \{selected\}/,
+    );
+    await expect(buttons.nth(1)).toBeDisabled();
+
+    // A commit in the graph: the first command becomes runnable and runs against it.
+    const head = await git(repo, ['rev-parse', 'HEAD']);
+    await page.locator(`[data-testid=commit-row][data-hash="${head}"]`).click();
+    await expect(buttons.nth(0)).toBeEnabled();
+    await buttons.nth(0).click();
+    await expect.poll(() => git(repo, ['rev-parse', 'HEAD'])).toBe(head);
+    // Detached: there was no branch to check out, and git agrees.
+    await expect
+      .poll(() => git(repo, ['symbolic-ref', '--quiet', '--short', 'HEAD']).catch(() => ''))
+      .toBe('');
+
+    // A file in the working tree: the second one runs against that path, which git is asked about.
+    expect(await git(repo, ['status', '--porcelain=v1'])).toContain('?? changed.txt');
+    await page.locator('[data-testid=entry-item][data-path="changed.txt"]').click();
+    await expect(buttons.nth(1)).toBeEnabled();
+    await buttons.nth(1).click();
+    await expect.poll(() => git(repo, ['status', '--porcelain=v1'])).toContain('A  changed.txt');
   } finally {
     await closeApp(handle);
   }

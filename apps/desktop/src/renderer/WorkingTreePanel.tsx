@@ -87,6 +87,14 @@ export interface WorkingTreePanelProps {
    * has the operating system's ear checks it stays inside.
    */
   readonly onOpenFile?: (path: string) => void;
+  /**
+   * Reports the file this pane has selected, so a configured command can name `{path}`.
+   *
+   * The selection is this pane's own state — clicking a row is what changes it — so it is reported up
+   * rather than lifted: the pane keeps owning what it shows, and the app learns it for the one thing that
+   * needs to know.
+   */
+  readonly onSelectFile?: (path: string | null) => void;
   readonly onRevealFile?: (path: string) => void;
   /** Resolves one conflict region of one path, replacing it with a side or with typed text. */
   readonly onResolveRegion?: (
@@ -305,6 +313,7 @@ export function WorkingTreePanel({
   onSelectCommit,
   onOpenFile,
   onRevealFile,
+  onSelectFile,
 }: WorkingTreePanelProps): React.ReactElement {
   const [message, setMessage] = useState('');
   const [body, setBody] = useState('');
@@ -485,7 +494,10 @@ export function WorkingTreePanel({
                           data-kind={kind}
                           data-submodule={entry.submodule ?? undefined}
                           className={active ? 'entry-item selected' : 'entry-item'}
-                          onClick={() => setSelected({ section: spec.section, path: entry.path })}
+                          onClick={() => {
+                            setSelected({ section: spec.section, path: entry.path });
+                            onSelectFile?.(entry.path);
+                          }}
                         >
                           <span className="entry-kind" data-testid="entry-kind" aria-hidden="true">
                             {/* 16 rather than 14: the family mark has to be legible in a column
