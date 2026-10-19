@@ -49,19 +49,24 @@ describe('where the quick commands live', () => {
   it('[I3] the file is the same one for both front-ends, wherever the machine keeps its config', () => {
     // One rule rather than two: the window and the CLI have to agree about which file "my commands"
     // means, and Electron's userData directory is not a place a person's dotfiles can reach.
-    expect(presetPath({ XDG_CONFIG_HOME: '/tmp/config' })).toBe(
-      '/tmp/config/orbitree/commands.json',
+    //
+    // The expectations are built with `join`, because the separator is the platform's: a test that writes
+    // the slashes out passes here and fails on the Windows runner, which is where this one did.
+    expect(presetPath({ XDG_CONFIG_HOME: join('tmp', 'config') })).toBe(
+      join('tmp', 'config', 'orbitree', 'commands.json'),
     );
-    expect(presetPath({ HOME: '/home/someone' })).toBe(
-      '/home/someone/.config/orbitree/commands.json',
+    expect(presetPath({ HOME: join('home', 'someone') })).toBe(
+      join('home', 'someone', '.config', 'orbitree', 'commands.json'),
     );
-    // Windows has no `HOME`, and a rule that produced `/orbitree/commands.json` there would be a file
-    // nobody could find.
-    expect(presetPath({ USERPROFILE: 'C:\\Users\\someone' })).toContain('someone');
+    // Windows has no `HOME`, and a rule that put `commands.json` at the root there would be a file nobody
+    // could find.
+    expect(presetPath({ USERPROFILE: join('C:', 'Users', 'someone') })).toBe(
+      join('C:', 'Users', 'someone', '.config', 'orbitree', 'commands.json'),
+    );
     // An empty XDG_CONFIG_HOME is unset, which is what the specification says and what a shell that
     // exported an empty variable means.
-    expect(presetPath({ XDG_CONFIG_HOME: '', HOME: '/home/someone' })).toBe(
-      '/home/someone/.config/orbitree/commands.json',
+    expect(presetPath({ XDG_CONFIG_HOME: '', HOME: join('home', 'someone') })).toBe(
+      join('home', 'someone', '.config', 'orbitree', 'commands.json'),
     );
   });
 });
