@@ -513,7 +513,7 @@ The requested centrepiece, finished.
       an argument that is not a string — so a file with `{ "op": "teleport" }` in it produces a refusal
       naming the id instead of a spawn. An id that is not there lists the ones that are, and how many
       entries were refused.
-- [ ] Sharing: a quick-command preset is a JSON file someone can commit to their dotfiles. The file is
+- [x] Sharing: a quick-command preset is a JSON file someone can commit to their dotfiles. The file is
       there: `$XDG_CONFIG_HOME/orbitree/commands.json` (or `~/.config/orbitree/commands.json`), which is
       where a person's dotfiles can hold it, and **one rule** for where it is — `presetPath` in the core —
       because the window and the CLI have to agree about which file "my commands" means, and Electron's own
@@ -525,8 +525,10 @@ The requested centrepiece, finished.
       command into a bar with none of them. Nothing is written back — the broken entry stays in the file for
       its author to fix, and `quick-commands.spec.ts` asserts exactly that.
       `orbitree quick --id <id>` reads it by id (see the bullet above), so the file a person commits to their
-      dotfiles is the same file the window draws its buttons from. **Not in**: a documented example preset
-      worth copying, which is a small thing to write and belongs with the README rather than here.
+      dotfiles is the same file the window draws its buttons from. And it is **documented with an example
+      somebody can copy** — `docs/commands-example.json`, with the four placeholders in a table in
+      `docs/AGENT-CLI.md` — which the test suite runs entry by entry, so an example that stops being a valid
+      preset fails the build rather than misleading a reader.
 
 **Exit**: `orbitree run --op <op> --dry-run --json` and the GUI's confirmation sheet print the
 same argv for the same button — asserted against the shipped preset list.

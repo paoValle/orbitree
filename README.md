@@ -83,6 +83,7 @@ made.
 | `orbitree compare [path] --left <ref> --right <ref> --json` | what each side of a fork has that the other does not, both ways, with the commits git says are the same work left out |
 | `orbitree ops --json` | every operation, its risk level, and the argv it produces |
 | `orbitree run --op <op> [--dry-run] [--confirm <reason>]` | the guarded way to change a repository, with a remote command reporting its progress as it goes |
+| `orbitree quick --id <id> [--set name=value]` | one of your own commands, from the file the window's buttons come from ([example](docs/commands-example.json)) |
 | `orbitree doctor --json` | platform, node, git version, repository root |
 | `orbitree schema` | the JSON envelope, the error kinds and the exit codes |
 
