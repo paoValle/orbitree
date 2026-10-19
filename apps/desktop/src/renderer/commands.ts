@@ -33,8 +33,20 @@ export interface Runtime {
   readonly path: string | null;
 }
 
-/** The names a configured command can refer to. */
+/**
+ * The names a configured command can refer to.
+ *
+ * `{message}` is the odd one: the three others are filled from what the window points at, and this one is
+ * *asked for* before the command runs, which is why it is not part of `missing` — a message with nothing
+ * typed yet is a question, not an absence.
+ */
 export const PLACEHOLDERS = ['selected', 'branch', 'path'] as const;
+export const MESSAGE = 'message';
+
+/** Whether this command asks for a message before it runs. */
+export function wantsMessage(command: GitCommand): boolean {
+  return stringsOf(command).some((text) => text.includes(`{${MESSAGE}}`));
+}
 
 /** What is still `{name}` in this command, with no value to put there. */
 export function missing(command: GitCommand, runtime: Runtime): readonly string[] {
@@ -55,14 +67,18 @@ export function missing(command: GitCommand, runtime: Runtime): readonly string[
 }
 
 /** The command with its placeholders filled in, or the same command when it has none. */
-export function fill(command: GitCommand, runtime: Runtime): GitCommand {
+export function fill(command: GitCommand, runtime: Runtime, message = ''): GitCommand {
   const values: Record<string, string> = {
     selected: runtime.selected ?? '',
     branch: runtime.branch ?? '',
     path: runtime.path ?? '',
+    [MESSAGE]: message,
   };
   return mapStrings(command, (text) =>
-    text.replace(/\{(selected|branch|path)\}/g, (_match, name: string) => values[name] ?? ''),
+    text.replace(
+      /\{(selected|branch|path|message)\}/g,
+      (_match, name: string) => values[name] ?? '',
+    ),
   ) as GitCommand;
 }
 
