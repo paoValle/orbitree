@@ -11,6 +11,7 @@
  * the same functions the desktop app calls, which is what makes the two agree by
  * construction rather than by maintenance.
  */
+import { readFile } from 'node:fs/promises';
 import {
   APP_NAME,
   type CommitDetail,
@@ -27,6 +28,7 @@ import {
   meetsMinimumGitVersion,
   NotARepositoryError,
   openRepo,
+  presetPath,
   type BlameLine,
   type Commit,
   type Comparison,
@@ -528,60 +530,69 @@ export function buildProgram(io: CliIo = defaultIo, options: BuildOptions = {}):
           json?: boolean;
         },
       ) => {
-        const command = commandFrom(opts.op, opts.arg ?? [], opts.message);
-        const repo = await openRepo(path);
-        // Progress is printed as it arrives rather than with the result: a fetch that takes a minute
-        // is the case this exists for, and a line printed at the end would be a report. It goes to
-        // stderr, so `--json` is still one object on stdout.
-        const reported: Progress[] = [];
-        const result = await execute(command, {
-          cwd: repo.root,
-          onProgress: (progress) => {
-            reported.push(progress);
-            io.err(describeProgress(progress));
-          },
-          ...(opts.confirm === undefined
-            ? {}
-            : {
-                confirmation: {
-                  confirmedBy: 'cli',
-                  reason: opts.confirm,
-                  at: (options.now ?? (() => new Date().toISOString()))(),
-                },
-              }),
-          ...(opts.dryRun === true ? { dryRun: true } : {}),
-        });
-        // A failed remote command is a result here rather than a thrown error — `run` reports what
-        // git did — so the explanation is attached where the failure is, not only in `fail`.
-        const diagnosis = result.exitCode === 0 ? null : diagnoseFailure(result.stderr);
-        emit(
+        await runOperation(
           io,
-          opts.json === true,
-          'run',
-          {
-            op: command.op,
-            risk: riskOf(command),
-            argv: result.argv,
-            dryRun: opts.dryRun === true,
-            exitCode: result.exitCode,
-            stdout: result.stdout,
-            stderr: result.stderr,
-            diagnosis:
-              diagnosis === null
-                ? null
-                : { failure: diagnosis.kind, what: diagnosis.what, whatToDo: diagnosis.whatToDo },
-            // The last progress line, which is how far the command got. The whole list is of
-            // interest while it runs and not after, and a window that only sees the result wants
-            // the same one line an agent does.
-            progress: reported.at(-1) ?? null,
-          },
-          (data) =>
-            data.dryRun
-              ? `would run: git ${data.argv.join(' ')}`
-              : `git ${data.argv.join(' ')}\n${data.stdout}`.trimEnd() +
-                (data.diagnosis === null
-                  ? ''
-                  : `\n${data.diagnosis.what} ${data.diagnosis.whatToDo}`),
+          path,
+          commandFrom(opts.op, opts.arg ?? [], opts.message),
+          opts,
+          options.now ?? (() => new Date().toISOString()),
+          { name: 'run' },
+        );
+      },
+    );
+
+  program
+    .command('quick')
+    .description('run one of your own commands, by id, from the commands file')
+    .argument('[path]', 'a path inside the repository', '.')
+    .requiredOption('--id <id>', 'the id of the command in the file')
+    .option(
+      '--set <name=value>',
+      'a value for one of its placeholders (repeatable)',
+      (value: string, previous: string[]) => [...previous, value],
+      [] as string[],
+    )
+    .option('--commands <file>', 'the commands file, instead of the one this machine uses')
+    .option('--dry-run', 'print the argv and change nothing')
+    .option('--confirm <reason>', 'required for a destructive command')
+    .option('--json', 'one JSON object on stdout')
+    .action(
+      async (
+        path: string,
+        opts: {
+          id: string;
+          set?: string[];
+          commands?: string;
+          dryRun?: boolean;
+          confirm?: string;
+          json?: boolean;
+        },
+      ) => {
+        const file = opts.commands ?? presetPath();
+        const preset = await readPreset(file);
+        const entry = preset.commands.find((candidate) => candidate.id === opts.id);
+        if (entry === undefined) {
+          const ids = preset.commands.map((candidate) => candidate.id);
+          // The ones it does hold, and — when there are any — how many entries were refused, so a file
+          // with a typo in it says so instead of looking empty.
+          const refused =
+            preset.broken.length === 0
+              ? ''
+              : ` (${preset.broken.length} entr${preset.broken.length === 1 ? 'y' : 'ies'} refused: ${preset.broken.join(', ')})`;
+          throw new InvalidArgumentError(
+            ids.length === 0
+              ? `no command has the id "${opts.id}": ${file} holds none${refused}`
+              : `no command has the id "${opts.id}"; ${file} holds ${ids.join(', ')}${refused}`,
+          );
+        }
+        const command = fillCommand(entry.command, valuesOf(opts.set ?? []), entry.id);
+        await runOperation(
+          io,
+          path,
+          command,
+          opts,
+          options.now ?? (() => new Date().toISOString()),
+          { name: 'quick', id: entry.id },
         );
       },
     );
@@ -1106,6 +1117,193 @@ function describeWorktrees(worktrees: readonly Worktree[], here: string): string
       return `${mark} ${(worktree.head ?? '').slice(0, 8).padEnd(8)} ${where.padEnd(20)} ${worktree.path}`;
     })
     .join('\n');
+}
+
+/**
+ * Runs one command the way `run` does, whichever surface named it.
+ *
+ * One implementation, because `run --op` and `quick --id` are two ways of *choosing* a command and not two
+ * ways of running one: the argv, the progress, the diagnosis, the exit code and the JSON envelope are the
+ * same promises either way, and two copies of this would be two sets of them.
+ */
+async function runOperation(
+  io: CliIo,
+  path: string,
+  command: GitCommand,
+  opts: { dryRun?: boolean; confirm?: string; json?: boolean },
+  now: () => string,
+  surface: { readonly name: 'run' | 'quick'; readonly id?: string },
+): Promise<void> {
+  const repo = await openRepo(path);
+  // Progress is printed as it arrives rather than with the result: a fetch that takes a minute is the case
+  // this exists for, and a line printed at the end would be a report. It goes to stderr, so `--json` is
+  // still one object on stdout.
+  const reported: Progress[] = [];
+  const result = await execute(command, {
+    cwd: repo.root,
+    onProgress: (progress) => {
+      reported.push(progress);
+      io.err(describeProgress(progress));
+    },
+    ...(opts.confirm === undefined
+      ? {}
+      : {
+          confirmation: {
+            confirmedBy: 'cli',
+            reason: opts.confirm,
+            at: now(),
+          },
+        }),
+    ...(opts.dryRun === true ? { dryRun: true } : {}),
+  });
+  // A failed remote command is a result here rather than a thrown error — `run` reports what git did — so
+  // the explanation is attached where the failure is, not only in `fail`.
+  const diagnosis = result.exitCode === 0 ? null : diagnoseFailure(result.stderr);
+  emit(
+    io,
+    opts.json === true,
+    surface.name,
+    {
+      op: command.op,
+      ...(surface.id === undefined ? {} : { id: surface.id }),
+      risk: riskOf(command),
+      argv: result.argv,
+      dryRun: opts.dryRun === true,
+      exitCode: result.exitCode,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      diagnosis:
+        diagnosis === null
+          ? null
+          : { failure: diagnosis.kind, what: diagnosis.what, whatToDo: diagnosis.whatToDo },
+      // The last progress line, which is how far the command got. The whole list is of interest while it
+      // runs and not after, and a window that only sees the result wants the same one line an agent does.
+      progress: reported.at(-1) ?? null,
+    },
+    (data) =>
+      data.dryRun
+        ? `would run: git ${data.argv.join(' ')}`
+        : `git ${data.argv.join(' ')}${data.stdout}`.trimEnd() +
+          (data.diagnosis === null ? '' : `\n${data.diagnosis.what} ${data.diagnosis.whatToDo}`),
+  );
+}
+
+/**
+ * The values a preset's placeholders are filled from, as `--set name=value`.
+ *
+ * A placeholder this file names and the caller does not is refused rather than filled with nothing: git
+ * would take the empty string as a revision and answer with a message about a repository nobody named,
+ * which is a worse way to learn that an argument is missing.
+ */
+function valuesOf(pairs: readonly string[]): Readonly<Record<string, string>> {
+  const values: Record<string, string> = {};
+  for (const pair of pairs) {
+    const equals = pair.indexOf('=');
+    if (equals <= 0) {
+      throw new InvalidArgumentError(`--set takes name=value, got ${JSON.stringify(pair)}`);
+    }
+    values[pair.slice(0, equals)] = pair.slice(equals + 1);
+  }
+  return values;
+}
+
+/**
+ * The command with its placeholders filled, or an argument error naming the ones nobody filled.
+ *
+ * The same four names the window fills — `{selected}`, `{branch}`, `{path}` and `{message}` — because a
+ * command written once has to mean the same thing in both front-ends. The window knows what is selected; a
+ * CLI knows nothing the caller did not say, so they come from `--set`.
+ */
+function fillCommand(
+  command: GitCommand,
+  values: Readonly<Record<string, string>>,
+  id: string,
+): GitCommand {
+  const filled = JSON.stringify(command).replace(
+    /\{(selected|branch|path|message)\}/g,
+    (match, name: string) => {
+      const value = values[name];
+      if (value === undefined) {
+        throw new InvalidArgumentError(
+          `the command "${id}" needs ${match}: pass --set ${name}=<value>`,
+        );
+      }
+      return JSON.stringify(value).slice(1, -1);
+    },
+  );
+  return JSON.parse(filled) as GitCommand;
+}
+
+/**
+ * The commands file, read the way the window reads it and validated the way anything else here is: by
+ * asking the core to build the argv.
+ *
+ * There is no second schema on this side on purpose. The window validates with the same shape its IPC uses;
+ * a CLI has the guarded builder, which refuses an operation it does not know (no argv at all) and an
+ * argument that is not a string — so a file with a typo in it produces a refused command with a name and a
+ * reason rather than a spawn.
+ */
+async function readPreset(file: string): Promise<{
+  readonly commands: readonly { id: string; command: GitCommand }[];
+  readonly broken: readonly string[];
+}> {
+  let text: string;
+  try {
+    text = await readFile(file, 'utf8');
+  } catch {
+    throw new InvalidArgumentError(
+      `no commands file at ${file}: write one with { "commands": [ … ] }, or pass --commands`,
+    );
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch (error) {
+    throw new InvalidArgumentError(`${file} is not JSON: ${(error as Error).message}`);
+  }
+  const list =
+    parsed !== null &&
+    typeof parsed === 'object' &&
+    Array.isArray((parsed as { commands?: unknown }).commands)
+      ? (parsed as { commands: unknown[] }).commands
+      : [];
+  const commands: { id: string; command: GitCommand }[] = [];
+  const broken: string[] = [];
+  for (const entry of list) {
+    const id = readId(entry);
+    if (id === null) {
+      broken.push('an entry with no id');
+      continue;
+    }
+    const command = (entry as { command?: unknown }).command;
+    if (!isRunnableCommand(command)) {
+      broken.push(id);
+      continue;
+    }
+    commands.push({ id, command });
+  }
+  return { commands, broken };
+}
+
+function readId(entry: unknown): string | null {
+  if (entry === null || typeof entry !== 'object') return null;
+  const id = (entry as { id?: unknown }).id;
+  return typeof id === 'string' && id !== '' ? id : null;
+}
+
+/**
+ * Whether this is a command the core will build an argv for: a known operation, and arguments that are
+ * strings. `toArgv` is the only place that knows the operations, so it is the one that is asked — a file's
+ * `{ "op": "teleport" }` gets no argv and is refused with its id rather than reaching a spawn.
+ */
+function isRunnableCommand(command: unknown): command is GitCommand {
+  if (command === null || typeof command !== 'object') return false;
+  try {
+    const argv = toArgv(command as GitCommand);
+    return Array.isArray(argv) && argv.every((part) => typeof part === 'string' && part !== '');
+  } catch {
+    return false;
+  }
 }
 
 /**

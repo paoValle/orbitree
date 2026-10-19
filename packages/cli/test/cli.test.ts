@@ -556,6 +556,117 @@ describe('the CLI and the app are the same program', () => {
     }
   });
 
+  it('[I5] a command from a person’s own file runs by id, and its argv is the one `run` would build', async () => {
+    // A file of their own, in the place a person's dotfiles hold one, with one entry that is not an
+    // operation at all: the file is read the way the window reads it, and `--commands` points at it
+    // rather than at the machine's own.
+    const beside = await mkdtemp(join(tmpdir(), 'orbitree-cli-preset-'));
+    const file = join(beside, 'commands.json');
+    await writeFile(
+      file,
+      JSON.stringify({
+        commands: [
+          {
+            id: 'status-here',
+            label: 'Status',
+            hint: 'status',
+            danger: false,
+            command: { op: 'status' },
+          },
+          {
+            id: 'tag-here',
+            label: 'Tag this branch',
+            hint: 'tag v9.9.9 {branch}',
+            danger: false,
+            command: { op: 'tag-create', name: 'v9.9.9', rev: '{branch}' },
+          },
+          {
+            id: 'teleport',
+            label: 'Teleport',
+            hint: 'not an operation',
+            danger: false,
+            command: { op: 'teleport' },
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    try {
+      // The same argv `run --op` would build for the same command: the file chooses *which* command, not how
+      // one is built.
+      const byId = await cli([
+        'quick',
+        root,
+        '--id',
+        'status-here',
+        '--commands',
+        file,
+        '--dry-run',
+        '--json',
+      ]);
+      const byOp = await cli(['run', root, '--op', 'status', '--dry-run', '--json']);
+      const fromFile = JSON.parse(byId.lines[0] as string) as {
+        command: string;
+        data: { argv: readonly string[]; id?: string };
+      };
+      const fromOp = JSON.parse(byOp.lines[0] as string) as { data: { argv: readonly string[] } };
+      expect(fromFile.command).toBe('quick');
+      expect(fromFile.data.id).toBe('status-here');
+      expect(fromFile.data.argv).toEqual(fromOp.data.argv);
+
+      // A placeholder comes from `--set`, and one nobody set is refused with the name of the thing missing.
+      const filled = await cli([
+        'quick',
+        root,
+        '--id',
+        'tag-here',
+        '--commands',
+        file,
+        '--set',
+        'branch=next',
+        '--dry-run',
+        '--json',
+      ]);
+      expect(
+        (JSON.parse(filled.lines[0] as string) as { data: { argv: readonly string[] } }).data.argv,
+      ).toEqual(['tag', 'v9.9.9', 'next']);
+
+      const unfilled = await cli([
+        'quick',
+        root,
+        '--id',
+        'tag-here',
+        '--commands',
+        file,
+        '--dry-run',
+      ]);
+      expect(unfilled.code).toBe(EXIT.usage);
+      expect(unfilled.errors.join('\n')).toContain('needs {branch}');
+
+      // An id the file does not hold lists what it does hold, and says how many entries were refused — an
+      // entry that is not an operation is not a command, and the file is not silently empty.
+      const unknown = await cli(['quick', root, '--id', 'nope', '--commands', file, '--dry-run']);
+      expect(unknown.code).toBe(EXIT.usage);
+      expect(unknown.errors.join('\n')).toContain('holds status-here, tag-here');
+      expect(unknown.errors.join('\n')).toContain('1 entry refused: teleport');
+
+      // And a machine with no file says where one goes rather than failing about a path.
+      const missing = await cli([
+        'quick',
+        root,
+        '--id',
+        'anything',
+        '--commands',
+        join(beside, 'none.json'),
+      ]);
+      expect(missing.code).toBe(EXIT.usage);
+      expect(missing.errors.join('\n')).toContain('no commands file at');
+    } finally {
+      await rm(beside, { recursive: true, force: true });
+    }
+  });
+
   it('[I3] every operation the CLI publishes is reachable through `run --op`', async () => {
     // The claim of the doc and of the roadmap item: `ops` lists what `run` accepts. Two lists that
     // can drift, so one of them — the published one — is what the test walks, and an operation that
