@@ -469,55 +469,39 @@ export const quickCommandSchema = z.object({
 });
 
 /**
- * What the app remembers between runs. Four fields, all of them decisions a person made by opening
- * something, setting a hotkey or writing their own commands; nothing is stored that they did not do.
+ * What the app remembers between runs. Three fields, all of them decisions a person made by opening
+ * something or setting a hotkey; nothing is stored that they did not do.
+ *
+ * The quick commands are **not** here: they live in their own file, where a person's dotfiles can hold
+ * them (`presetPath` in the core), because this file is about *this machine* — which repositories were
+ * open, which key opens the popup — and that one is about the commands somebody wants everywhere.
  */
 export interface PersistedState {
   readonly recents: readonly string[];
   readonly last: string | null;
   readonly hotkey: string | null;
-  /**
-   * The bar's buttons, or `null` for the ones this product ships with.
-   *
-   * An empty list is a decision — a bar with no buttons — and `null` is "nobody has said", which is why
-   * the two are different values rather than one empty one.
-   */
-  readonly quickCommands: readonly z.infer<typeof quickCommandSchema>[] | null;
 }
 
 export const persistedStateSchema = z.object({
   recents: z.array(z.string()),
   last: z.string().nullable(),
   hotkey: z.string().nullable(),
-  quickCommands: z.array(quickCommandSchema).nullable(),
 });
 
 /**
- * The state as the renderer gets it, with the user's commands validated on the way out.
+ * The envelope of the preset file: an object with a `commands` array, whose entries are checked one by one.
  *
- * Validated here rather than where the file is read, which is the difference between fixing somebody's
- * config and rewriting it: an entry that does not parse is not a button, and it is still in the file for
- * them to fix. The file is theirs; the payload is ours.
+ * The entries are `unknown` here on purpose. A schema over the whole array would refuse the file because
+ * one entry in it is wrong, which turns a typo in the sixth command into a bar with none of them — the
+ * opposite of what "one typo costs one button" means.
  */
-export function statePayload(state: {
-  readonly recents: readonly string[];
-  readonly last: string | null;
-  readonly hotkey: string | null;
-  readonly quickCommands: unknown;
-}): PersistedState {
-  const commands: QuickCommand[] = [];
-  if (Array.isArray(state.quickCommands)) {
-    for (const entry of state.quickCommands) {
-      const parsed = quickCommandSchema.safeParse(entry);
-      if (parsed.success) commands.push(parsed.data);
-    }
-  }
-  return {
-    recents: [...state.recents],
-    last: state.last,
-    hotkey: state.hotkey,
-    quickCommands: state.quickCommands === null ? null : commands,
-  };
+export const presetSchema = z.object({
+  commands: z.array(z.unknown()),
+});
+
+/** What the preset file holds, once each entry has been checked: the bar's buttons, in order. */
+export interface Preset {
+  readonly commands: readonly QuickCommand[];
 }
 
 export const rememberRequestSchema = z.object({ path: z.string().min(1) });
@@ -754,6 +738,8 @@ export interface OrbitreeApi {
   readonly onRunProgress: (callback: (progress: Progress) => void) => void;
   readonly showWindow: () => Promise<Result<boolean>>;
   readonly readState: () => Promise<Result<PersistedState>>;
+  /** The user's own commands, or `null` when they have not written a file. */
+  readonly readPreset: () => Promise<Result<{ readonly commands: readonly QuickCommand[] | null }>>;
   readonly remember: (path: string) => Promise<Result<PersistedState>>;
   readonly setHotkey: (hotkey: string) => Promise<Result<PersistedState>>;
   readonly forgetLast: (path: string) => Promise<Result<PersistedState>>;

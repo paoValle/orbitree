@@ -487,11 +487,11 @@ export function App(): React.ReactElement {
   useEffect(() => {
     // What the file remembers is read once, whatever the launch argument says: the bar's buttons are the
     // user's own and have nothing to do with which repository is opened.
+    void window.orbitree.readPreset().then((preset) => {
+      if (preset.ok) setConfiguredCommands(preset.value.commands);
+    });
     void window.orbitree.readState().then((state) => {
-      if (state.ok) {
-        setRecents(state.value.recents);
-        setConfiguredCommands(state.value.quickCommands);
-      }
+      if (state.ok) setRecents(state.value.recents);
       const fromArgv = new URLSearchParams(window.location.search).get('repo');
       const path = fromArgv ?? (state.ok ? state.value.last : null);
       if (path === null) return;

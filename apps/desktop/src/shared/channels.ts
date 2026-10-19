@@ -29,6 +29,7 @@ export const CHANNELS = {
   openFile: 'app:open-file',
   revealFile: 'app:reveal-file',
   stateRead: 'app:state-read',
+  preset: 'app:preset',
   stateRemember: 'app:state-remember',
   stateSetHotkey: 'app:state-set-hotkey',
   stateForgetLast: 'app:state-forget-last',

@@ -35,6 +35,7 @@ const api: OrbitreeApi = {
     ipcRenderer.on(CHANNELS.runProgress, (_event, progress) => callback(progress)),
   showWindow: () => ipcRenderer.invoke(CHANNELS.showWindow),
   readState: () => ipcRenderer.invoke(CHANNELS.stateRead),
+  readPreset: () => ipcRenderer.invoke(CHANNELS.preset),
   remember: (path) => ipcRenderer.invoke(CHANNELS.stateRemember, { path }),
   setHotkey: (hotkey) => ipcRenderer.invoke(CHANNELS.stateSetHotkey, { hotkey }),
   forgetLast: (path) => ipcRenderer.invoke(CHANNELS.stateForgetLast, { path }),

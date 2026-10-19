@@ -84,6 +84,8 @@ export async function launchApp(
     readonly userDataDir?: string;
     readonly tray?: boolean;
     readonly quiet?: boolean;
+    /** Extra environment, for a spec that points the app at a configuration of its own. */
+    readonly env?: Record<string, string>;
   } = {},
 ): Promise<AppHandle> {
   const userDataDir = options.userDataDir ?? (await mkdtemp(join(await runRoot(), 'userdata-')));
@@ -100,8 +102,20 @@ export async function launchApp(
       `--user-data-dir=${userDataDir}`,
     ],
     cwd: APP_PATH,
+    // A spec that points the app at a configuration of its own: merged over the environment, with the
+    // undefined values dropped, because `electron.launch` wants plain strings.
+    ...(options.env === undefined ? {} : { env: environmentWith(options.env) }),
   });
   return { app, userDataDir };
+}
+
+/** The environment plus the spec's own variables, without the undefined entries. */
+function environmentWith(extra: Record<string, string>): Record<string, string> {
+  const merged: Record<string, string> = {};
+  for (const [key, value] of Object.entries({ ...process.env, ...extra })) {
+    if (value !== undefined) merged[key] = value;
+  }
+  return merged;
 }
 
 export interface CloseOptions {

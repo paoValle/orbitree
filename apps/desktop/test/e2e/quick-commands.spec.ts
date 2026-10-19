@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
@@ -9,7 +9,6 @@ import {
   makeRepo,
   makeRunDir,
   orbitree,
-  readStateFile,
   writeIn,
 } from './support.ts';
 
@@ -56,10 +55,17 @@ test('the bar is the user’s commands, and the sheet shows the argv the core bu
       },
     ],
   };
-  const stateFile = join(userDataDir, 'state.json');
-  await writeFile(stateFile, `${JSON.stringify(custom, null, 2)}\n`, 'utf8');
+  // The commands live in their own file, where a person's dotfiles can hold them, and not in the state
+  // file beside the machine's own fields.
+  const config = await makeRunDir('config-');
+  await mkdir(join(config, 'orbitree'), { recursive: true });
+  await writeFile(
+    join(config, 'orbitree', 'commands.json'),
+    `${JSON.stringify({ commands: custom.quickCommands }, null, 2)}\n`,
+    'utf8',
+  );
 
-  const handle = await launchApp(repo, { userDataDir });
+  const handle = await launchApp(repo, { userDataDir, env: { XDG_CONFIG_HOME: config } });
   try {
     const page = await mainWindow(handle.app);
     const bar = page.locator('.quickbar button.quick');
@@ -105,11 +111,13 @@ test('the bar is the user’s commands, and the sheet shows the argv the core bu
     await expect(fetch).toContainText('Get the remote');
     await page.keyboard.press('Escape');
 
-    // The file is the user's: the app wrote its own fields back (it remembers the repository) and left
-    // the commands exactly as they were written — including the entry that does not parse, which it does
-    // not show and does not delete. A config the app silently rewrites is one whose next edit is blind.
-    const after = await readStateFile(userDataDir);
-    expect(after.quickCommands).toEqual(custom.quickCommands);
+    // The file is the user's: the app read it and wrote nothing back into it — including the entry that
+    // does not parse, which it does not show and does not delete. A config the app silently rewrites is
+    // one whose next edit is blind.
+    const after = JSON.parse(await readFile(join(config, 'orbitree', 'commands.json'), 'utf8')) as {
+      commands: unknown;
+    };
+    expect(after.commands).toEqual(custom.quickCommands);
 
     await page.screenshot({
       path: join(import.meta.dirname, '..', '..', 'reports', 'commands.png'),
@@ -134,10 +142,9 @@ test('a file with nothing in it means the commands this product ships', async ()
     const page = await mainWindow(handle.app);
     await expect(page.locator('.quickbar button.quick')).toHaveCount(8); // seven commands and Refresh
     await expect(page.locator('.quickbar')).toContainText('Fetch');
-    // Nothing invented: the field the file did not have is written back as null — "nobody has said" —
-    // rather than as a copy of what this product ships, which would freeze the defaults into a file.
+    // And nothing was invented into the state file either: the commands are not stored there at all.
     const written = await readFile(join(userDataDir, 'state.json'), 'utf8');
-    expect(JSON.parse(written)).toMatchObject({ quickCommands: null });
+    expect(written).not.toContain('quickCommands');
   } finally {
     await closeApp(handle);
   }
@@ -154,13 +161,12 @@ test('a configured command runs against the selection, in the graph and in the w
   const repo = await makeRepo({ base: 'the base\n' });
   await writeIn(repo, 'changed.txt', 'a change\n');
   const userDataDir = await makeRunDir('userdata-');
+  const config = await makeRunDir('config-');
+  await mkdir(join(config, 'orbitree'), { recursive: true });
   await writeFile(
-    join(userDataDir, 'state.json'),
+    join(config, 'orbitree', 'commands.json'),
     `${JSON.stringify({
-      recents: [],
-      last: repo,
-      hotkey: null,
-      quickCommands: [
+      commands: [
         {
           id: 'checkout-selected',
           label: 'Go to the selected commit',
@@ -180,7 +186,7 @@ test('a configured command runs against the selection, in the graph and in the w
     'utf8',
   );
 
-  const handle = await launchApp(repo, { userDataDir });
+  const handle = await launchApp(repo, { userDataDir, env: { XDG_CONFIG_HOME: config } });
   try {
     const page = await mainWindow(handle.app);
     const buttons = page.locator('[data-testid=quick-command]');
@@ -229,13 +235,12 @@ test('a configured command asks for its message before it runs', async () => {
   // business and not the product's.
   await writeIn(repo, 'base.txt', 'a change nobody committed\n');
   const userDataDir = await makeRunDir('userdata-');
+  const config = await makeRunDir('config-');
+  await mkdir(join(config, 'orbitree'), { recursive: true });
   await writeFile(
-    join(userDataDir, 'state.json'),
+    join(config, 'orbitree', 'commands.json'),
     `${JSON.stringify({
-      recents: [],
-      last: repo,
-      hotkey: null,
-      quickCommands: [
+      commands: [
         {
           id: 'stash-named',
           label: 'Stash with a name',
@@ -248,7 +253,7 @@ test('a configured command asks for its message before it runs', async () => {
     'utf8',
   );
 
-  const handle = await launchApp(repo, { userDataDir });
+  const handle = await launchApp(repo, { userDataDir, env: { XDG_CONFIG_HOME: config } });
   try {
     const page = await mainWindow(handle.app);
     const button = page.locator('[data-testid=quick-command]').first();
