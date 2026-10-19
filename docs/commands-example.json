@@ -1,0 +1,46 @@
+{
+  "commands": [
+    {
+      "id": "status-here",
+      "label": "Status",
+      "hint": "status --porcelain=v2",
+      "danger": false,
+      "command": { "op": "status" }
+    },
+    {
+      "id": "fetch-all",
+      "label": "Fetch everything",
+      "hint": "fetch --prune --all",
+      "danger": false,
+      "command": { "op": "fetch" }
+    },
+    {
+      "id": "tag-this-branch",
+      "label": "Tag this branch",
+      "hint": "tag the branch that is checked out",
+      "danger": false,
+      "command": { "op": "tag-create", "name": "wip", "rev": "{branch}" }
+    },
+    {
+      "id": "go-to-selected",
+      "label": "Go to the selected commit",
+      "hint": "checkout --detach {selected}",
+      "danger": false,
+      "command": { "op": "checkout", "ref": "{selected}", "detach": true }
+    },
+    {
+      "id": "stash-selected-file",
+      "label": "Stash the selected file",
+      "hint": "stash push -m {message}",
+      "danger": false,
+      "command": { "op": "stash-push", "message": "{message}" }
+    },
+    {
+      "id": "throw-away-changes",
+      "label": "Throw away every change",
+      "hint": "reset --hard HEAD",
+      "danger": true,
+      "command": { "op": "reset-hard", "rev": "HEAD" }
+    }
+  ]
+}

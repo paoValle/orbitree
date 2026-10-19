@@ -256,6 +256,36 @@ own: `git config` prints the records in the order it applies them, so the last o
 the one in force, and `records` keeps every `user.*` entry in that order so a key this version does
 not name is still visible.
 
+## Your own commands
+
+A command is data, in a file the window and the CLI both read:
+
+```
+$XDG_CONFIG_HOME/orbitree/commands.json      # or ~/.config/orbitree/commands.json
+{ "commands": [ { "id": "fetch-all", "label": "Fetch everything", "hint": "fetch --prune",
+                  "danger": false, "command": { "op": "fetch" } } ] }
+```
+
+It is where a person's dotfiles can hold it, and there is
+[`docs/commands-example.json`](commands-example.json) to copy from — the test suite runs every command in it,
+so the example cannot drift from the format. Each entry is checked **on its own**: an entry that does not
+parse costs that one button, in the window and here, and is left in the file for its author to fix.
+
+A command may name four placeholders in any string field of its operation. The window fills them from what
+is selected; the CLI fills them from `--set`:
+
+| placeholder | window | CLI |
+|---|---|---|
+| `{selected}` | the commit selected in the graph | `--set selected=<sha>` |
+| `{branch}` | the branch that is checked out | `--set branch=<name>` |
+| `{path}` | the file selected in the working tree | `--set path=<file>` |
+| `{message}` | a dialog, before the command runs | `--set message=<text>` |
+
+`orbitree quick [path] --id <id> [--set name=value]… [--dry-run] [--confirm <reason>] [--json]` runs one by
+id — through the same executor `run --op` uses, so the argv, the exit code and the envelope are the same
+promises. `--commands <file>` reads another file, for a preset kept in a repository. A placeholder nobody
+filled is refused with its own name, and an id the file does not hold lists the ones it does.
+
 ## Changing a repository
 
 Every mutation goes through one command, and the operation name is the same string the app's

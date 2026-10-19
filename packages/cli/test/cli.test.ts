@@ -667,6 +667,44 @@ describe('the CLI and the app are the same program', () => {
     }
   });
 
+  it('the example preset is one a person can copy: every command in it runs', async () => {
+    // The file under `docs/` is documentation, so it is the suite that keeps it true: each entry is asked for
+    // by id and resolved to an argv, which is what "a preset somebody can commit to their dotfiles" means.
+    const example = join(import.meta.dirname, '..', '..', '..', 'docs', 'commands-example.json');
+    const byId = await cli([
+      'quick',
+      root,
+      '--id',
+      'fetch-all',
+      '--commands',
+      example,
+      '--dry-run',
+      '--json',
+    ]);
+    expect(byId.code).toBe(EXIT.ok);
+    expect(
+      (JSON.parse(byId.lines[0] as string) as { data: { argv: readonly string[] } }).data.argv,
+    ).toEqual(['fetch', '--progress', '--prune']);
+
+    // The one that takes a value, filled the way the table in the docs says.
+    const tag = await cli([
+      'quick',
+      root,
+      '--id',
+      'tag-this-branch',
+      '--commands',
+      example,
+      '--set',
+      'branch=main',
+      '--dry-run',
+      '--json',
+    ]);
+    expect(tag.code).toBe(EXIT.ok);
+    expect(
+      (JSON.parse(tag.lines[0] as string) as { data: { argv: readonly string[] } }).data.argv,
+    ).toEqual(['tag', 'wip', 'main']);
+  });
+
   it('[I3] every operation the CLI publishes is reachable through `run --op`', async () => {
     // The claim of the doc and of the roadmap item: `ops` lists what `run` accepts. Two lists that
     // can drift, so one of them — the published one — is what the test walks, and an operation that

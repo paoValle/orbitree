@@ -145,6 +145,20 @@ test('a file with nothing in it means the commands this product ships', async ()
     // And nothing was invented into the state file either: the commands are not stored there at all.
     const written = await readFile(join(userDataDir, 'state.json'), 'utf8');
     expect(written).not.toContain('quickCommands');
+
+    // The phase's exit criterion against the *shipped* list, which is what a person who has written no file
+    // sees: the sheet's argv for the button and the CLI's dry run for the same operation are one line.
+    await page.locator('[data-testid=quick-command]', { hasText: 'Discard every' }).click();
+    const shippedSheet = page.locator('[data-testid=sheet-argv]');
+    await expect(shippedSheet).toHaveText('git reset --hard HEAD');
+    const dryRun = await orbitree(
+      ['run', repo, '--op', 'reset-hard', '--arg', 'HEAD', '--dry-run', '--json'],
+      repo,
+    );
+    expect(
+      `git ${(JSON.parse(dryRun.stdout) as { data: { argv: readonly string[] } }).data.argv.join(' ')}`,
+    ).toBe(await shippedSheet.innerText());
+    await page.keyboard.press('Escape');
   } finally {
     await closeApp(handle);
   }
