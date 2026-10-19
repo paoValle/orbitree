@@ -17,7 +17,7 @@ import { type CommitAction, GraphPane } from './GraphPane.tsx';
 import { LeftPanel } from './LeftPanel.tsx';
 import { ActivityIcon, BranchIcon, CloseIcon, CopyIcon, quickIcon, StashIcon } from './icons.tsx';
 import { type ScreenState, StateScreen } from './StateScreen.tsx';
-import { fill, missing, quickCommands } from './commands.ts';
+import { fill, missing, quickCommands, wantsMessage } from './commands.ts';
 import { Palette } from './Palette.tsx';
 import { describeProgress, type Pending, type RunRecord, recordRun } from './shared.ts';
 import { WorkingTreePanel } from './WorkingTreePanel.tsx';
@@ -171,7 +171,15 @@ interface AskState {
    * the other kinds use for the commit their name will point at or for the remote they act on: one
    * dialog, six questions.
    */
-  readonly kind: 'branch' | 'tag' | 'rename' | 'remote-add' | 'remote-rename' | 'remote-url';
+  readonly kind:
+    | 'branch'
+    | 'tag'
+    | 'rename'
+    | 'remote-add'
+    | 'remote-rename'
+    | 'remote-url'
+    /** A configured command's `{message}`: the dialog's own text becomes the command's message. */
+    | 'message';
   readonly hash: string;
   readonly value: string;
   /** The second value, which only `remote-add` has: a name and where it points. */
@@ -220,6 +228,7 @@ function askTitle(ask: AskState): string {
   if (ask.kind === 'remote-add') return 'Add a remote';
   if (ask.kind === 'remote-rename') return `Rename ${ask.hash}`;
   if (ask.kind === 'remote-url') return `Where ${ask.hash} points`;
+  if (ask.kind === 'message') return ask.hash;
   return `Rename ${ask.hash}`;
 }
 
@@ -285,6 +294,14 @@ export function App(): React.ReactElement {
   } | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [ask, setAsk] = useState<AskState | null>(null);
+  /**
+   * The configured command waiting for a message, and what its other placeholders point at.
+   *
+   * Kept beside the dialog rather than inside it: the dialog asks for text and nothing else, and the entry
+   * is the app's to remember — the same shape as the confirmation sheet, where the pending command is the
+   * app's state and the sheet only asks for a reason.
+   */
+  const [pendingPreset, setPendingPreset] = useState<QuickCommand | null>(null);
   // The confirmation sheet takes focus when it opens. Done with a ref rather than the
   // `autoFocus` attribute, which steals focus from a screen reader's reading position.
   const reasonInput = useRef<HTMLInputElement | null>(null);
@@ -780,6 +797,22 @@ export function App(): React.ReactElement {
 
   const confirmAsk = useCallback((): void => {
     if (ask === null) return;
+    // The message kind is not a command of its own: it completes the one that asked for it, which the app
+    // is holding, and it goes through the same guarded path as any other run.
+    if (ask.kind === 'message') {
+      const preset = pendingPreset;
+      setAsk(null);
+      setPendingPreset(null);
+      if (preset === null) return;
+      runGuarded({
+        id: preset.id,
+        label: preset.label,
+        hint: preset.hint,
+        danger: preset.danger,
+        command: fill(preset.command, runtime, ask.value.trim()),
+      });
+      return;
+    }
     const name = ask.value.trim();
     const second = ask.value2.trim();
     // A remote needs both halves: a name with nowhere to point is not a remote, and a URL with no
@@ -816,7 +849,7 @@ export function App(): React.ReactElement {
       danger: false,
       command,
     });
-  }, [ask, runCommand]);
+  }, [ask, pendingPreset, runCommand, runGuarded, runtime]);
 
   const changeFilter = useCallback(
     async (selection: string): Promise<void> => {
@@ -956,7 +989,15 @@ export function App(): React.ReactElement {
                 className={command.danger ? 'quick danger' : 'quick'}
                 data-testid="quick-command"
                 disabled={busy || empty.length > 0}
-                onClick={() => runGuarded({ ...command, command: fill(command.command, runtime) })}
+                onClick={() => {
+                  const resolved = fill(command.command, runtime);
+                  if (wantsMessage(command.command)) {
+                    setPendingPreset(command);
+                    setAsk({ kind: 'message', hash: command.label, value: '', value2: '' });
+                    return;
+                  }
+                  runGuarded({ ...command, command: resolved });
+                }}
               >
                 {Glyph === null ? null : <Glyph />}
                 <span>{command.label}</span>
@@ -1646,15 +1687,17 @@ export function App(): React.ReactElement {
                 }
               }}
               placeholder={
-                ask.kind === 'tag'
-                  ? 'tag name'
-                  : ask.kind === 'rename' || ask.kind === 'remote-rename'
-                    ? 'new name'
-                    : ask.kind === 'remote-add'
-                      ? 'remote name'
-                      : ask.kind === 'remote-url'
-                        ? 'URL'
-                        : 'branch name'
+                ask.kind === 'message'
+                  ? 'message'
+                  : ask.kind === 'tag'
+                    ? 'tag name'
+                    : ask.kind === 'rename' || ask.kind === 'remote-rename'
+                      ? 'new name'
+                      : ask.kind === 'remote-add'
+                        ? 'remote name'
+                        : ask.kind === 'remote-url'
+                          ? 'URL'
+                          : 'branch name'
               }
             />
             {ask.kind === 'remote-add' ? (

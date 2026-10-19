@@ -479,8 +479,8 @@ The requested centrepiece, finished.
       config whose next edit is made blind. The bar, the palette and the quick window all read the same
       list, so a command written in a file is a button, an entry in `Cmd/Ctrl+K` and a row in the popup at
       once.
-- [ ] A command can take arguments (a branch, a path) and a message, and can be run against a
-      selection in the graph or the working tree. In: the **arguments from the selection**. A configured
+- [x] A command can take arguments (a branch, a path) and a message, and can be run against a
+      selection in the graph or the working tree. The **arguments from the selection**: A configured
       command may name `{selected}`, `{branch}` or `{path}` in any string field of its operation, and the
       window fills them from what is selected — the commit in the graph, the branch that is checked out,
       the file in the working tree — so one command written once is useful in contexts its author did not
@@ -488,11 +488,14 @@ The requested centrepiece, finished.
       what to select**: a button that would fail is worse than one that explains itself. The palette
       leaves such an entry out, because a list of what you can run now is not a list of what you could run
       if you clicked somewhere first.
-      **The message half is not in**: a command that takes a message needs a prompt before it runs, which
-      is the ask dialog this window already has for a branch or a tag name — a third kind of question for
-      the same dialog, and the next slice rather than this one.
-      `apps/desktop/test/e2e/quick-commands.spec.ts` drives both: a command that checks out `{selected}`
-      (asserted detached at that commit) and one that stages `{path}` (asserted with `status`).
+      The **message** is the fourth placeholder and the odd one: `{selected}`, `{branch}` and `{path}` are
+      filled from what the window points at, and `{message}` is *asked for* before the command runs — the
+      same dialog that asks for a branch name, with a third kind of question and the app holding the entry
+      the dialog is completing.
+      `apps/desktop/test/e2e/quick-commands.spec.ts` drives all three: a command that checks out
+      `{selected}` (asserted detached at that commit), one that stages `{path}` (asserted with `status`),
+      and one that stashes with `{message}` (asserted with `stash list`, whose message is the one the dialog
+      took).
 - [x] The confirmation sheet shows the exact `git` argv (from `--dry-run`) before asking for a
       reason. The sheet asks the main process for a preview — the core's `toArgv` through the same executor
       `orbitree run --dry-run` uses — rather than printing the button's own hint, which was a second

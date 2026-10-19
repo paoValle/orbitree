@@ -214,3 +214,64 @@ test('a configured command runs against the selection, in the graph and in the w
     await closeApp(handle);
   }
 });
+
+/**
+ * A configured command can ask for a message.
+ *
+ * `{message}` is the fourth placeholder and the odd one: the three others are filled from what the window
+ * points at, and this one is *asked for* before the command runs — the same dialog that asks for a branch
+ * name, with a third kind of question. What is asserted is git's own answer: the message the dialog took
+ * is the one the stash carries.
+ */
+test('a configured command asks for its message before it runs', async () => {
+  const repo = await makeRepo({ base: 'the base\n' });
+  // A *tracked* file, modified: `stash push` takes those and not an untracked file, which is the fixture's
+  // business and not the product's.
+  await writeIn(repo, 'base.txt', 'a change nobody committed\n');
+  const userDataDir = await makeRunDir('userdata-');
+  await writeFile(
+    join(userDataDir, 'state.json'),
+    `${JSON.stringify({
+      recents: [],
+      last: repo,
+      hotkey: null,
+      quickCommands: [
+        {
+          id: 'stash-named',
+          label: 'Stash with a name',
+          hint: 'stash push -m {message}',
+          command: { op: 'stash-push', message: '{message}' },
+          danger: false,
+        },
+      ],
+    })}\n`,
+    'utf8',
+  );
+
+  const handle = await launchApp(repo, { userDataDir });
+  try {
+    const page = await mainWindow(handle.app);
+    const button = page.locator('[data-testid=quick-command]').first();
+    await expect(button).toBeEnabled();
+    await button.click();
+
+    // The dialog, and nothing has run yet.
+    const dialog = page.locator('[data-testid=ask-dialog]');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('Stash with a name');
+    expect(await git(repo, ['stash', 'list'])).toBe('');
+
+    await page.locator('[data-testid=ask-input]').fill('the parser rewrite');
+    await page.locator('[data-testid=ask-confirm]').click();
+    await expect(dialog).toHaveCount(0);
+
+    // git's own answer: one stash, and the message the dialog took is the one it carries.
+    await expect.poll(() => git(repo, ['stash', 'list'])).toContain('the parser rewrite');
+    const listed = await git(repo, ['stash', 'list']);
+    expect(listed.split('\n').filter((line) => line !== '')).toHaveLength(1);
+    // And the working tree is clean of the change: the stash took it.
+    await expect.poll(() => git(repo, ['status', '--porcelain=v1'])).toBe('');
+  } finally {
+    await closeApp(handle);
+  }
+});
